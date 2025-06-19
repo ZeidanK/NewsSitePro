@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+using NewsSite.BL;
+using NewsSite.Models;
 
 namespace NewsSite.Controllers
 {
@@ -8,36 +8,42 @@ namespace NewsSite.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
-        // GET: api/<AuthController>
-        [HttpGet]
-        public IEnumerable<string> Get()
+        [HttpPost("login")]
+        public IActionResult Login([FromBody] LoginRequest request)
         {
-            return new string[] { "value1", "value2" };
+            var user = new User();
+            var token = user.LogIn(request.Password, request.Email);
+            if (token == null)
+                return Unauthorized("Invalid credentials or user locked.");
+
+            return Ok(new { token });
         }
 
-        // GET api/<AuthController>/5
-        [HttpGet("{id}")]
-        public string Get(int id)
+        [HttpPost("register")]
+        public IActionResult Register([FromBody] RegisterRequest request)
         {
-            return "value";
+            var user = new User();
+            bool success = user.Register(request.Name, request.Email, request.Password);
+            if (!success)
+                return BadRequest("User already exists.");
+
+            return Ok("Registration successful.");
         }
 
-        // POST api/<AuthController>
-        [HttpPost]
-        public void Post([FromBody] string value)
+        [HttpPut("update")]
+        public IActionResult Update([FromHeader(Name = "Authorization")] string authHeader, [FromBody] UpdateUserRequest request)
         {
-        }
+            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
+                return Unauthorized();
 
-        // PUT api/<AuthController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
-        {
-        }
+            var jwt = authHeader.Substring("Bearer ".Length);
+            var user = new User().ExtractUserFromJWT(jwt);
 
-        // DELETE api/<AuthController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
-        {
+            bool success = user.UpdateDetails(user.Id, request.Name, request.Password);
+            if (!success)
+                return NotFound("User not found.");
+
+            return Ok("User updated.");
         }
     }
 }

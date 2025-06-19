@@ -5,14 +5,14 @@ using Microsoft.IdentityModel.Tokens; // namespace for SymmetricSecurityKey
 using System.IdentityModel.Tokens.Jwt; //  namespace for JwtSecurityToken and JwtSecurityTokenHandler
 using Microsoft.AspNetCore.Authorization; //  namespace for Claim
 
-using NewsSite.DAL;
+
 namespace NewsSite.BL
 {
     public class User
     {
         private int id;
         private string name;
-        private string email;
+        private string email; 
         private string passwordHash;
         private bool isAdmin;
         private bool isLocked;
@@ -41,6 +41,37 @@ namespace NewsSite.BL
             this.isLocked = isLocked;
         }
 
+
+
+        public bool Register(string name, string email, string password)
+{
+    DBservices dBservices = new DBservices();
+    // Check if user already exists
+    var existing = dBservices.GetUser(email, null, null);
+    if (existing != null) return false;
+
+    this.Name = name;
+    this.Email = email;
+    this.PasswordHash = HashPassword(password);
+    this.IsAdmin = false;
+    this.IsLocked = false;
+
+    // Save user to DB
+    return dBservices.CreateUser(this);
+}
+
+        public bool UpdateDetails(int id, string name, string password)
+        {
+            DBservices dBservices = new DBservices();
+            var user = dBservices.GetUserById(id);
+            if (user == null) return false;
+
+            user.Name = name ?? user.Name;
+            if (!string.IsNullOrEmpty(password))
+                user.PasswordHash = HashPassword(password);
+
+            return dBservices.UpdateUser(user);
+        }
 
         public string LogIn(string password, string email)
         {
