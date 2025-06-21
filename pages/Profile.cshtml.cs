@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using NewsSitePro.Models;
 
+namespace NewsSite.Pages;
 public class ProfileModel : PageModel
 {
     public void OnGet()

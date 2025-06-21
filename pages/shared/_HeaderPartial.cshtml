@@ -1,26 +1,83 @@
-@model NewsSitePro.Models.HeaderViewModel
+﻿@model NewsSitePro.Models.HeaderViewModel
+
+<style>
+    header {
+        background: #222;
+        color: #fff;
+        padding: 0.5rem 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    nav {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0 2rem;
+    }
+    .nav-btn {
+        background: none;
+        border: none;
+        color: #fff;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        font-size: 1rem;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 0.2s, color 0.2s;
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    .nav-btn:hover, .nav-btn:focus {
+        background: #444;
+        color: #ffd700;
+        outline: none;
+    }
+    .nav-btn.active {
+        background: #ffd700;
+        color: #222;
+        font-weight: bold;
+    }
+    .icon-bell {
+        margin-right: 0.3em;
+    }
+    .badge {
+        background: #e74c3c;
+        color: #fff;
+        border-radius: 50%;
+        padding: 0.2em 0.6em;
+        font-size: 0.8em;
+        margin-left: 0.3em;
+        font-weight: bold;
+    }
+    .header-current-page {
+        margin-left: 2rem;
+        font-size: 0.95rem;
+        color: #bbb;
+    }
+</style>
 
 <header>
     <nav>
-        <a href="/">Home</a>
-        <a href="/Profile">@Model.UserName ?? "Guest"</a>
-        <a href="/Post">Post</a>
-        <a href="/Notifications">
-            <span class="icon-bell"></span>
-            @if (Model.NotificationCount > 0)
+        <a class="nav-btn @(Model.CurrentPage == "Home" ? "active" : "")" href="/">Home</a>
+        <a class="nav-btn @(Model.CurrentPage == "Profile" ? "active" : "")" href="/Profile">@Model.UserName ?? "Guest"</a>
+        <a class="nav-btn @(Model.CurrentPage == "Post" ? "active" : "")" href="/Post">Post</a>
+        <a class="nav-btn @(Model.CurrentPage == "Notifications" ? "active" : "")" href="/Notifications">
+            <span class="icon-bell">🔔</span>
+            Notifications
+            @if (false)
             {
                 <span class="badge">@Model.NotificationCount</span>
             }
         </a>
-        @if (Model.CurrentPage == "Login" || Model.CurrentPage == "Register")
+        @if (Model.CurrentPage == "Login" || Model.CurrentPage == "Register"||true)
         {
-            <a href="/Login">Login</a>
-            <a href="/Register">Register</a>
+            <a class="nav-btn @(Model.CurrentPage == "Login" ? "active" : "")" href="/Login">Login</a>
+            <a class="nav-btn @(Model.CurrentPage == "Register" ? "active" : "")" href="/Register">Register</a>
         }
         else
         {
-            <a href="/Logout">Logout</a>
+            <a class="nav-btn" href="/Logout">Logout</a>
         }
+        <span class="header-current-page">Current Page: @Model.CurrentPage</span>
     </nav>
-    <div>Current Page: @Model.CurrentPage</div>
 </header>

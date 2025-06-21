@@ -68,6 +68,140 @@ public class DBservices
     //--------------------------------------------------------------------------------------------------  
     // This method retrieves user information based on email, id, or username  
     //--------------------------------------------------------------------------------------------------  
+    // public User GetUser(string email = null, int? id = null, string name = null)
+    // {
+    //     SqlConnection con = null;
+    //     SqlCommand cmd = null;
+    //     SqlDataReader reader = null;
+    //     User user = null;
+
+    //     try
+    //     {
+    //         con = connect("myProjDB"); // create the connection  
+
+    //         var paramDic = new Dictionary<string, object>
+    //         {
+    //             { "@id", id.HasValue ? id.Value : DBNull.Value },
+    //             { "@name", string.IsNullOrEmpty(name) ? DBNull.Value : name },
+    //             { "@Email", string.IsNullOrEmpty(email) ? DBNull.Value : email }
+    //         };
+
+    //         cmd = CreateCommandWithStoredProcedureGeneral("sp_Users2025Pro_Get", con, paramDic); // create the command  
+
+    //         reader = cmd.ExecuteReader();
+
+    //         if (reader.Read())
+    //         {
+    //             user = new User
+    //             {
+    //                 // Map to your User class properties
+    //                 Id = reader["id"] != DBNull.Value ? Convert.ToInt32(reader["id"]) : 0,
+    //                 Name = reader["name"]?.ToString(),
+    //                 Email = reader["email"]?.ToString(),
+    //                 PasswordHash = reader["passwordHash"]?.ToString(),
+    //                 IsAdmin = reader["isAdmin"] != DBNull.Value && Convert.ToBoolean(reader["isAdmin"]),
+    //                 IsLocked = reader["isLocked"] != DBNull.Value && Convert.ToBoolean(reader["isLocked"])
+    //             };
+    //         }
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         // Optionally log the exception here
+    //         throw;
+    //     }
+    //     finally
+    //     {
+    //         reader?.Close();
+    //         con?.Close();
+    //     }
+
+    //     return user;
+    // }
+
+
+    //--------------------------------------------------------------------------------------------------
+    // This method creates a new user in the database using a stored procedure
+    //--------------------------------------------------------------------------------------------------
+    // public bool CreateUser(User user)
+    // {
+    //     SqlConnection con = null;
+    //     SqlCommand cmd = null;
+    //     try
+    //     {
+    //         con = connect("myProjDB");
+    //         var paramDic = new Dictionary<string, object>
+    //     {
+    //         { "@name", user.Name },
+    //         { "@Email", user.Email },
+    //         { "@passwordHash", user.PasswordHash },
+    //         { "@isAdmin", user.IsAdmin },
+    //         { "@isLocked", user.IsLocked }
+    //     };
+
+    //         cmd = CreateCommandWithStoredProcedureGeneral("sp_Users2025Pro_Insert", con, paramDic);
+    //         int affectedRows = cmd.ExecuteNonQuery();
+    //         return affectedRows > 0;
+    //     }
+    //     catch (Exception)
+    //     {
+    //         throw;
+    //     }
+    //     finally
+    //     {
+    //         con?.Close();
+    //     }
+    // }
+
+    //--------------------------------------------------------------------------------------------------
+    // This method retrieves a user by their ID using a stored procedure
+    //--------------------------------------------------------------------------------------------------
+    public User GetUserById(int id)
+    {
+        return GetUser(null, id, null);
+    }
+
+    //--------------------------------------------------------------------------------------------------
+    // This method updates user details in the database using a stored procedure
+    //--------------------------------------------------------------------------------------------------
+    // public bool UpdateUser(User user)
+    // {
+    //     SqlConnection con = null;
+    //     SqlCommand cmd = null;
+    //     try
+    //     {
+    //         con = connect("myProjDB");
+    //         var paramDic = new Dictionary<string, object>
+    //     {
+    //         { "@id", user.Id },
+    //         { "@name", user.Name },
+    //         { "@passwordHash", user.PasswordHash },
+    //         { "@isAdmin", user.IsAdmin },
+    //         { "@isLocked", user.IsLocked }
+    //     };
+
+    //         cmd = CreateCommandWithStoredProcedureGeneral("sp_Users2025Pro_Update", con, paramDic);
+    //         int affectedRows = cmd.ExecuteNonQuery();
+    //         return affectedRows > 0;
+    //     }
+    //     catch (Exception)
+    //     {
+    //         throw;
+    //     }
+    //     finally
+    //     {
+    //         con?.Close();
+    //     }
+    // }
+    
+
+
+    
+    //public User GetUser(string username=null,string email=null)
+
+
+
+
+
     public User GetUser(string email = null, int? id = null, string name = null)
     {
         SqlConnection con = null;
@@ -80,13 +214,13 @@ public class DBservices
             con = connect("myProjDB"); // create the connection  
 
             var paramDic = new Dictionary<string, object>
-            {
-                { "@id", id.HasValue ? id.Value : DBNull.Value },
-                { "@name", string.IsNullOrEmpty(name) ? DBNull.Value : name },
-                { "@Email", string.IsNullOrEmpty(email) ? DBNull.Value : email }
-            };
+        {
+            { "@UserID", id.HasValue ? id.Value : DBNull.Value },
+            { "@Username", string.IsNullOrEmpty(name) ? DBNull.Value : name },
+            { "@Email", string.IsNullOrEmpty(email) ? DBNull.Value : email }
+        };
 
-            cmd = CreateCommandWithStoredProcedureGeneral("sp_Users2025Pro_Get", con, paramDic); // create the command  
+            cmd = CreateCommandWithStoredProcedureGeneral("sp_Users_News_Get", con, paramDic); // create the command  
 
             reader = cmd.ExecuteReader();
 
@@ -94,19 +228,17 @@ public class DBservices
             {
                 user = new User
                 {
-                    // Map to your User class properties
-                    Id = reader["id"] != DBNull.Value ? Convert.ToInt32(reader["id"]) : 0,
-                    Name = reader["name"]?.ToString(),
-                    Email = reader["email"]?.ToString(),
-                    PasswordHash = reader["passwordHash"]?.ToString(),
-                    IsAdmin = reader["isAdmin"] != DBNull.Value && Convert.ToBoolean(reader["isAdmin"]),
-                    IsLocked = reader["isLocked"] != DBNull.Value && Convert.ToBoolean(reader["isLocked"])
+                    Id = reader["UserID"] != DBNull.Value ? Convert.ToInt32(reader["UserID"]) : 0,
+                    Name = reader["Username"]?.ToString(),
+                    Email = reader["Email"]?.ToString(),
+                    PasswordHash = reader["PasswordHash"]?.ToString(),
+                    IsAdmin = reader["IsAdmin"] != DBNull.Value && Convert.ToBoolean(reader["IsAdmin"]),
+                    IsLocked = reader["IsLocked"] != DBNull.Value && Convert.ToBoolean(reader["IsLocked"])
                 };
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            // Optionally log the exception here
             throw;
         }
         finally
@@ -118,10 +250,6 @@ public class DBservices
         return user;
     }
 
-
-    //--------------------------------------------------------------------------------------------------
-// This method creates a new user in the database using a stored procedure
-//--------------------------------------------------------------------------------------------------
 public bool CreateUser(User user)
 {
     SqlConnection con = null;
@@ -131,14 +259,14 @@ public bool CreateUser(User user)
         con = connect("myProjDB");
         var paramDic = new Dictionary<string, object>
         {
-            { "@name", user.Name },
+            { "@Username", user.Name },
             { "@Email", user.Email },
-            { "@passwordHash", user.PasswordHash },
-            { "@isAdmin", user.IsAdmin },
-            { "@isLocked", user.IsLocked }
+            { "@PasswordHash", user.PasswordHash },
+            { "@IsAdmin", user.IsAdmin },
+            { "@IsLocked", user.IsLocked }
         };
 
-        cmd = CreateCommandWithStoredProcedureGeneral("sp_Users2025Pro_Insert", con, paramDic);
+        cmd = CreateCommandWithStoredProcedureGeneral("sp_Users_News_Insert", con, paramDic);
         int affectedRows = cmd.ExecuteNonQuery();
         return affectedRows > 0;
     }
@@ -152,17 +280,6 @@ public bool CreateUser(User user)
     }
 }
 
-//--------------------------------------------------------------------------------------------------
-// This method retrieves a user by their ID using a stored procedure
-//--------------------------------------------------------------------------------------------------
-public User GetUserById(int id)
-{
-    return GetUser(null, id, null);
-}
-
-//--------------------------------------------------------------------------------------------------
-// This method updates user details in the database using a stored procedure
-//--------------------------------------------------------------------------------------------------
 public bool UpdateUser(User user)
 {
     SqlConnection con = null;
@@ -172,14 +289,14 @@ public bool UpdateUser(User user)
         con = connect("myProjDB");
         var paramDic = new Dictionary<string, object>
         {
-            { "@id", user.Id },
-            { "@name", user.Name },
-            { "@passwordHash", user.PasswordHash },
-            { "@isAdmin", user.IsAdmin },
-            { "@isLocked", user.IsLocked }
+            { "@UserID", user.Id },
+            { "@Username", user.Name },
+            { "@PasswordHash", user.PasswordHash },
+            { "@IsAdmin", user.IsAdmin },
+            { "@IsLocked", user.IsLocked }
         };
 
-        cmd = CreateCommandWithStoredProcedureGeneral("sp_Users2025Pro_Update", con, paramDic);
+        cmd = CreateCommandWithStoredProcedureGeneral("sp_Users_News_Update", con, paramDic);
         int affectedRows = cmd.ExecuteNonQuery();
         return affectedRows > 0;
     }
@@ -192,6 +309,6 @@ public bool UpdateUser(User user)
         con?.Close();
     }
 }
-    //public User GetUser(string username=null,string email=null)
+
 
 }
