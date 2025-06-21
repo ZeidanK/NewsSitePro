@@ -5,28 +5,63 @@
     ViewData["HeaderData"] = Model.HeaderData;
     ViewData["Title"] = "Register";
 }
-@{
-}
+
 <h2>Register</h2>
-<form method="post" asp-page-handler="Register" class="mt-4 w-50 mx-auto border p-4 rounded shadow-sm bg-light">
+<form id="registerForm" method="post" class="mt-4 w-50 mx-auto border p-4 rounded shadow-sm bg-light">
     <div class="mb-3">
-        <label asp-for="RegisterRequest.Name" class="form-label">Name</label>
-        <input asp-for="RegisterRequest.Name" class="form-control" />
-        <span asp-validation-for="RegisterRequest.Name" class="text-danger"></span>
+        <label asp-for="Name" class="form-label">Name</label>
+        <input asp-for="Name" class="form-control" id="nameInput" name="Name" required />
+        <span asp-validation-for="Name" class="text-danger"></span>
     </div>
     <div class="mb-3">
-        <label asp-for="RegisterRequest.Email" class="form-label">Email</label>
-        <input asp-for="RegisterRequest.Email" class="form-control" />
-        <span asp-validation-for="RegisterRequest.Email" class="text-danger"></span>
+        <label asp-for="Email" class="form-label">Email</label>
+        <input asp-for="Email" class="form-control" id="emailInput" name="Email" type="email" required />
+        <span asp-validation-for="Email" class="text-danger"></span>
     </div>
     <div class="mb-3">
-        <label asp-for="RegisterRequest.Password" class="form-label">Password</label>
-        <input asp-for="RegisterRequest.Password" type="password" class="form-control" />
-        <span asp-validation-for="RegisterRequest.Password" class="text-danger"></span>
+        <label asp-for="Password" class="form-label">Password</label>
+        <input asp-for="Password" class="form-control" id="passwordInput" name="Password" type="password" minlength="6" required />
+        <span asp-validation-for="Password" class="text-danger"></span>
     </div>
     <button type="submit" class="btn btn-primary w-100">Register</button>
 </form>
 
 @section Scripts {
-    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const name = document.getElementById('nameInput').value;
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+            const messageDiv = document.getElementById('registerMessage');
+
+            // Clear previous message
+            messageDiv.textContent = '';
+            messageDiv.className = '';
+
+            try {
+                const response = await fetch('/api/Auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, email: email, password: password })
+                });
+
+                if (response.ok) {
+                    messageDiv.textContent = 'Registration successful! Redirecting to login...';
+                    messageDiv.className = 'alert alert-success mt-3';
+                    setTimeout(() => {
+                        window.location.href = '/Login';
+                    }, 1500);
+                } else {
+                    const error = await response.text();
+                    messageDiv.textContent = `Error: ${error}`;
+                    messageDiv.className = 'alert alert-danger mt-3';
+                }
+            } catch (err) {
+                messageDiv.textContent = 'An error occurred. Please try again later.';
+                messageDiv.className = 'alert alert-danger mt-3';
+            }
+        });
+    </script>
 }
+<div id="registerMessage"></div>

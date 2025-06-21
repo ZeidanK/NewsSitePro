@@ -18,6 +18,8 @@ public class RegisterModel : PageModel
     public string Email { get; set; }
     [BindProperty]
     public string Password { get; set; }
+    [BindProperty]
+    public string Name { get; set; }
     public void OnGet()
     {
         HeaderData = new HeaderViewModel
@@ -37,23 +39,23 @@ public class RegisterModel : PageModel
         var client = httpClientFactory.CreateClient();
         var registerRequest = new
         {
-            Name = Email, // Or add a Name property to your form/model
+            Name = Name,
             Email = Email,
             Password = Password
         };
 
         var response = await client.PostAsJsonAsync("https://localhost:5001/api/Auth/register", registerRequest);
+        var responseContent = await response.Content.ReadAsStringAsync();
 
         if (response.IsSuccessStatusCode)
         {
-            // Registration successful, redirect or show success
+            TempData["AlertMessage"] = "Registration successful!";
             return RedirectToPage("/Login");
         }
         else
         {
-            // Handle error (e.g., user already exists)
-            ModelState.AddModelError(string.Empty, "Registration failed: " + await response.Content.ReadAsStringAsync());
-            return Page();
+            TempData["AlertMessage"] = "Registration failed: " + responseContent;
+            return RedirectToPage("/Register");
         }
     }
 }

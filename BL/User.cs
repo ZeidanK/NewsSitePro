@@ -10,6 +10,7 @@ namespace NewsSite.BL
 {
     public class User
     {
+        
         private int id;
         private string name;
         private string email; 
@@ -17,7 +18,10 @@ namespace NewsSite.BL
         private bool isAdmin;
         private bool isLocked;
         private readonly object _config;
-
+        public User(IConfiguration config)
+        {
+            _config = config;
+        }
         public int Id { get => id; set => id = value; }
         public string Name { get => name; set => name = value; }
         public string Email { get => email; set => email = value; }

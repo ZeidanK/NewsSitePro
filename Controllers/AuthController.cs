@@ -8,10 +8,18 @@ namespace NewsSite.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
+        private readonly IConfiguration _config;
+
+        public AuthController(IConfiguration config)
+        {
+            _config = config;
+        }
+
+
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginRequest request)
         {
-            var user = new User();
+            var user = new User(_config);
             var token = user.LogIn(request.Password, request.Email);
             if (token == null)
                 return Unauthorized("Invalid credentials or user locked.");
