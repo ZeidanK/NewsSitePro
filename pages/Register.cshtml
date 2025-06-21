@@ -1,4 +1,32 @@
 ﻿@page
-@model NewsSite.pages.RegisterModel
+@model NewsSite.Pages.RegisterModel
 @{
+    Layout = "~/Pages/Shared/_Layout.cshtml";
+    ViewData["HeaderData"] = Model.HeaderData;
+    ViewData["Title"] = "Register";
+}
+@{
+}
+<h2>Register</h2>
+<form method="post" asp-page-handler="Register" class="mt-4 w-50 mx-auto border p-4 rounded shadow-sm bg-light">
+    <div class="mb-3">
+        <label asp-for="RegisterRequest.Name" class="form-label">Name</label>
+        <input asp-for="RegisterRequest.Name" class="form-control" />
+        <span asp-validation-for="RegisterRequest.Name" class="text-danger"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="RegisterRequest.Email" class="form-label">Email</label>
+        <input asp-for="RegisterRequest.Email" class="form-control" />
+        <span asp-validation-for="RegisterRequest.Email" class="text-danger"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="RegisterRequest.Password" class="form-label">Password</label>
+        <input asp-for="RegisterRequest.Password" type="password" class="form-control" />
+        <span asp-validation-for="RegisterRequest.Password" class="text-danger"></span>
+    </div>
+    <button type="submit" class="btn btn-primary w-100">Register</button>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
 }

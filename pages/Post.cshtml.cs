@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using NewsSitePro.Models;
-
+namespace NewsSite.Pages;
 public class PostModel : PageModel
 {
     public void OnGet()
