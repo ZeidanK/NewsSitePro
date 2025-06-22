@@ -31,7 +31,7 @@
 
 @section Scripts {
     <script>
-alert("JS is running!");
+
         document.getElementById('loginForm').addEventListener('submit', async function (e) {
             e.preventDefault();
              e.preventDefault();
@@ -55,6 +55,7 @@ alert("JS is running!");
                     const data = await response.json();
                     if (data && data.token) {
                         localStorage.setItem('jwtToken', data.token);
+                            document.cookie = "jwtToken=" + data.token + "; path=/";
                         window.location.href = '/';
                     } else {
                         errorDiv.textContent = 'Invalid response from server.';

@@ -25,7 +25,8 @@ public class RegisterModel : PageModel
         HeaderData = new HeaderViewModel
         {
             UserName = User.Identity.IsAuthenticated ? User.Identity.Name : "Guest",
-            NotificationCount = User.Identity.IsAuthenticated ? 3 : 0 // Example
+            NotificationCount = User.Identity.IsAuthenticated ? 3 : 0 ,// Example,
+            CurrentPage = "Register"
         };
     }
 

@@ -1,3 +1,5 @@
+using NewsSite.BL;
+
 namespace NewsSitePro.Models
 {
     public class HeaderViewModel
@@ -5,5 +7,8 @@ namespace NewsSitePro.Models
         public string UserName { get; set; }
         public int NotificationCount { get; set; }
         public string CurrentPage { get; set; }
+
+        // Add a property to hold the user object
+        public User user { get; set; }
     }
 }
