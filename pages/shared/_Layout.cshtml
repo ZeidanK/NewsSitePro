@@ -17,9 +17,22 @@
         @RenderBody()
     </main>
     
-
+@RenderSection("Scripts", required: false)
     <script>
-        console.log("Script is running!");
+        var logoutBtn = document.getElementById('logoutBtn');
+if (logoutBtn) {
+    console.log("Logout button found");
+    logoutBtn.addEventListener('click', function (e) {
+        alert("Logout button clicked!");
+        e.preventDefault();
+        localStorage.removeItem('jwtToken');
+        document.cookie = 'jwtToken=; Max-Age=0; path=/;';
+        window.location.href = '/Login';
+    });
+} else {
+    console.log("Logout button not found");
+}
+        @* console.log("Script is running!");
         document.addEventListener('DOMContentLoaded', function () {
             console.log("DOMContentLoaded event fired");
             var logoutBtn = document.getElementById('logoutBtn');
@@ -35,7 +48,7 @@
             } else {
                 console.log("Logout button not found");
             }
-        });
+        }); *@
     </script>
 </body>
 </html>

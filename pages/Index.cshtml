@@ -1,9 +1,10 @@
 @page
 @model IndexModel
 @{
+    Layout = "~/Pages/Shared/_Layout.cshtml"; // Use the layout file
     ViewData["HeaderData"] = Model.HeaderData;
+    ViewData["Title"] = "Login";
 }
-@await Html.PartialAsync("_HeaderPartial", Model.HeaderData)
 <!-- Your page content here -->
 
 <div>hello</div>
