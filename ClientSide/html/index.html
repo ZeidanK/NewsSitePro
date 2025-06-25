@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Home Page</title>
+  <link rel="stylesheet" href="../CSS/Styles.css">
+</head>
+<body>
+
+  <div class="general-container">
+    <h2>Your News</h2>
+
+    <div class="tags" id="tagsContainer"></div>
+
+    <div class="tags">
+      <button onclick="showShared()">Shared by others</button>
+      <button onclick="showSaved()">Saved</button>
+    </div>
+
+    <div id="newsContainer">Loading...</div>
+  </div>
+
+  <script>
+    let allPosts = [];
+    let selectedTags = new Set();
+
+    async function loadTags() {
+      try {
+        const jwt = localStorage.getItem('jwtToken');
+        const response = await fetch('/api/tags', {
+          headers: { 'Authorization': 'Bearer ' + jwt }
+        });
+
+        const tags = await response.json();
+        const container = document.getElementById('tagsContainer');
+        container.innerHTML = '';
+
+        const allBtn = document.createElement('button');
+        allBtn.textContent = 'All';
+        allBtn.onclick = () => {
+          selectedTags.clear();
+          displayPosts("All");
+          updateButtonStyles();
+        };
+        container.appendChild(allBtn);
+
+        tags.forEach(tag => {
+          const btn = document.createElement('button');
+          btn.textContent = tag;
+          btn.dataset.tag = tag;
+          btn.onclick = () => toggleTag(tag);
+          container.appendChild(btn);
+        });
+      } catch (error) {
+        console.error('Failed to load tags:', error);
+      }
+    }
+
+    function toggleTag(tag) {
+      if (selectedTags.has(tag)) {
+        selectedTags.delete(tag);
+      } else {
+        selectedTags.add(tag);
+      }
+      displayPosts([...selectedTags]);
+      updateButtonStyles();
+    }
+
+    function updateButtonStyles() {
+      const buttons = document.querySelectorAll('#tagsContainer button');
+      buttons.forEach(btn => {
+        const tag = btn.textContent;
+        if (tag === 'All') {
+          btn.classList.toggle('active', selectedTags.size === 0);
+        } else {
+          btn.classList.toggle('active', selectedTags.has(tag));
+        }
+      });
+    }
+
+    async function fetchNews() {
+      try {
+        const response = await fetch('/api/posts');
+        allPosts = await response.json();
+        displayPosts("All");
+      } catch (err) {
+        console.error("Failed to load posts", err);
+      }
+    }
+
+    function displayPosts(tags) {
+      const container = document.getElementById("newsContainer");
+
+      let filtered = [];
+      if (tags === "All" || tags.length === 0) {
+        filtered = allPosts;
+      } else {
+        filtered = allPosts.filter(post => tags.includes(post.tag));
+      }
+
+      container.innerHTML = filtered.map(post => `
+        <div class="post">
+          <h3>${post.title}</h3>
+          <p>${post.content}</p>
+          <small>Tag: ${post.tag}</small>
+        </div>
+      `).join("");
+    }
+
+    async function showShared() {
+      try {
+        const res = await fetch('/api/shared');
+        const sharedPosts = await res.json();
+        displayPosts(sharedPosts);
+      } catch (e) {
+        alert("Failed to load shared posts");
+      }
+    }
+
+    async function showSaved() {
+      try {
+        const jwt = localStorage.getItem('jwtToken');
+        const res = await fetch('/api/saved', {
+          headers: { 'Authorization': 'Bearer ' + jwt }
+        });
+        const savedPosts = await res.json();
+        displayPosts(savedPosts);
+      } catch (e) {
+        alert("Failed to load saved posts");
+      }
+    }
+
+    // Initialize
+    loadTags();
+    fetchNews();
+  </script>
+
+</body>
+</html>
