@@ -38,6 +38,28 @@ namespace NewsSite.Controllers
             return Ok("Registration successful.");
         }
 
+        
+        [HttpPost("validate")]
+        public IActionResult Validate([FromHeader(Name = "Authorization")] string authHeader)
+        {
+            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
+                return Unauthorized("Missing or invalid Authorization header.");
+        
+            var jwt = authHeader.Substring("Bearer ".Length);
+        
+            try
+            {
+                var user = new User().ExtractUserFromJWT(jwt); // Extract user details from the JWT token
+                if (user == null)
+                    return Unauthorized("Invalid token.");
+        
+                return Ok(new { message = "Token is valid.", userId = user.Id, username = user.Name });
+            }
+            catch (Exception ex)
+            {
+                return Unauthorized($"Token validation failed: {ex.Message}");
+            }
+        }
         [HttpPut("update")]
         public IActionResult Update([FromHeader(Name = "Authorization")] string authHeader, [FromBody] UpdateUserRequest request)
         {
