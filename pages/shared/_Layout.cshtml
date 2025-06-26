@@ -20,19 +20,21 @@
 @RenderSection("Scripts", required: false)
     <script>
         var logoutBtn = document.getElementById('logoutBtn');
-if (logoutBtn) {
-    console.log("Logout button found");
-    logoutBtn.addEventListener('click', function (e) {
-        alert("Logout button clicked!");
-        e.preventDefault();
-        localStorage.removeItem('jwtToken');
-        document.cookie = 'jwtToken=; Max-Age=0; path=/;';
-        window.location.href = '/Login';
-    });
-} else {
-    console.log("Logout button not found");
-}
-        @* console.log("Script is running!");
+        if (logoutBtn) {
+            console.log("Logout button found");
+            logoutBtn.addEventListener('click', function (e) {
+                alert("Logout button clicked!");
+                e.preventDefault();
+                localStorage.removeItem('jwtToken');
+                document.cookie = 'jwtToken=; Max-Age=0; path=/;';
+                window.location.href = '/Login';
+            });
+        } else {
+            console.log("Logout button not found");
+        }
+        // Uncomment for debugging:
+        /*
+        console.log("Script is running!");
         document.addEventListener('DOMContentLoaded', function () {
             console.log("DOMContentLoaded event fired");
             var logoutBtn = document.getElementById('logoutBtn');
@@ -48,7 +50,37 @@ if (logoutBtn) {
             } else {
                 console.log("Logout button not found");
             }
-        }); *@
+        });
+        */
+
+
+document.getElementById('postButton').addEventListener('click', async function () {
+    const jwt = localStorage.getItem('jwtToken');
+    if (jwt) {
+        try {
+            const response = await fetch('/api/Auth/validate', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${jwt}`
+                }
+            });
+
+            if (response.ok) {
+                window.location.href = `/Post`; // Navigate to Post page
+            } else {
+                alert('Your session has expired. Please log in again.');
+                localStorage.removeItem('jwtToken');
+                window.location.href = '/Login'; // Redirect to Login page
+            }
+        } catch (error) {
+            console.error('Error validating token:', error);
+            alert('An error occurred. Please try again.');
+        }
+    } else {
+        alert('You must be logged in to view posts.');
+        window.location.href = '/Login'; // Redirect to Login page
+    }
+});
     </script>
 </body>
 </html>

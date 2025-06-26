@@ -55,7 +55,8 @@
                     const data = await response.json();
                     if (data && data.token) {
                         localStorage.setItem('jwtToken', data.token);
-                            document.cookie = "jwtToken=" + data.token + "; path=/";
+                           // document.cookie = "jwtToken=" + data.token + "; path=/"; "Secure"; HttpOnly;
+                        document.cookie = `jwtToken=${data.token}; path=/; secure; samesite=strict`;
                         window.location.href = '/';
                     } else {
                         errorDiv.textContent = 'Invalid response from server.';

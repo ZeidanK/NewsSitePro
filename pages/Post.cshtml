@@ -1,4 +1,107 @@
 ﻿@page
 @model NewsSite.Pages.PostModel
 @{
+    Layout = "~/Pages/Shared/_Layout.cshtml";
+    ViewData["Title"] = "Posts";
+}
+
+<div class="posts-container">
+    <h2>Posts</h2>
+    <div id="posts" class="post-list">
+        <!-- Posts will be dynamically loaded here -->
+    </div>
+    <div id="loading" class="loading-spinner" style="display: none;">
+        <p>Loading...</p>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let currentPage = 1;
+        const postsContainer = document.getElementById('posts');
+        const loadingSpinner = document.getElementById('loading');
+
+        async function loadPosts() {
+            loadingSpinner.style.display = 'block';
+            try {
+                const response = await fetch(`/api/Posts?page=${currentPage}&limit=10`, {
+                    method: "GET",
+                    headers: {
+                        "Authorization": "Bearer " + localStorage.getItem('jwtToken')
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    data.posts.forEach(post => {
+                        const postBlock = document.createElement('div');
+                        postBlock.className = 'post-card';
+                        postBlock.innerHTML = `
+                            <img src="${post.imageURL}" alt="${post.title}" class="post-image" />
+                            <h3>${post.title}</h3>
+                            <p>${post.content}</p>
+                            <small>Posted by: ${post.user.username} on ${new Date(post.publishDate).toLocaleDateString()}</small>
+                            <div class="post-actions">
+                                <button class="btn btn-success" onclick="likePost(${post.articleID})">Like</button>
+                                <button class="btn btn-primary" onclick="sharePost(${post.articleID})">Share</button>
+                                <button class="btn btn-danger" onclick="reportPost(${post.articleID})">Report</button>
+                            </div>
+                        `;
+                        postsContainer.appendChild(postBlock);
+                    });
+                    currentPage++;
+                } else {
+                    console.error("Failed to load posts.");
+                }
+            } catch (error) {
+                console.error("Error loading posts:", error);
+            } finally {
+                loadingSpinner.style.display = 'none';
+            }
+        }
+
+        async function likePost(articleId) {
+            const response = await fetch(`/api/Posts/Like/${articleId}`, {
+                method: "POST",
+                headers: {
+                    "Authorization": "Bearer " + localStorage.getItem('jwtToken')
+                }
+            });
+
+            if (response.ok) {
+                alert("Post liked successfully!");
+            } else {
+                alert("Failed to like the post.");
+            }
+        }
+
+        async function sharePost(articleId) {
+            alert("Share functionality is not implemented yet.");
+        }
+
+        async function reportPost(articleId) {
+            const response = await fetch(`/api/Posts/Report/${articleId}`, {
+                method: "POST",
+                headers: {
+                    "Authorization": "Bearer " + localStorage.getItem('jwtToken')
+                }
+            });
+
+            if (response.ok) {
+                alert("Post reported successfully!");
+            } else {
+                alert("Failed to report the post.");
+            }
+        }
+
+        // Infinite scrolling logic
+        window.addEventListener('scroll', () => {
+            if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100) {
+                loadPosts();
+            }
+        });
+
+        // Initial load
+        loadPosts();
+    </script>
 }
