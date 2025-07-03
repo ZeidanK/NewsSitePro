@@ -46,4 +46,10 @@ CREATE TABLE NewsArticles (
     AuthorId INT,
     CreatedAt DATETIME DEFAULT GETDATE()
 );
+CREATE TABLE SavedArticles (
+    ID INT IDENTITY(1,1) PRIMARY KEY,
+    UserId INT NOT NULL,
+    ArticleId INT NOT NULL
+);
+
 
