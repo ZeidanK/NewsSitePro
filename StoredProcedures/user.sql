@@ -172,3 +172,33 @@ BEGIN
     INSERT INTO BlockedUsers (BlockerID, BlockedID)
     VALUES (@BlockerID, @BlockedID);
 END
+    
+-- sp_News_ByTag
+CREATE PROCEDURE sp_News_ByTag
+    @Tag NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT * FROM NewsArticles WHERE Tag = @Tag;
+END
+
+-- sp_News_Search
+CREATE PROCEDURE sp_News_Search
+    @Query NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT * FROM NewsArticles
+    WHERE Title LIKE '%' + @Query + '%' OR Content LIKE '%' + @Query + '%';
+END
+
+-- sp_News_GetById
+CREATE PROCEDURE sp_News_GetById
+    @Id INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT * FROM NewsArticles WHERE Id = @Id;
+END
+
+
