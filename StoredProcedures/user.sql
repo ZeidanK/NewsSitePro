@@ -75,8 +75,8 @@ BEGIN
     FROM SharedArticles
     ORDER BY SharedAt DESC;
 END
--- sp_SystemLog_Insert
-CREATE PROCEDURE sp_SystemLog_Insert
+-- sp_LogEvent
+CREATE PROCEDURE sp_LogEvent
     @LogLevel NVARCHAR(50),
     @Message NVARCHAR(MAX),
     @Details NVARCHAR(MAX)
@@ -87,7 +87,6 @@ BEGIN
     INSERT INTO SystemLog (LogLevel, Message, Details)
     VALUES (@LogLevel, @Message, @Details);
 END
-
 -- sp_UserTags_Insert
 CREATE PROCEDURE sp_UserTags_Insert
     @UserID INT,
@@ -199,6 +198,26 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SELECT * FROM NewsArticles WHERE Id = @Id;
+END
+-- sp_SaveArticle
+CREATE PROCEDURE sp_SaveArticle
+    @UserId INT,
+    @ArticleId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO SavedArticles (UserId, ArticleId)
+    VALUES (@UserId, @ArticleId);
+END
+-- sp_GetSavedArticles
+CREATE PROCEDURE sp_GetSavedArticles
+    @UserId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT ArticleId
+    FROM SavedArticles
+    WHERE UserId = @UserId;
 END
 
 
