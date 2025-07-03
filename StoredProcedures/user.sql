@@ -75,3 +75,15 @@ BEGIN
     FROM SharedArticles
     ORDER BY SharedAt DESC;
 END
+-- sp_SystemLog_Insert
+CREATE PROCEDURE sp_SystemLog_Insert
+    @LogLevel NVARCHAR(50),
+    @Message NVARCHAR(MAX),
+    @Details NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO SystemLog (LogLevel, Message, Details)
+    VALUES (@LogLevel, @Message, @Details);
+END
