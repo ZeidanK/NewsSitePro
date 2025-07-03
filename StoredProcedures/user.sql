@@ -110,3 +110,28 @@ BEGIN
     FROM UserTags
     WHERE UserID = @UserID;
 END
+
+-- sp_Notifications_GetByUser
+CREATE PROCEDURE sp_Notifications_GetByUser
+    @UserID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT ID, Message, CreatedAt, IsRead
+    FROM Notifications
+    WHERE UserID = @UserID
+    ORDER BY CreatedAt DESC;
+END
+
+-- sp_Notifications_Insert
+CREATE PROCEDURE sp_Notifications_Insert
+    @UserID INT,
+    @Message NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO Notifications (UserID, Message)
+    VALUES (@UserID, @Message);
+END
