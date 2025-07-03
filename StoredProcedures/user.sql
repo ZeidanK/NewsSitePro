@@ -161,3 +161,14 @@ BEGIN
     ORDER BY ReportedAt DESC;
 END
 
+-- sp_BlockedUsers_Insert
+CREATE PROCEDURE sp_BlockedUsers_Insert
+    @BlockerID INT,
+    @BlockedID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO BlockedUsers (BlockerID, BlockedID)
+    VALUES (@BlockerID, @BlockedID);
+END
