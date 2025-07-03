@@ -87,3 +87,26 @@ BEGIN
     INSERT INTO SystemLog (LogLevel, Message, Details)
     VALUES (@LogLevel, @Message, @Details);
 END
+
+-- sp_UserTags_Insert
+CREATE PROCEDURE sp_UserTags_Insert
+    @UserID INT,
+    @Tag NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO UserTags (UserID, Tag)
+    VALUES (@UserID, @Tag);
+END
+-- sp_UserTags_GetByUser
+CREATE PROCEDURE sp_UserTags_GetByUser
+    @UserID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT Tag
+    FROM UserTags
+    WHERE UserID = @UserID;
+END
