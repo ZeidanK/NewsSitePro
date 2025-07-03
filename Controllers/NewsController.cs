@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
-
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+using Microsoft.AspNetCore.Mvc;
+using NewsSite.BL;
+using System.Collections.Generic;
 
 namespace NewsSite.Controllers
 {
@@ -8,36 +8,37 @@ namespace NewsSite.Controllers
     [ApiController]
     public class NewsController : ControllerBase
     {
-        // GET: api/<NewsController>
-        [HttpGet]
-        public IEnumerable<string> Get()
+        // GET: api/news/bytag/{tag}
+        [HttpGet("bytag/{tag}")]
+        public IActionResult GetByTag(string tag)
         {
-            return new string[] { "value1", "value2" };
+            var newsList = new News().GetByTag(tag);
+            if (newsList == null || newsList.Count == 0)
+                return NotFound("No articles found with this tag.");
+
+            return Ok(newsList);
         }
 
-        // GET api/<NewsController>/5
+        // GET: api/news/search?query=term
+        [HttpGet("search")]
+        public IActionResult Search([FromQuery] string query)
+        {
+            var newsList = new News().Search(query);
+            if (newsList == null || newsList.Count == 0)
+                return NotFound("No matching articles found.");
+
+            return Ok(newsList);
+        }
+
+        // GET: api/news/{id}
         [HttpGet("{id}")]
-        public string Get(int id)
+        public IActionResult ViewArticle(int id)
         {
-            return "value";
-        }
+            var article = new News().GetById(id);
+            if (article == null)
+                return NotFound("Article not found.");
 
-        // POST api/<NewsController>
-        [HttpPost]
-        public void Post([FromBody] string value)
-        {
-        }
-
-        // PUT api/<NewsController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
-        {
-        }
-
-        // DELETE api/<NewsController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
-        {
+            return Ok(article);
         }
     }
 }
