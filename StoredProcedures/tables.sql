@@ -38,4 +38,12 @@ CREATE TABLE BlockedUsers (
     BlockedID INT NOT NULL,
     BlockedAt DATETIME DEFAULT GETDATE()
 );
+CREATE TABLE NewsArticles (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    Title NVARCHAR(255),
+    Content NVARCHAR(MAX),
+    Tag NVARCHAR(100),
+    AuthorId INT,
+    CreatedAt DATETIME DEFAULT GETDATE()
+);
 
