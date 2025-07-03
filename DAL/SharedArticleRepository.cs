@@ -1,7 +1,7 @@
-using NewsSite.BL;
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using NewsSite.BL;
 
 namespace NewsSite.DAL
 {
@@ -14,9 +14,42 @@ namespace NewsSite.DAL
             db = new DBservices();
         }
 
-        public List<News> GetSharedArticles()
+        public bool ShareArticle(Article article, int userId)
         {
-            List<News> sharedArticles = new List<News>();
+            SqlConnection con = null;
+            SqlCommand cmd = null;
+
+            try
+            {
+                con = db.connect("myProjDB");
+
+                var paramDic = new Dictionary<string, object>
+                {
+                    { "@UserID", userId },
+                    { "@Title", article.Title },
+                    { "@Content", article.Content },
+                    { "@Tag", article.Tag },
+                    { "@SharedAt", DateTime.Now }
+                };
+
+                cmd = db.CreateCommandWithStoredProcedureGeneral("sp_SharedArticles_Insert", con, paramDic);
+                int affectedRows = cmd.ExecuteNonQuery();
+                return affectedRows > 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error while sharing article: " + ex.Message);
+                return false;
+            }
+            finally
+            {
+                con?.Close();
+            }
+        }
+
+        public List<Article> GetAllShared()
+        {
+            List<Article> sharedArticles = new List<Article>();
             SqlConnection con = null;
             SqlCommand cmd = null;
             SqlDataReader reader = null;
@@ -24,27 +57,23 @@ namespace NewsSite.DAL
             try
             {
                 con = db.connect("myProjDB");
-
-                cmd = db.CreateCommandWithStoredProcedureGeneral("sp_GetSharedArticles", con, null);
+                cmd = db.CreateCommandWithStoredProcedureGeneral("sp_SharedArticles_GetAll", con, null);
 
                 reader = cmd.ExecuteReader();
-
                 while (reader.Read())
                 {
-                    News article = new News
+                    sharedArticles.Add(new Article
                     {
-                        Id = Convert.ToInt32(reader["Id"]),
                         Title = reader["Title"]?.ToString(),
                         Content = reader["Content"]?.ToString(),
                         Tag = reader["Tag"]?.ToString(),
-                        AuthorId = Convert.ToInt32(reader["AuthorId"])
-                    };
-
-                    sharedArticles.Add(article);
+                        SharedAt = reader["SharedAt"] != DBNull.Value ? Convert.ToDateTime(reader["SharedAt"]) : DateTime.MinValue
+                    });
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Console.WriteLine("Error fetching shared articles: " + ex.Message);
                 throw;
             }
             finally
