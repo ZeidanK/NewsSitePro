@@ -32,3 +32,10 @@ CREATE TABLE Reports (
     Reason NVARCHAR(MAX),
     ReportedAt DATETIME NOT NULL
 );
+CREATE TABLE BlockedUsers (
+    ID INT IDENTITY(1,1) PRIMARY KEY,
+    BlockerID INT NOT NULL,
+    BlockedID INT NOT NULL,
+    BlockedAt DATETIME DEFAULT GETDATE()
+);
+
