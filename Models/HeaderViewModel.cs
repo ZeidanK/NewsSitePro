@@ -9,6 +9,6 @@ namespace NewsSitePro.Models
         public string CurrentPage { get; set; }
 
         // Add a property to hold the user object
-        public User user { get; set; }
+        public User User { get; set; }
     }
 }
