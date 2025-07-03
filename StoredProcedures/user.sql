@@ -49,3 +49,29 @@ BEGIN
         IsLocked = @IsLocked
     WHERE UserID = @UserID
 END
+        
+-- sp_SharedArticles_Insert        
+CREATE PROCEDURE sp_SharedArticles_Insert
+    @UserID INT,
+    @Title NVARCHAR(255),
+    @Content NVARCHAR(MAX),
+    @Tag NVARCHAR(100),
+    @SharedAt DATETIME
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO SharedArticles (UserID, Title, Content, Tag, SharedAt)
+    VALUES (@UserID, @Title, @Content, @Tag, @SharedAt);
+END
+    
+-- sp_SharedArticles_GetAll
+CREATE PROCEDURE sp_SharedArticles_GetAll
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT Title, Content, Tag, SharedAt
+    FROM SharedArticles
+    ORDER BY SharedAt DESC;
+END
