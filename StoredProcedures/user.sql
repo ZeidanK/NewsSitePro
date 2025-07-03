@@ -135,3 +135,29 @@ BEGIN
     INSERT INTO Notifications (UserID, Message)
     VALUES (@UserID, @Message);
 END
+
+-- sp_Reports_Insert
+CREATE PROCEDURE sp_Reports_Insert
+    @UserID INT,
+    @ArticleID INT,
+    @Reason NVARCHAR(MAX),
+    @ReportedAt DATETIME
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO Reports (UserID, ArticleID, Reason, ReportedAt)
+    VALUES (@UserID, @ArticleID, @Reason, @ReportedAt);
+END
+
+-- sp_Reports_GetAll
+CREATE PROCEDURE sp_Reports_GetAll
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT ReportID, UserID, ArticleID, Reason, ReportedAt
+    FROM Reports
+    ORDER BY ReportedAt DESC;
+END
+
