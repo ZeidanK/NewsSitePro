@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
-
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+using Microsoft.AspNetCore.Mvc;
+using NewsSite.BL;
+using NewsSite.DAL;
+using NewsSite.Models;
 
 namespace NewsSite.Controllers
 {
@@ -8,36 +9,71 @@ namespace NewsSite.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
-        // GET: api/<UserController>
-        [HttpGet]
-        public IEnumerable<string> Get()
+        private readonly IConfiguration _config;
+
+        public UserController(IConfiguration config)
         {
-            return new string[] { "value1", "value2" };
+            _config = config;
         }
 
-        // GET api/<UserController>/5
-        [HttpGet("{id}")]
-        public string Get(int id)
+        // Save an article
+        [HttpPost("save")]
+        public IActionResult SaveArticle([FromBody] SaveArticleRequest request)
         {
-            return "value";
+            var repo = new SavedArticleRepository();
+            bool success = repo.SaveArticle(request.UserId, request.ArticleId);
+            if (!success)
+                return BadRequest("Failed to save article.");
+
+            return Ok("Article saved successfully.");
         }
 
-        // POST api/<UserController>
-        [HttpPost]
-        public void Post([FromBody] string value)
+        // Share an article
+        [HttpPost("share")]
+        public IActionResult ShareArticle([FromBody] ShareArticleRequest request)
         {
+            var repo = new SharedArticleRepository();
+            bool success = repo.ShareArticle(request.Article, request.UserId);
+            if (!success)
+                return BadRequest("Failed to share article.");
+
+            return Ok("Article shared successfully.");
         }
 
-        // PUT api/<UserController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
+        // Report an article
+        [HttpPost("report")]
+        public IActionResult ReportArticle([FromBody] ReportRequest request)
         {
+            var repo = new ReportRepository();
+            bool success = repo.ReportArticle(request.UserId, request.ArticleId, request.Reason);
+            if (!success)
+                return BadRequest("Failed to report article.");
+
+            return Ok("Report submitted successfully.");
         }
 
-        // DELETE api/<UserController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
+        // Block a user
+        [HttpPost("block")]
+        public IActionResult BlockUser([FromBody] BlockUserRequest request)
         {
+            var repo = new UserRepository(_config);
+            bool success = repo.BlockUser(request.BlockerId, request.BlockedId);
+            if (!success)
+                return BadRequest("Failed to block user.");
+
+            return Ok("User blocked successfully.");
+        }
+
+        // Update interest tags
+        [HttpPut("interests")]
+        public IActionResult UpdateInterestTags([FromBody] InterestTagsRequest request)
+        {
+            var repo = new InterestTagRepository();
+            bool success = repo.UpdateUserTags(request.UserId, request.Tags);
+            if (!success)
+                return BadRequest("Failed to update tags.");
+
+            return Ok("Interest tags updated.");
         }
     }
 }
