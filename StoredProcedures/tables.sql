@@ -18,3 +18,10 @@ CREATE TABLE UserTags (
     UserID INT NOT NULL,
     Tag NVARCHAR(100)
 );
+CREATE TABLE Notifications (
+    ID INT IDENTITY(1,1) PRIMARY KEY,
+    UserID INT NOT NULL,
+    Message NVARCHAR(MAX),
+    CreatedAt DATETIME DEFAULT GETDATE(),
+    IsRead BIT DEFAULT 0
+);
