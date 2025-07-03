@@ -25,3 +25,10 @@ CREATE TABLE Notifications (
     CreatedAt DATETIME DEFAULT GETDATE(),
     IsRead BIT DEFAULT 0
 );
+CREATE TABLE Reports (
+    ReportID INT IDENTITY(1,1) PRIMARY KEY,
+    UserID INT NOT NULL,
+    ArticleID INT NOT NULL,
+    Reason NVARCHAR(MAX),
+    ReportedAt DATETIME NOT NULL
+);
