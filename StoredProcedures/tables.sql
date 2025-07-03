@@ -1,0 +1,8 @@
+CREATE TABLE SharedArticles (
+    ID INT IDENTITY(1,1) PRIMARY KEY,
+    UserID INT NOT NULL,
+    Title NVARCHAR(255),
+    Content NVARCHAR(MAX),
+    Tag NVARCHAR(100),
+    SharedAt DATETIME
+);
