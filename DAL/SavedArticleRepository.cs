@@ -8,91 +8,84 @@ namespace NewsSite.DAL
 {
     public class SavedArticleRepository
     {
-        private readonly string connectionString = "Your_Connection_String_Here";
+        private readonly DBservices _dbServices;
+
+        public SavedArticleRepository()
+        {
+            _dbServices = new DBservices();
+        }
 
         public bool SaveArticle(int userId, int articleId)
         {
-            using (SqlConnection conn = new SqlConnection(connectionString))
-            {
-                SqlCommand cmd = new SqlCommand(
-                    "INSERT INTO SavedArticle (UserID, ArticleID, SavedDate) VALUES (@UserID, @ArticleID, @SavedDate)",
-                    conn
-                );
-                cmd.Parameters.AddWithValue("@UserID", userId);
-                cmd.Parameters.AddWithValue("@ArticleID", articleId);
-                cmd.Parameters.AddWithValue("@SavedDate", DateTime.Now);
+            SqlConnection con = null;
+            SqlCommand cmd = null;
 
-                conn.Open();
-                int rows = cmd.ExecuteNonQuery();
-                return rows > 0;
+            try
+            {
+                con = _dbServices.connect("myProjDB");
+
+                var paramDic = new Dictionary<string, object>
+                {
+                    { "@UserId", userId },
+                    { "@ArticleId", articleId }
+                };
+
+                cmd = CreateCommand("sp_SaveArticle", con, paramDic);
+                int affectedRows = cmd.ExecuteNonQuery();
+                return affectedRows > 0;
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+            finally
+            {
+                con?.Close();
             }
         }
 
-        public List<NewsArticle> GetSavedArticles(int userId)
+        public List<int> GetSavedArticles(int userId)
         {
-            List<NewsArticle> savedArticles = new List<NewsArticle>();
+            SqlConnection con = null;
+            SqlCommand cmd = null;
+            SqlDataReader reader = null;
+            List<int> savedArticleIds = new List<int>();
 
-            using (SqlConnection conn = new SqlConnection(connectionString))
+            try
             {
-                SqlCommand cmd = new SqlCommand(
-                    @"SELECT n.* 
-                      FROM NewsArticle n 
-                      INNER JOIN SavedArticle s ON s.ArticleID = n.ArticleID 
-                      WHERE s.UserID = @UserID", conn);
-                cmd.Parameters.AddWithValue("@UserID", userId);
+                con = _dbServices.connect("myProjDB");
 
-                conn.Open();
-                SqlDataReader reader = cmd.ExecuteReader();
+                var paramDic = new Dictionary<string, object>
+                {
+                    { "@UserId", userId }
+                };
+
+                cmd = CreateCommand("sp_GetSavedArticles", con, paramDic);
+                reader = cmd.ExecuteReader();
+
                 while (reader.Read())
                 {
-                    savedArticles.Add(new NewsArticle
-                    {
-                        ArticleID = Convert.ToInt32(reader["ArticleID"]),
-                        Title = reader["Title"].ToString(),
-                        Content = reader["Content"].ToString(),
-                        SourceURL = reader["SourceURL"].ToString(),
-                        ImageURL = reader["ImageURL"].ToString(),
-                        PublishDate = Convert.ToDateTime(reader["PublishDate"]),
-                        Category = reader["Category"].ToString()
-                    });
+                    savedArticleIds.Add(Convert.ToInt32(reader["ArticleId"]));
                 }
-            }
 
-            return savedArticles;
+                return savedArticleIds;
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+            finally
+            {
+                reader?.Close();
+                con?.Close();
+            }
         }
 
-        public List<NewsArticle> SearchSavedArticles(int userId, string keyword)
+        private SqlCommand CreateCommand(string spName, SqlConnection con, Dictionary<string, object> paramDic)
         {
-            List<NewsArticle> results = new List<NewsArticle>();
-
-            using (SqlConnection conn = new SqlConnection(connectionString))
-            {
-                SqlCommand cmd = new SqlCommand(
-                    @"SELECT n.* 
-                      FROM NewsArticle n 
-                      INNER JOIN SavedArticle s ON s.ArticleID = n.ArticleID 
-                      WHERE s.UserID = @UserID AND (n.Title LIKE @Keyword OR n.Content LIKE @Keyword)", conn);
-                cmd.Parameters.AddWithValue("@UserID", userId);
-                cmd.Parameters.AddWithValue("@Keyword", "%" + keyword + "%");
-
-                conn.Open();
-                SqlDataReader reader = cmd.ExecuteReader();
-                while (reader.Read())
-                {
-                    results.Add(new NewsArticle
-                    {
-                        ArticleID = Convert.ToInt32(reader["ArticleID"]),
-                        Title = reader["Title"].ToString(),
-                        Content = reader["Content"].ToString(),
-                        SourceURL = reader["SourceURL"].ToString(),
-                        ImageURL = reader["ImageURL"].ToString(),
-                        PublishDate = Convert.ToDateTime(reader["PublishDate"]),
-                        Category = reader["Category"].ToString()
-                    });
-                }
-            }
-
-            return results;
+            return typeof(DBservices)
+                .GetMethod("CreateCommandWithStoredProcedureGeneral", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                .Invoke(_dbServices, new object[] { spName, con, paramDic }) as SqlCommand;
         }
     }
 }
