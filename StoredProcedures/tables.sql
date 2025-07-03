@@ -13,3 +13,8 @@ CREATE TABLE SystemLog (
     Message NVARCHAR(MAX),
     Details NVARCHAR(MAX)
 );
+CREATE TABLE UserTags (
+    ID INT IDENTITY(1,1) PRIMARY KEY,
+    UserID INT NOT NULL,
+    Tag NVARCHAR(100)
+);
