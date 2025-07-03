@@ -6,3 +6,10 @@ CREATE TABLE SharedArticles (
     Tag NVARCHAR(100),
     SharedAt DATETIME
 );
+CREATE TABLE SystemLog (
+    LogID INT IDENTITY(1,1) PRIMARY KEY,
+    Timestamp DATETIME NOT NULL DEFAULT GETDATE(),
+    LogLevel NVARCHAR(50),
+    Message NVARCHAR(MAX),
+    Details NVARCHAR(MAX)
+);
