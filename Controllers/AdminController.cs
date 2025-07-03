@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
-
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+using Microsoft.AspNetCore.Mvc;
+using NewsSite.DAL;
+using NewsSite.BL;
+using System.Collections.Generic;
 
 namespace NewsSite.Controllers
 {
@@ -8,36 +9,40 @@ namespace NewsSite.Controllers
     [ApiController]
     public class AdminController : ControllerBase
     {
-        // GET: api/<AdminController>
-        [HttpGet]
-        public IEnumerable<string> Get()
+        private readonly UserRepository _userRepo;
+        private readonly ReportRepository _reportRepo;
+
+        public AdminController()
         {
-            return new string[] { "value1", "value2" };
+            _userRepo = new UserRepository();
+            _reportRepo = new ReportRepository();
         }
 
-        // GET api/<AdminController>/5
-        [HttpGet("{id}")]
-        public string Get(int id)
+        [HttpPut("lock/{id}")]
+        public IActionResult LockUser(int id)
         {
-            return "value";
+            bool success = _userRepo.SetLockStatus(id, true);
+            if (!success)
+                return NotFound("User not found or could not be locked.");
+
+            return Ok("User locked.");
         }
 
-        // POST api/<AdminController>
-        [HttpPost]
-        public void Post([FromBody] string value)
+        [HttpPut("unlock/{id}")]
+        public IActionResult UnlockUser(int id)
         {
+            bool success = _userRepo.SetLockStatus(id, false);
+            if (!success)
+                return NotFound("User not found or could not be unlocked.");
+
+            return Ok("User unlocked.");
         }
 
-        // PUT api/<AdminController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
+        [HttpGet("reports")]
+        public ActionResult<List<Report>> GetAllReports()
         {
-        }
-
-        // DELETE api/<AdminController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
-        {
+            var reports = _reportRepo.GetAllReports();
+            return Ok(reports);
         }
     }
 }
