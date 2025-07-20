@@ -8,8 +8,24 @@
     <div class="profile-header">
         <div class="user-avatar">
             <div class="avatar-circle">
-                <i class="fas fa-user"></i>
+                @if (!string.IsNullOrEmpty(Model.UserProfile?.ProfilePicture))
+                {
+                    <img src="@Model.UserProfile.ProfilePicture" alt="Profile Picture" class="profile-pic-img" style="width:120px;height:120px;border-radius:50%;object-fit:cover;" />
+                }
+                else
+                {
+                    <i class="fas fa-user"></i>
+                }
             </div>
+            @* Only show upload if this is the logged-in user's profile *@
+            @if (User.Identity?.IsAuthenticated == true && Model.UserProfile?.UserID == int.Parse(User.FindFirst("userId")?.Value ?? "0"))
+            {
+                <form id="profilePicForm" enctype="multipart/form-data">
+                    <input type="file" id="profilePicInput" name="file" accept="image/*" style="margin-top:10px;" />
+                    <button type="button" id="uploadPicBtn" class="btn btn-sm btn-primary" style="margin-top:5px;">Upload</button>
+                    <div id="profilePicPreview" style="margin-top:10px;"></div>
+                </form>
+            }
         </div>
         <div class="user-info">
             <h1 class="username">@Model.UserProfile?.Username</h1>
@@ -164,16 +180,53 @@
         tabBtns.forEach(btn => {
             btn.addEventListener('click', function() {
                 const targetTab = this.dataset.tab;
-                
-                // Remove active class from all tabs and contents
                 tabBtns.forEach(b => b.classList.remove('active'));
                 tabContents.forEach(c => c.classList.remove('active'));
-                
-                // Add active class to clicked tab and corresponding content
                 this.classList.add('active');
                 document.getElementById(targetTab + '-tab').classList.add('active');
             });
         });
+
+        // Profile picture preview and upload
+        const input = document.getElementById('profilePicInput');
+        const preview = document.getElementById('profilePicPreview');
+        const uploadBtn = document.getElementById('uploadPicBtn');
+        if (input && preview && uploadBtn) {
+            input.addEventListener('change', function() {
+                preview.innerHTML = '';
+                if (input.files && input.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        preview.innerHTML = `<img src='${e.target.result}' style='width:80px;height:80px;border-radius:50%;object-fit:cover;' />`;
+                    };
+                    reader.readAsDataURL(input.files[0]);
+                }
+            });
+            uploadBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (!input.files || !input.files[0]) {
+                    alert('Please select an image.');
+                    return;
+                }
+                const formData = new FormData();
+                formData.append('file', input.files[0]);
+                fetch('/api/user/UploadProfilePic', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.path) {
+                        // Update the avatar image
+                        document.querySelector('.profile-pic-img').src = data.path;
+                        alert('Profile picture updated!');
+                    } else {
+                        alert('Upload failed.');
+                    }
+                })
+                .catch(() => alert('Upload failed.'));
+            });
+        }
     });
 </script>
 }

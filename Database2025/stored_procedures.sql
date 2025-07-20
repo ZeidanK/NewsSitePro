@@ -57,6 +57,19 @@ BEGIN
 END
 GO
 
+-- Update User Profile Picture
+CREATE PROCEDURE NewsSitePro2025_sp_Users_UpdateProfilePic
+    @UserID INT,
+    @ProfilePicture NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE NewsSitePro2025_Users
+    SET ProfilePicture = @ProfilePicture, LastUpdated = GETDATE()
+    WHERE UserID = @UserID;
+END
+GO
+
 -- News Article CRUD
 -- Get Article
 CREATE PROCEDURE NewsSitePro2025_sp_NewsArticles_Get

@@ -34,6 +34,7 @@
         public string? Bio { get; set; }
         public DateTime JoinDate { get; set; }
         public bool IsAdmin { get; set; }
+        public string? ProfilePicture { get; set; }
         public UserActivity? Activity { get; set; }
         public List<NewsArticle>? RecentPosts { get; set; }
     }
