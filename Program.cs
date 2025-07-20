@@ -72,7 +72,7 @@ app.UseAuthorization();
 
 app.UseCors(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
 
-
+app.UseStaticFiles();
 app.MapControllers();
 app.MapRazorPages();
 

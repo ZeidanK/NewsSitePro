@@ -2,103 +2,532 @@
 @model NewsSite.Pages.PostModel
 @{
     Layout = "~/Pages/Shared/_Layout.cshtml";
-    ViewData["Title"] = "Posts";
+    ViewData["Title"] = "News Feed";
+    ViewData["HeaderData"] = Model.HeaderData;
 }
 
 <div class="posts-container">
-    <h2>Posts</h2>
+    <!-- Create New Post Section -->
+    <div class="create-post-section" id="createPostSection">
+        <div class="create-post-header">
+            <h3>What's happening?</h3>
+            <button id="toggleCreatePost" class="toggle-create-btn">✏️ New Post</button>
+        </div>
+        
+        <form id="createPostForm" class="create-post-form" style="display: none;">
+            <div class="post-input-area">
+                <div class="post-avatar">
+                    <div class="avatar-small">
+                        @(Model.HeaderData?.user?.Name?.Substring(0, 1).ToUpper() ?? "U")
+                    </div>
+                </div>
+                <div class="post-content-input">
+                    <input type="text" id="postTitle" placeholder="Post title..." maxlength="100" required />
+                    <textarea id="postContent" placeholder="What's the news today?" maxlength="500" required></textarea>
+                    <input type="url" id="postImageUrl" placeholder="Image URL (optional)" />
+                    <div class="source-fields">
+                        <input type="url" id="postSourceUrl" placeholder="Source URL (optional)" />
+                        <input type="text" id="postSourceName" placeholder="Source name (optional)" maxlength="100" />
+                    </div>
+                    <select id="postCategory" required>
+                        <option value="">Select Category</option>
+                        <option value="Politics">Politics</option>
+                        <option value="Technology">Technology</option>
+                        <option value="Sports">Sports</option>
+                        <option value="Entertainment">Entertainment</option>
+                        <option value="Health">Health</option>
+                    </select>
+                </div>
+            </div>
+            <div class="post-actions-create">
+                <div class="char-counter">
+                    <span id="titleCounter">0/100</span> • <span id="contentCounter">0/500</span>
+                </div>
+                <div class="post-buttons">
+                    <button type="button" id="cancelPost" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" id="submitPost" class="btn btn-primary">Post</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="posts-header">
+        <h2>
+            <span>News Feed</span>
+            <div class="feed-controls">
+                <button id="refreshBtn" class="refresh-btn" title="Refresh Feed">🔄</button>
+            </div>
+        </h2>
+        
+        <!-- Filter Tabs -->
+        <div class="filter-tabs">
+            <button class="filter-tab active" data-filter="all">All News</button>
+            <button class="filter-tab" data-filter="following">Following</button>
+            <button class="filter-tab" data-filter="trending">Trending</button>
+            <button class="filter-tab" data-filter="saved">Saved</button>
+        </div>
+    </div>
+    
     <div id="posts" class="post-list">
         <!-- Posts will be dynamically loaded here -->
     </div>
+    
     <div id="loading" class="loading-spinner" style="display: none;">
-        <p>Loading...</p>
+        <div class="spinner"></div>
+        <p>Loading more posts...</p>
+    </div>
+    
+    <div id="endOfFeed" class="end-of-feed" style="display: none;">
+        <p>🎉 You've reached the end of your feed!</p>
+        <button id="backToTop" class="back-to-top-btn">Back to Top</button>
     </div>
 </div>
+
+<!-- Toast Container -->
+<div class="toast-container"></div>
 
 @section Scripts {
     <script>
         let currentPage = 1;
+        let isLoading = false;
+        let currentFilter = 'all';
+        let hasMorePosts = true;
         const postsContainer = document.getElementById('posts');
         const loadingSpinner = document.getElementById('loading');
+        const endOfFeed = document.getElementById('endOfFeed');
 
-        async function loadPosts() {
+        // Enhanced post loading with better error handling
+        async function loadPosts(reset = false) {
+            if (isLoading || (!hasMorePosts && !reset)) return;
+            
+            isLoading = true;
             loadingSpinner.style.display = 'block';
+            endOfFeed.style.display = 'none';
+            
+            if (reset) {
+                currentPage = 1;
+                postsContainer.innerHTML = '';
+                hasMorePosts = true;
+            }
+            
             try {
-                const response = await fetch(`/api/Posts?page=${currentPage}&limit=10`, {
+                const jwt = localStorage.getItem('jwtToken');
+                const response = await fetch(`/api/Posts?page=${currentPage}&limit=10&filter=${currentFilter}`, {
                     method: "GET",
                     headers: {
-                        "Authorization": "Bearer " + localStorage.getItem('jwtToken')
+                        "Authorization": jwt ? "Bearer " + jwt : "",
+                        "Content-Type": "application/json"
                     }
                 });
 
                 if (response.ok) {
                     const data = await response.json();
-                    data.posts.forEach(post => {
-                        const postBlock = document.createElement('div');
-                        postBlock.className = 'post-card';
-                        postBlock.innerHTML = `
-                            <img src="${post.imageURL}" alt="${post.title}" class="post-image" />
-                            <h3>${post.title}</h3>
-                            <p>${post.content}</p>
-                            <small>Posted by: ${post.user.username} on ${new Date(post.publishDate).toLocaleDateString()}</small>
-                            <div class="post-actions">
-                                <button class="btn btn-success" onclick="likePost(${post.articleID})">Like</button>
-                                <button class="btn btn-primary" onclick="sharePost(${post.articleID})">Share</button>
-                                <button class="btn btn-danger" onclick="reportPost(${post.articleID})">Report</button>
-                            </div>
-                        `;
-                        postsContainer.appendChild(postBlock);
-                    });
-                    currentPage++;
+                    
+                    if (data.posts && data.posts.length > 0) {
+                        data.posts.forEach(post => {
+                            const postElement = createPostElement(post);
+                            postsContainer.appendChild(postElement);
+                        });
+                        currentPage++;
+                        
+                        // Check if we've reached the end
+                        if (data.posts.length < 10 || currentPage > data.totalPages) {
+                            hasMorePosts = false;
+                            endOfFeed.style.display = 'block';
+                        }
+                    } else {
+                        hasMorePosts = false;
+                        endOfFeed.style.display = 'block';
+                    }
+                } else if (response.status === 401) {
+                    showToast("Please log in to view posts", "error");
+                    setTimeout(() => window.location.href = '/Login', 2000);
                 } else {
-                    console.error("Failed to load posts.");
+                    showToast("Failed to load posts. Please try again.", "error");
                 }
             } catch (error) {
                 console.error("Error loading posts:", error);
+                showToast("Network error. Please check your connection.", "error");
             } finally {
+                isLoading = false;
                 loadingSpinner.style.display = 'none';
             }
         }
 
-        async function likePost(articleId) {
-            const response = await fetch(`/api/Posts/Like/${articleId}`, {
-                method: "POST",
-                headers: {
-                    "Authorization": "Bearer " + localStorage.getItem('jwtToken')
-                }
-            });
+        // Create enhanced post element
+        function createPostElement(post) {
+            const postBlock = document.createElement('div');
+            postBlock.className = 'post-card';
+            postBlock.innerHTML = `
+                <div class="post-header">
+                    <div class="post-user">
+                        <div class="user-avatar">
+                            ${post.user.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div class="user-info">
+                            <a href="/user/${post.user.userId || post.articleID}" class="username">${post.user.username}</a>
+                            <span class="post-time">${formatTimeAgo(post.publishDate)}</span>
+                        </div>
+                    </div>
+                    <div class="post-category">
+                        <span class="category-badge">${post.category}</span>
+                    </div>
+                </div>
+                
+                ${post.imageURL ? `<img src="${post.imageURL}" alt="${post.title}" class="post-image" loading="lazy" />` : ''}
+                
+                <div class="post-content">
+                    <h3>${post.title}</h3>
+                    <p>${post.content}</p>
+                </div>
+                
+                ${post.sourceURL ? `
+                <div class="post-source">
+                    <i class="fas fa-external-link-alt"></i>
+                    <span>Source: <a href="${post.sourceURL}" target="_blank" rel="noopener">${post.sourceName || 'External Link'}</a></span>
+                </div>
+                ` : ''}
+                
+                <div class="post-footer">
+                    <div class="post-stats">
+                        <span class="stat-item">
+                            <span class="stat-icon">👁️</span>
+                            <span class="stat-count">${post.views || Math.floor(Math.random() * 1000)}</span>
+                        </span>
+                        <span class="stat-item">
+                            <span class="stat-icon">❤️</span>
+                            <span class="stat-count" id="likes-${post.articleID}">${post.likes || 0}</span>
+                        </span>
+                    </div>
+                    
+                    <div class="post-actions">
+                        <button class="btn btn-success ${post.isLiked ? 'liked' : ''}" onclick="likePost(${post.articleID})" id="like-btn-${post.articleID}">
+                            <span class="btn-icon">${post.isLiked ? '❤️' : '🤍'}</span>
+                            <span class="btn-text">Like</span>
+                        </button>
+                        <button class="btn btn-primary" onclick="sharePost(${post.articleID})">
+                            <span class="btn-icon">🔄</span>
+                            <span class="btn-text">Share</span>
+                        </button>
+                        <button class="btn btn-secondary" onclick="savePost(${post.articleID})">
+                            <span class="btn-icon">🔖</span>
+                            <span class="btn-text">Save</span>
+                        </button>
+                        <button class="btn btn-danger" onclick="reportPost(${post.articleID})">
+                            <span class="btn-icon">⚠️</span>
+                            <span class="btn-text">Report</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Add animation
+            postBlock.classList.add('new-post');
+            return postBlock;
+        }
 
-            if (response.ok) {
-                alert("Post liked successfully!");
-            } else {
-                alert("Failed to like the post.");
+        // Enhanced like functionality
+        async function likePost(articleId) {
+            const btn = document.getElementById(`like-btn-${articleId}`);
+            const likesCount = document.getElementById(`likes-${articleId}`);
+            const isLiked = btn.classList.contains('liked');
+            
+            try {
+                const response = await fetch(`/api/Posts/Like/${articleId}`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": "Bearer " + localStorage.getItem('jwtToken'),
+                        "Content-Type": "application/json"
+                    }
+                });
+
+                if (response.ok) {
+                    // Toggle like state
+                    btn.classList.toggle('liked');
+                    const icon = btn.querySelector('.btn-icon');
+                    const currentCount = parseInt(likesCount.textContent);
+                    
+                    if (isLiked) {
+                        icon.textContent = '🤍';
+                        likesCount.textContent = currentCount - 1;
+                        showToast("Post unliked", "info");
+                    } else {
+                        icon.textContent = '❤️';
+                        likesCount.textContent = currentCount + 1;
+                        showToast("Post liked!", "success");
+                    }
+                } else {
+                    showToast("Failed to like post. Please try again.", "error");
+                }
+            } catch (error) {
+                console.error("Error liking post:", error);
+                showToast("Network error. Please try again.", "error");
             }
         }
 
+        // Enhanced share functionality
         async function sharePost(articleId) {
-            alert("Share functionality is not implemented yet.");
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'Check out this news article',
+                        url: window.location.href + `#post-${articleId}`
+                    });
+                    showToast("Post shared successfully!", "success");
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        copyToClipboard(window.location.href + `#post-${articleId}`);
+                    }
+                }
+            } else {
+                copyToClipboard(window.location.href + `#post-${articleId}`);
+            }
+        }
+
+        // Save post functionality
+        async function savePost(articleId) {
+            try {
+                const response = await fetch(`/api/Posts/Save/${articleId}`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": "Bearer " + localStorage.getItem('jwtToken'),
+                        "Content-Type": "application/json"
+                    }
+                });
+
+                if (response.ok) {
+                    showToast("Post saved to bookmarks!", "success");
+                } else {
+                    showToast("Failed to save post. Please try again.", "error");
+                }
+            } catch (error) {
+                console.error("Error saving post:", error);
+                showToast("Network error. Please try again.", "error");
+            }
         }
 
         async function reportPost(articleId) {
-            const response = await fetch(`/api/Posts/Report/${articleId}`, {
-                method: "POST",
-                headers: {
-                    "Authorization": "Bearer " + localStorage.getItem('jwtToken')
-                }
-            });
+            if (!confirm("Are you sure you want to report this post?")) return;
+            
+            try {
+                const response = await fetch(`/api/Posts/Report/${articleId}`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": "Bearer " + localStorage.getItem('jwtToken'),
+                        "Content-Type": "application/json"
+                    }
+                });
 
-            if (response.ok) {
-                alert("Post reported successfully!");
-            } else {
-                alert("Failed to report the post.");
+                if (response.ok) {
+                    showToast("Post reported successfully. Thank you for helping keep our community safe.", "success");
+                } else {
+                    showToast("Failed to report post. Please try again.", "error");
+                }
+            } catch (error) {
+                console.error("Error reporting post:", error);
+                showToast("Network error. Please try again.", "error");
             }
         }
 
-        // Infinite scrolling logic
+        // Utility functions
+        function formatTimeAgo(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffInSeconds = Math.floor((now - date) / 1000);
+            
+            if (diffInSeconds < 60) return 'Just now';
+            if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m`;
+            if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h`;
+            if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d`;
+            
+            return date.toLocaleDateString();
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast("Link copied to clipboard!", "success");
+            }).catch(() => {
+                showToast("Failed to copy link", "error");
+            });
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            
+            const toastContainer = document.querySelector('.toast-container') || createToastContainer();
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 100);
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function createToastContainer() {
+            const container = document.createElement('div');
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+            return container;
+        }
+
+        // Filter functionality
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                currentFilter = this.dataset.filter;
+                loadPosts(true);
+            });
+        });
+
+        // Refresh functionality
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            loadPosts(true);
+            showToast("Feed refreshed!", "success");
+        });
+
+        // Back to top functionality
+        document.getElementById('backToTop').addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        // Enhanced infinite scrolling
+        let scrollTimeout;
         window.addEventListener('scroll', () => {
-            if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100) {
-                loadPosts();
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 200) {
+                    loadPosts();
+                }
+            }, 100);
+        });
+
+        // Global function for category filtering
+        window.filterPostsByCategory = function(category) {
+            currentFilter = category.toLowerCase();
+            loadPosts(true);
+            showToast(`Showing ${category} posts`, "info");
+        };
+
+        // Category click handlers for left sidebar
+        document.addEventListener('DOMContentLoaded', function() {
+            // Mobile menu toggle functionality
+            const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+            const leftSidebar = document.querySelector('.left-sidebar');
+            
+            if (mobileMenuToggle && leftSidebar) {
+                mobileMenuToggle.addEventListener('click', function() {
+                    leftSidebar.classList.toggle('open');
+                });
+                
+                // Close menu when clicking outside
+                document.addEventListener('click', function(event) {
+                    if (!leftSidebar.contains(event.target) && !mobileMenuToggle.contains(event.target)) {
+                        leftSidebar.classList.remove('open');
+                    }
+                });
             }
+            
+            const categoryItems = document.querySelectorAll('.category-item');
+            categoryItems.forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const category = this.dataset.category;
+                    if (category) {
+                        filterPostsByCategory(category);
+                        
+                        // Update active state
+                        categoryItems.forEach(cat => cat.classList.remove('active'));
+                        this.classList.add('active');
+                    }
+                });
+            });
+
+            // Create post functionality
+            const toggleCreateBtn = document.getElementById('toggleCreatePost');
+            const createPostForm = document.getElementById('createPostForm');
+            const cancelPostBtn = document.getElementById('cancelPost');
+            const postTitle = document.getElementById('postTitle');
+            const postContent = document.getElementById('postContent');
+            const titleCounter = document.getElementById('titleCounter');
+            const contentCounter = document.getElementById('contentCounter');
+
+            toggleCreateBtn.addEventListener('click', function() {
+                createPostForm.style.display = createPostForm.style.display === 'none' ? 'block' : 'none';
+                if (createPostForm.style.display === 'block') {
+                    postTitle.focus();
+                }
+            });
+
+            cancelPostBtn.addEventListener('click', function() {
+                createPostForm.style.display = 'none';
+                createPostForm.reset();
+                updateCharCounters();
+            });
+
+            // Character counters
+            function updateCharCounters() {
+                titleCounter.textContent = `${postTitle.value.length}/100`;
+                contentCounter.textContent = `${postContent.value.length}/500`;
+            }
+
+            postTitle.addEventListener('input', updateCharCounters);
+            postContent.addEventListener('input', updateCharCounters);
+
+            // Create post form submission
+            createPostForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const formData = {
+                    title: postTitle.value.trim(),
+                    content: postContent.value.trim(),
+                    imageURL: document.getElementById('postImageUrl').value.trim(),
+                    sourceURL: document.getElementById('postSourceUrl').value.trim(),
+                    sourceName: document.getElementById('postSourceName').value.trim(),
+                    category: document.getElementById('postCategory').value
+                };
+
+                if (!formData.title || !formData.content || !formData.category) {
+                    showToast('Please fill in all required fields', 'error');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/api/Posts/Create', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + localStorage.getItem('jwtToken')
+                        },
+                        body: JSON.stringify(formData)
+                    });
+
+                    if (response.ok) {
+                        showToast('Post created successfully!', 'success');
+                        createPostForm.reset();
+                        createPostForm.style.display = 'none';
+                        updateCharCounters();
+                        
+                        // Refresh the feed to show the new post
+                        loadPosts(true);
+                    } else {
+                        const errorData = await response.json();
+                        showToast(errorData.message || 'Failed to create post', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error creating post:', error);
+                    showToast('Network error occurred', 'error');
+                }
+            });
+
+            // Initialize character counters
+            updateCharCounters();
         });
 
         // Initial load

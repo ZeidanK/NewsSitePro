@@ -1,0 +1,161 @@
+@page
+@model NewsSite.Pages.NotificationsModel
+@{
+    ViewData["Title"] = "Notifications";
+}
+
+<div class="notifications-container">
+    <div class="notifications-header">
+        <h1><i class="fas fa-bell"></i> Notifications</h1>
+        <div class="notification-actions">
+            <button id="markAllReadBtn" class="btn btn-primary">
+                <i class="fas fa-check-double"></i> Mark All Read
+            </button>
+            <button id="settingsBtn" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#notificationSettingsModal">
+                <i class="fas fa-cog"></i> Settings
+            </button>
+        </div>
+    </div>
+
+    <!-- Notification Summary -->
+    <div class="notification-summary">
+        <div class="summary-cards">
+            <div class="summary-card">
+                <div class="card-icon">🔔</div>
+                <div class="card-content">
+                    <h3>@Model.Summary.TotalUnread</h3>
+                    <p>Unread Notifications</p>
+                </div>
+            </div>
+            @foreach (var typeCount in Model.Summary.UnreadByType)
+            {
+                <div class="summary-card">
+                    <div class="card-icon">
+                        @switch (typeCount.Key)
+                        {
+                            case "Like": <span>❤️</span> break;
+                            case "Comment": <span>💬</span> break;
+                            case "Follow": <span>👤</span> break;
+                            case "NewPost": <span>📰</span> break;
+                            default: <span>📢</span> break;
+                        }
+                    </div>
+                    <div class="card-content">
+                        <h3>@typeCount.Value</h3>
+                        <p>@typeCount.Key</p>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Notifications List -->
+    <div class="notifications-list">
+        @if (Model.Notifications.Any())
+        {
+            @foreach (var notification in Model.Notifications)
+            {
+                <div class="notification-item @(notification.IsRead ? "read" : "unread")" data-id="@notification.ID">
+                    <div class="notification-icon">
+                        @switch (notification.Type)
+                        {
+                            case "Like": <span class="icon-like">❤️</span> break;
+                            case "Comment": <span class="icon-comment">💬</span> break;
+                            case "Follow": <span class="icon-follow">👤</span> break;
+                            case "NewPost": <span class="icon-post">📰</span> break;
+                            case "AdminMessage": <span class="icon-admin">⚠️</span> break;
+                            default: <span class="icon-default">📢</span> break;
+                        }
+                    </div>
+                    <div class="notification-content">
+                        <div class="notification-header">
+                            <h5 class="notification-title">@notification.Title</h5>
+                            <span class="notification-time">@notification.CreatedAt.ToString("MMM dd, yyyy HH:mm")</span>
+                        </div>
+                        <p class="notification-message">@notification.Message</p>
+                        @if (!string.IsNullOrEmpty(notification.FromUserName))
+                        {
+                            <p class="notification-from">From: <strong>@notification.FromUserName</strong></p>
+                        }
+                    </div>
+                    <div class="notification-actions">
+                        @if (!notification.IsRead)
+                        {
+                            <button class="btn btn-sm btn-outline-primary mark-read-btn" data-id="@notification.ID">
+                                <i class="fas fa-check"></i>
+                            </button>
+                        }
+                        @if (!string.IsNullOrEmpty(notification.ActionUrl))
+                        {
+                            <a href="@notification.ActionUrl" class="btn btn-sm btn-primary">
+                                <i class="fas fa-external-link-alt"></i> View
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="no-notifications">
+                <div class="no-notifications-icon">🔔</div>
+                <h3>No notifications yet</h3>
+                <p>When you get notifications, they'll show up here.</p>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Notification Settings Modal -->
+<div class="modal fade" id="notificationSettingsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Notification Settings</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="notificationSettingsForm">
+                    <div class="settings-section">
+                        <h6>Notification Types</h6>
+                        <div class="notification-type-settings">
+                            @foreach (var type in new[] { "Like", "Comment", "Follow", "NewPost", "PostShare", "AdminMessage" })
+                            {
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label for="@type">@type Notifications</label>
+                                        <small class="text-muted">Receive notifications for @type.ToLower() activities</small>
+                                    </div>
+                                    <div class="setting-controls">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="@(type)_enabled" 
+                                                   @(Model.UserPreferences.ContainsKey(type) && Model.UserPreferences[type].IsEnabled ? "checked" : "")>
+                                            <label class="form-check-label" for="@(type)_enabled">Enable</label>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="@(type)_email" 
+                                                   @(Model.UserPreferences.ContainsKey(type) && Model.UserPreferences[type].EmailNotification ? "checked" : "")>
+                                            <label class="form-check-label" for="@(type)_email">Email</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveSettingsBtn">Save Settings</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/notifications.js"></script>
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/notifications.css">
+}

@@ -1,4 +1,372 @@
 ﻿@page
 @model NewsSite.Pages.ProfileModel
 @{
+    Layout = "~/Pages/Shared/_Layout.cshtml";
+    ViewData["Title"] = "Profile";
+    ViewData["HeaderData"] = Model.HeaderData;
+}
+
+<div class="profile-container">
+    <div class="profile-header">
+        <h2>My Profile</h2>
+        <p>Manage your account settings and preferences</p>
+    </div>
+
+    <!-- Profile Tabs -->
+    <div class="profile-tabs">
+        <button class="tab-btn active" data-tab="personal">Personal Info</button>
+        <button class="tab-btn" data-tab="preferences">Preferences</button>
+        <button class="tab-btn" data-tab="security">Security</button>
+        <button class="tab-btn" data-tab="stats">My Stats</button>
+    </div>
+
+    <!-- Personal Information Tab -->
+    <div id="personal" class="tab-content active">
+        <div class="profile-section">
+            <div class="section-header">
+                <h3>Personal Information</h3>
+                <button id="editPersonalBtn" class="edit-btn">Edit</button>
+            </div>
+            
+            <form id="personalInfoForm" class="profile-form">
+                <div class="form-row">
+                    <div class="avatar-section">
+                        <div class="avatar-large">
+                            <span id="avatarInitial">@(Model.HeaderData?.user?.Name?.Substring(0, 1).ToUpper() ?? "U")</span>
+                        </div>
+                        <button type="button" class="change-avatar-btn">Change Avatar</button>
+                    </div>
+                    <div class="form-fields">
+                        <div class="form-group">
+                            <label for="fullName">Full Name</label>
+                            <input type="text" id="fullName" name="fullName" value="@Model.HeaderData?.user?.Name" readonly />
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Email</label>
+                            <input type="email" id="email" name="email" value="@Model.HeaderData?.user?.Email" readonly />
+                        </div>
+                        <div class="form-group">
+                            <label for="bio">Bio</label>
+                            <textarea id="bio" name="bio" rows="3" placeholder="Tell us about yourself..." readonly></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-actions" style="display: none;">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <button type="button" id="cancelPersonalBtn" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Preferences Tab -->
+    <div id="preferences" class="tab-content">
+        <div class="profile-section">
+            <h3>News Preferences</h3>
+            <form id="preferencesForm" class="profile-form">
+                <div class="form-group">
+                    <label>Favorite Categories</label>
+                    <div class="category-checkboxes">
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="categories" value="politics" />
+                            <span>Politics</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="categories" value="technology" />
+                            <span>Technology</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="categories" value="sports" />
+                            <span>Sports</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="categories" value="entertainment" />
+                            <span>Entertainment</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="categories" value="health" />
+                            <span>Health</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Notification Settings</label>
+                    <div class="notification-settings">
+                        <label class="switch">
+                            <input type="checkbox" id="emailNotifications" />
+                            <span class="slider"></span>
+                            Email Notifications
+                        </label>
+                        <label class="switch">
+                            <input type="checkbox" id="pushNotifications" />
+                            <span class="slider"></span>
+                            Push Notifications
+                        </label>
+                        <label class="switch">
+                            <input type="checkbox" id="weeklyDigest" />
+                            <span class="slider"></span>
+                            Weekly Digest
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Preferences</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Security Tab -->
+    <div id="security" class="tab-content">
+        <div class="profile-section">
+            <h3>Security Settings</h3>
+            <form id="securityForm" class="profile-form">
+                <div class="form-group">
+                    <label for="currentPassword">Current Password</label>
+                    <input type="password" id="currentPassword" name="currentPassword" />
+                </div>
+                <div class="form-group">
+                    <label for="newPassword">New Password</label>
+                    <input type="password" id="newPassword" name="newPassword" />
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm New Password</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" />
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Update Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Stats Tab -->
+    <div id="stats" class="tab-content">
+        <div class="profile-section">
+            <h3>Your Activity</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="postsCount">0</div>
+                    <div class="stat-label">Posts Shared</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="likesCount">0</div>
+                    <div class="stat-label">Likes Given</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="savedCount">0</div>
+                    <div class="stat-label">Articles Saved</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="followersCount">0</div>
+                    <div class="stat-label">Followers</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Tab functionality
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const tabId = this.dataset.tab;
+                
+                // Remove active class from all tabs and content
+                document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked tab and corresponding content
+                this.classList.add('active');
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+
+        // Personal info edit functionality
+        const editPersonalBtn = document.getElementById('editPersonalBtn');
+        const cancelPersonalBtn = document.getElementById('cancelPersonalBtn');
+        const personalForm = document.getElementById('personalInfoForm');
+        const formActions = personalForm.querySelector('.form-actions');
+
+        editPersonalBtn.addEventListener('click', function() {
+            const inputs = personalForm.querySelectorAll('input, textarea');
+            inputs.forEach(input => {
+                if (input.id !== 'email') { // Email should remain readonly
+                    input.removeAttribute('readonly');
+                }
+            });
+            formActions.style.display = 'block';
+            editPersonalBtn.style.display = 'none';
+        });
+
+        cancelPersonalBtn.addEventListener('click', function() {
+            const inputs = personalForm.querySelectorAll('input, textarea');
+            inputs.forEach(input => input.setAttribute('readonly', true));
+            formActions.style.display = 'none';
+            editPersonalBtn.style.display = 'block';
+            
+            // Reset form values
+            personalForm.reset();
+        });
+
+        // Personal info form submission
+        personalForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const data = {
+                name: formData.get('fullName'),
+                bio: formData.get('bio')
+            };
+
+            try {
+                const response = await fetch('/api/User/UpdateProfile', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('jwtToken')
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    showToast('Profile updated successfully!', 'success');
+                    const inputs = personalForm.querySelectorAll('input, textarea');
+                    inputs.forEach(input => input.setAttribute('readonly', true));
+                    formActions.style.display = 'none';
+                    editPersonalBtn.style.display = 'block';
+                } else {
+                    showToast('Failed to update profile', 'error');
+                }
+            } catch (error) {
+                showToast('Network error occurred', 'error');
+            }
+        });
+
+        // Preferences form submission
+        document.getElementById('preferencesForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const selectedCategories = Array.from(this.querySelectorAll('input[name="categories"]:checked'))
+                .map(cb => cb.value);
+            
+            const preferences = {
+                categories: selectedCategories,
+                emailNotifications: document.getElementById('emailNotifications').checked,
+                pushNotifications: document.getElementById('pushNotifications').checked,
+                weeklyDigest: document.getElementById('weeklyDigest').checked
+            };
+
+            try {
+                const response = await fetch('/api/User/UpdatePreferences', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('jwtToken')
+                    },
+                    body: JSON.stringify(preferences)
+                });
+
+                if (response.ok) {
+                    showToast('Preferences saved successfully!', 'success');
+                } else {
+                    showToast('Failed to save preferences', 'error');
+                }
+            } catch (error) {
+                showToast('Network error occurred', 'error');
+            }
+        });
+
+        // Security form submission
+        document.getElementById('securityForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (newPassword !== confirmPassword) {
+                showToast('New passwords do not match', 'error');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                showToast('Password must be at least 6 characters long', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/Auth/update', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('jwtToken')
+                    },
+                    body: JSON.stringify({
+                        currentPassword: currentPassword,
+                        password: newPassword
+                    })
+                });
+
+                if (response.ok) {
+                    showToast('Password updated successfully!', 'success');
+                    this.reset();
+                } else {
+                    showToast('Failed to update password', 'error');
+                }
+            } catch (error) {
+                showToast('Network error occurred', 'error');
+            }
+        });
+
+        // Load user stats
+        async function loadUserStats() {
+            try {
+                const response = await fetch('/api/User/Stats', {
+                    headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem('jwtToken')
+                    }
+                });
+
+                if (response.ok) {
+                    const stats = await response.json();
+                    document.getElementById('postsCount').textContent = stats.postsCount || 0;
+                    document.getElementById('likesCount').textContent = stats.likesCount || 0;
+                    document.getElementById('savedCount').textContent = stats.savedCount || 0;
+                    document.getElementById('followersCount').textContent = stats.followersCount || 0;
+                }
+            } catch (error) {
+                console.error('Failed to load user stats:', error);
+            }
+        }
+
+        // Toast notification function
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            
+            const toastContainer = document.querySelector('.toast-container') || createToastContainer();
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 100);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function createToastContainer() {
+            const container = document.createElement('div');
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+            return container;
+        }
+
+        // Load stats when page loads
+        loadUserStats();
+    </script>
 }
