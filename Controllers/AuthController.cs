@@ -1,7 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using NewsSite.BL;
 using NewsSite.Models;
-
 namespace NewsSite.Controllers
 {
     [Route("api/[controller]")]

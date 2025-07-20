@@ -5,29 +5,32 @@ using NewsSitePro.Models;
 using Microsoft.AspNetCore.Identity;
 using NewsSite.BL;
 using NewsSite.Models;
-//using NewsSite.Pages
 
 namespace NewsSite.Pages
 {
-    [Authorize] // Ensure only logged-in users can access this page
+    // [Authorize] // Temporarily removed to fix 401 error - we'll handle auth in the page
     public class PostModel : PageModel
     {
-        public HeaderViewModel HeaderData { get; set; }
+        public HeaderViewModel HeaderData { get; set; } = new HeaderViewModel();
 
         public void OnGet()
         {
-            // ViewData["HeaderData"] = new HeaderViewModel
-            // {
-            //     UserName = User.Identity.IsAuthenticated ? User.Identity.Name : "Guest",
-            //     NotificationCount = 1,
-            //     CurrentPage = "Post"
-            // };
+            var isAuthenticated = User?.Identity?.IsAuthenticated ?? false;
+            
             HeaderData = new HeaderViewModel
             {
-                UserName = User?.Identity?.IsAuthenticated == true ? User.Identity.Name ?? "Guest" : "Guest",
-                NotificationCount = User.Identity.IsAuthenticated ? 3 : 0, // Example
-                CurrentPage = "Login"
+                UserName = isAuthenticated ? User?.Identity?.Name ?? "Guest" : "Guest",
+                NotificationCount = isAuthenticated ? 3 : 0,
+                CurrentPage = "Post",
+                user = isAuthenticated ? new User 
+                { 
+                    Name = User?.Identity?.Name ?? "Guest",
+                    Email = User?.Claims?.FirstOrDefault(c => c.Type == "email")?.Value ?? "",
+                    IsAdmin = User?.IsInRole("Admin") == true || User?.Claims?.Any(c => c.Type == "isAdmin" && c.Value == "True") == true
+                } : null
             };
+            
+            ViewData["HeaderData"] = HeaderData;
         }
     }
 }

@@ -4,7 +4,7 @@ using System.Text;
 using Microsoft.IdentityModel.Tokens; // namespace for SymmetricSecurityKey
 using System.IdentityModel.Tokens.Jwt; //  namespace for JwtSecurityToken and JwtSecurityTokenHandler
 using Microsoft.AspNetCore.Authorization; //  namespace for Claim
-
+using System.ComponentModel.DataAnnotations;
 
 namespace NewsSite.BL
 {
@@ -12,22 +12,28 @@ namespace NewsSite.BL
     {
         
         private int id;
-        private string name;
-        private string email; 
-        private string passwordHash;
+        private string? name;
+        private string? email; 
+        private string? passwordHash;
         private bool isAdmin;
         private bool isLocked;
-        private readonly object _config;
+        private string? bio;
+        private DateTime joinDate;
+        private readonly object? _config;
+        
         public User(IConfiguration config)
         {
             _config = config;
         }
+        
         public int Id { get => id; set => id = value; }
-        public string Name { get => name; set => name = value; }
-        public string Email { get => email; set => email = value; }
-        public string PasswordHash { get => passwordHash; set => passwordHash = value; }
+        public string? Name { get => name; set => name = value; }
+        public string? Email { get => email; set => email = value; }
+        public string? PasswordHash { get => passwordHash; set => passwordHash = value; }
         public bool IsAdmin { get => isAdmin; set => isAdmin = value; }
         public bool IsLocked { get => isLocked; set => isLocked = value; }
+        public string? Bio { get => bio; set => bio = value; }
+        public DateTime JoinDate { get => joinDate; set => joinDate = value; }
 
 
 
@@ -35,7 +41,7 @@ namespace NewsSite.BL
 
         public User() { }
 
-        public User(int id, string name, string email, string passwordHash, bool isAdmin, bool isLocked)
+        public User(int id, string? name, string? email, string? passwordHash, bool isAdmin, bool isLocked, string? bio = null, DateTime? joinDate = null)
         {
             this.id = id;
             this.name = name;
@@ -43,6 +49,8 @@ namespace NewsSite.BL
             this.passwordHash = passwordHash;
             this.isAdmin = isAdmin;
             this.isLocked = isLocked;
+            this.bio = bio;
+            this.joinDate = joinDate ?? DateTime.Now;
         }
 
 
@@ -179,7 +187,70 @@ namespace NewsSite.BL
                 return Convert.ToBase64String(hash);
             }
         }
+    }
 
+    // Admin-specific user view models
+    public class AdminUserView
+    {
+        public int Id { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string? FullName { get; set; }
+        public string? ProfilePicture { get; set; }
+        public DateTime JoinDate { get; set; }
+        public DateTime? LastActivity { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public int PostCount { get; set; }
+        public int LikesReceived { get; set; }
+        public bool IsAdmin { get; set; }
+    }
 
+    public class AdminUserDetails : AdminUserView
+    {
+        public string? Bio { get; set; }
+        public DateTime? BannedUntil { get; set; }
+        public string? BanReason { get; set; }
+        public List<ActivityLog> RecentActivity { get; set; } = new List<ActivityLog>();
+        public List<Report> Reports { get; set; } = new List<Report>();
+    }
+
+    public class ActivityLog
+    {
+        public int Id { get; set; }
+        public int UserId { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string Action { get; set; } = string.Empty;
+        public string Details { get; set; } = string.Empty;
+        public DateTime Timestamp { get; set; }
+        public string IpAddress { get; set; } = string.Empty;
+        public string UserAgent { get; set; } = string.Empty;
+    }
+
+    public class UserReport
+    {
+        public int Id { get; set; }
+        public int ReporterId { get; set; }
+        public string ReporterUsername { get; set; } = string.Empty;
+        public int ReportedUserId { get; set; }
+        public string ReportedUsername { get; set; } = string.Empty;
+        public string Reason { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+        public string Status { get; set; } = "Pending"; // Pending, Resolved, Dismissed
+        public int? ResolvedBy { get; set; }
+        public DateTime? ResolvedAt { get; set; }
+        public string? ResolutionNotes { get; set; }
+    }
+
+    public class AdminDashboardStats
+    {
+        public int TotalUsers { get; set; }
+        public int ActiveUsers { get; set; }
+        public int BannedUsers { get; set; }
+        public int TotalPosts { get; set; }
+        public int TotalReports { get; set; }
+        public int PendingReports { get; set; }
+        public int TodayRegistrations { get; set; }
+        public int TodayPosts { get; set; }
     }
 }

@@ -1,0 +1,494 @@
+@page "/user/{userId:int}"
+@model NewsSite.Pages.UserProfileModel
+@{
+    ViewData["Title"] = $"{Model.UserProfile?.Username ?? "User"}'s Profile";
+}
+
+<div class="user-profile-container">
+    <div class="profile-header">
+        <div class="user-avatar">
+            <div class="avatar-circle">
+                <i class="fas fa-user"></i>
+            </div>
+        </div>
+        <div class="user-info">
+            <h1 class="username">@Model.UserProfile?.Username</h1>
+            <p class="user-bio">@(Model.UserProfile?.Bio ?? "No bio available")</p>
+            <p class="join-date">
+                <i class="fas fa-calendar-alt"></i>
+                Joined @Model.UserProfile?.JoinDate.ToString("MMMM yyyy")
+            </p>
+            @if (Model.UserProfile?.IsAdmin == true)
+            {
+                <span class="admin-badge">
+                    <i class="fas fa-star"></i> Admin
+                </span>
+            }
+        </div>
+    </div>
+
+    <div class="profile-stats">
+        <div class="stat-item">
+            <span class="stat-number">@Model.UserProfile?.Activity?.PostsCount</span>
+            <span class="stat-label">Posts</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-number">@Model.UserProfile?.Activity?.LikesCount</span>
+            <span class="stat-label">Likes Given</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-number">@Model.UserProfile?.Activity?.FollowersCount</span>
+            <span class="stat-label">Followers</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-number">@Model.UserProfile?.Activity?.SavedCount</span>
+            <span class="stat-label">Saved Articles</span>
+        </div>
+    </div>
+
+    <div class="profile-content">
+        <div class="content-tabs">
+            <button class="tab-btn active" data-tab="posts">
+                <i class="fas fa-newspaper"></i> Recent Posts
+            </button>
+            <button class="tab-btn" data-tab="activity">
+                <i class="fas fa-chart-line"></i> Activity
+            </button>
+        </div>
+
+        <div class="tab-content active" id="posts-tab">
+            <div class="user-posts">
+                @if (Model.UserProfile?.RecentPosts?.Any() == true)
+                {
+                    @foreach (var post in Model.UserProfile.RecentPosts)
+                    {
+                        <div class="post-card">
+                            <div class="post-header">
+                                <h3 class="post-title">@post.Title</h3>
+                                <div class="post-meta">
+                                    <span class="post-category">@post.Category</span>
+                                    <span class="post-date">@post.PublishDate.ToString("MMM dd, yyyy")</span>
+                                </div>
+                            </div>
+                            
+                            @if (!string.IsNullOrEmpty(post.ImageURL))
+                            {
+                                <div class="post-image">
+                                    <img src="@post.ImageURL" alt="@post.Title" loading="lazy">
+                                </div>
+                            }
+                            
+                            <div class="post-content">
+                                <p>@post.Content</p>
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(post.SourceURL))
+                            {
+                                <div class="post-source">
+                                    <i class="fas fa-external-link-alt"></i>
+                                    <span>Source: 
+                                        <a href="@post.SourceURL" target="_blank" rel="noopener">
+                                            @(post.SourceName ?? "External Link")
+                                        </a>
+                                    </span>
+                                </div>
+                            }
+                            
+                            <div class="post-stats">
+                                <span class="stat">
+                                    <i class="fas fa-heart"></i> @post.LikesCount likes
+                                </span>
+                                <span class="stat">
+                                    <i class="fas fa-eye"></i> @post.ViewsCount views
+                                </span>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <i class="fas fa-newspaper"></i>
+                        <h3>No posts yet</h3>
+                        <p>This user hasn't published any articles yet.</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="tab-content" id="activity-tab">
+            <div class="activity-overview">
+                <h3>Activity Overview</h3>
+                <div class="activity-grid">
+                    <div class="activity-card">
+                        <i class="fas fa-edit"></i>
+                        <div>
+                            <h4>Articles Published</h4>
+                            <p>@Model.UserProfile?.Activity?.PostsCount total articles</p>
+                        </div>
+                    </div>
+                    <div class="activity-card">
+                        <i class="fas fa-thumbs-up"></i>
+                        <div>
+                            <h4>Engagement</h4>
+                            <p>@Model.UserProfile?.Activity?.LikesCount likes given to other posts</p>
+                        </div>
+                    </div>
+                    <div class="activity-card">
+                        <i class="fas fa-bookmark"></i>
+                        <div>
+                            <h4>Curated Content</h4>
+                            <p>@Model.UserProfile?.Activity?.SavedCount articles saved for later</p>
+                        </div>
+                    </div>
+                    <div class="activity-card">
+                        <i class="fas fa-users"></i>
+                        <div>
+                            <h4>Community</h4>
+                            <p>@Model.UserProfile?.Activity?.FollowersCount followers</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // Tab switching functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const targetTab = this.dataset.tab;
+                
+                // Remove active class from all tabs and contents
+                tabBtns.forEach(b => b.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked tab and corresponding content
+                this.classList.add('active');
+                document.getElementById(targetTab + '-tab').classList.add('active');
+            });
+        });
+    });
+</script>
+}
+
+<style>
+.user-profile-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.user-avatar .avatar-circle {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 3rem;
+}
+
+.user-info {
+    flex: 1;
+}
+
+.username {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem 0;
+    color: #2c3e50;
+}
+
+.user-bio {
+    font-size: 1.1rem;
+    color: #666;
+    margin: 0 0 1rem 0;
+    line-height: 1.5;
+}
+
+.join-date {
+    color: #888;
+    margin: 0 0 1rem 0;
+}
+
+.join-date i {
+    margin-right: 0.5rem;
+}
+
+.admin-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.admin-badge i {
+    margin-right: 0.5rem;
+}
+
+.profile-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    color: white;
+}
+
+.stat-number {
+    display: block;
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.content-tabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+    color: #666;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.tab-btn:hover, .tab-btn.active {
+    color: #007bff;
+    border-bottom-color: #007bff;
+}
+
+.tab-btn i {
+    margin-right: 0.5rem;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.post-card {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border-left: 4px solid #007bff;
+}
+
+.post-header {
+    margin-bottom: 1rem;
+}
+
+.post-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem 0;
+    color: #2c3e50;
+}
+
+.post-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.post-category {
+    background: #007bff;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-weight: 500;
+}
+
+.post-image {
+    margin: 1rem 0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.post-image img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+
+.post-content p {
+    line-height: 1.6;
+    color: #555;
+    margin: 0;
+}
+
+.post-source {
+    margin: 1rem 0;
+    padding: 0.75rem;
+    background: rgba(0, 123, 255, 0.1);
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+.post-source i {
+    color: #007bff;
+    margin-right: 0.5rem;
+}
+
+.post-source a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.post-source a:hover {
+    text-decoration: underline;
+}
+
+.post-stats {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.post-stats .stat i {
+    margin-right: 0.25rem;
+    color: #007bff;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: #666;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    color: #ddd;
+    margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+    margin: 1rem 0 0.5rem 0;
+    color: #888;
+}
+
+.activity-overview h3 {
+    margin-bottom: 1.5rem;
+    color: #2c3e50;
+}
+
+.activity-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.activity-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 12px;
+    border-left: 4px solid #28a745;
+}
+
+.activity-card i {
+    font-size: 2rem;
+    color: #28a745;
+}
+
+.activity-card h4 {
+    margin: 0 0 0.5rem 0;
+    color: #2c3e50;
+    font-size: 1.1rem;
+}
+
+.activity-card p {
+    margin: 0;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+@@media (max-width: 768px) {
+    .user-profile-container {
+        padding: 1rem;
+        margin: 1rem;
+    }
+    
+    .profile-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+    }
+    
+    .user-avatar .avatar-circle {
+        width: 80px;
+        height: 80px;
+        font-size: 2rem;
+    }
+    
+    .username {
+        font-size: 2rem;
+    }
+    
+    .profile-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    
+    .content-tabs {
+        flex-wrap: wrap;
+    }
+    
+    .activity-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
