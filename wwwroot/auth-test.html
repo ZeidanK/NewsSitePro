@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Test - NewsSite Pro</title>
+    <link rel="stylesheet" href="css/notifications.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 20px;
+        }
+        .test-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .auth-status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .authenticated {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .unauthenticated {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .token-display {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 0.8rem;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header using auth service -->
+    <header>
+        <div class="header-container">
+            <a class="logo" href="/">NewsSite Pro</a>
+            
+            <button class="mobile-menu-toggle" id="mobileMenuToggle" type="button">
+                ☰
+            </button>
+            
+            <nav class="nav-menu" id="navMenu">
+                <!-- Navigation will be populated by auth-service.js -->
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Sidebar using auth service -->
+        <div class="left-sidebar" id="leftSidebar">
+            <div class="sidebar-content">
+                <!-- User Profile Section - will be updated by auth service -->
+                <div class="user-profile-section" id="userProfileSection">
+                    <div class="user-avatar" id="userAvatar">
+                        <!-- Avatar will be set by auth service -->
+                    </div>
+                    <h4 data-user-name></h4>
+                    <p class="user-email" data-user-email></p>
+                </div>
+
+                <!-- Navigation Menu -->
+                <nav class="sidebar-nav">
+                    <ul class="nav-list">
+                        <li class="nav-item">
+                            <a href="/" class="nav-link">
+                                <span class="nav-icon">🏠</span>
+                                <span class="nav-text">Home</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/Posts" class="nav-link">
+                                <span class="nav-icon">📰</span>
+                                <span class="nav-text">News Feed</span>
+                            </a>
+                        </li>
+                        
+                        <!-- Auth Required Items -->
+                        <li class="nav-item" data-auth-required>
+                            <a href="/Profile" class="nav-link">
+                                <span class="nav-icon">👤</span>
+                                <span class="nav-text">Profile</span>
+                            </a>
+                        </li>
+                        <li class="nav-item" data-auth-required>
+                            <a href="/Post" class="nav-link">
+                                <span class="nav-icon">✏️</span>
+                                <span class="nav-text">Create Post</span>
+                            </a>
+                        </li>
+                        <li class="nav-item" data-auth-required>
+                            <a href="/Notifications" class="nav-link">
+                                <span class="nav-icon">🔔</span>
+                                <span class="nav-text">Notifications</span>
+                                <span class="notification-badge" style="display: none;"></span>
+                            </a>
+                        </li>
+                        <li class="nav-item" data-auth-required data-admin-only style="display: none;">
+                            <a href="/Admin" class="nav-link">
+                                <span class="nav-icon">⚙️</span>
+                                <span class="nav-text">Admin Panel</span>
+                            </a>
+                        </li>
+                        
+                        <!-- Guest Only Items -->
+                        <li class="nav-item" data-guest-only>
+                            <a href="/Login" class="nav-link">
+                                <span class="nav-icon">🔐</span>
+                                <span class="nav-text">Login</span>
+                            </a>
+                        </li>
+                        <li class="nav-item" data-guest-only>
+                            <a href="/Register" class="nav-link">
+                                <span class="nav-icon">✍️</span>
+                                <span class="nav-text">Register</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Main content area for testing -->
+        <div class="test-panel">
+            <h1>Authentication State Test</h1>
+            
+            <div id="authStatus" class="auth-status unauthenticated">
+                Authentication Status: Not loaded
+            </div>
+            
+            <div class="test-controls">
+                <h3>Test Controls</h3>
+                <button class="test-button" onclick="testLogin()">Test Login</button>
+                <button class="test-button" onclick="testLogout()">Test Logout</button>
+                <button class="test-button" onclick="testNotifications()">Test Notifications</button>
+                <button class="test-button" onclick="checkAuthState()">Check Auth State</button>
+                <button class="test-button" onclick="clearTokens()">Clear All Tokens</button>
+            </div>
+            
+            <div class="token-info">
+                <h3>Token Information</h3>
+                <div id="tokenDisplay" class="token-display">No token found</div>
+            </div>
+            
+            <div class="user-info">
+                <h3>User Information</h3>
+                <div id="userInfo">No user data available</div>
+            </div>
+            
+            <div class="notification-info">
+                <h3>Notification Count</h3>
+                <div id="notificationInfo">Not checked</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth service -->
+    <script src="js/auth-service.js"></script>
+    
+    <script>
+        // Test functions
+        async function testLogin() {
+            try {
+                const response = await fetch('/api/Auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'test@example.com',  // Replace with actual test credentials
+                        password: 'password123'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('jwtToken', data.token);
+                    document.cookie = `jwtToken=${data.token}; path=/;`;
+                    await authService.checkAuthStatus();
+                    updateTestDisplay();
+                    alert('Login successful! Header and sidebar should update.');
+                } else {
+                    alert('Login failed. Check credentials.');
+                }
+            } catch (error) {
+                alert('Login error: ' + error.message);
+            }
+        }
+        
+        async function testLogout() {
+            authService.logout();
+            updateTestDisplay();
+            alert('Logged out! Header and sidebar should update.');
+        }
+        
+        async function testNotifications() {
+            if (!authService.isAuthenticated) {
+                alert('Must be logged in to test notifications');
+                return;
+            }
+            
+            await authService.toggleNotificationDropdown();
+        }
+        
+        async function checkAuthState() {
+            await authService.checkAuthStatus();
+            updateTestDisplay();
+        }
+        
+        function clearTokens() {
+            localStorage.removeItem('jwtToken');
+            document.cookie = 'jwtToken=; Max-Age=0; path=/;';
+            authService.setUnauthenticated();
+            authService.updateUI();
+            updateTestDisplay();
+            alert('All tokens cleared');
+        }
+        
+        function updateTestDisplay() {
+            const authStatus = document.getElementById('authStatus');
+            const tokenDisplay = document.getElementById('tokenDisplay');
+            const userInfo = document.getElementById('userInfo');
+            const notificationInfo = document.getElementById('notificationInfo');
+            
+            // Update auth status
+            if (authService.isAuthenticated) {
+                authStatus.className = 'auth-status authenticated';
+                authStatus.textContent = 'Authentication Status: Logged In';
+            } else {
+                authStatus.className = 'auth-status unauthenticated';
+                authStatus.textContent = 'Authentication Status: Not Logged In';
+            }
+            
+            // Update token display
+            const token = authService.getToken();
+            if (token) {
+                tokenDisplay.textContent = `Token: ${token.substring(0, 50)}...`;
+            } else {
+                tokenDisplay.textContent = 'No token found';
+            }
+            
+            // Update user info
+            if (authService.currentUser) {
+                userInfo.innerHTML = `
+                    <strong>Name:</strong> ${authService.currentUser.name || 'N/A'}<br>
+                    <strong>Email:</strong> ${authService.currentUser.email || 'N/A'}<br>
+                    <strong>ID:</strong> ${authService.currentUser.id || 'N/A'}<br>
+                    <strong>Admin:</strong> ${authService.currentUser.isAdmin ? 'Yes' : 'No'}
+                `;
+            } else {
+                userInfo.textContent = 'No user data available';
+            }
+            
+            // Update notification info
+            notificationInfo.textContent = `Notification Count: ${authService.notificationCount}`;
+        }
+        
+        // Update display when auth service loads
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                updateTestDisplay();
+            }, 1000); // Give auth service time to initialize
+        });
+        
+        // Listen for auth service updates
+        setInterval(updateTestDisplay, 2000);
+    </script>
+</body>
+</html>
