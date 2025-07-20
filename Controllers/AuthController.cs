@@ -30,12 +30,27 @@ namespace NewsSite.Controllers
         [HttpPost("register")]
         public IActionResult Register([FromBody] RegisterRequest request)
         {
-            var user = new User();
-            bool success = user.Register(request.Name, request.Email, request.Password);
-            if (!success)
-                return BadRequest("User already exists.");
+            try
+            {
+                var user = new User();
+                bool success = user.Register(request.Name, request.Email, request.Password);
+                if (!success)
+                    return BadRequest("Registration failed. User may already exist.");
 
-            return Ok("Registration successful.");
+                return Ok("Registration successful.");
+            }
+            catch (System.Data.SqlClient.SqlException ex)
+            {
+                if (ex.Number == 2627) // UNIQUE constraint violation
+                {
+                    return BadRequest("A user with this email already exists.");
+                }
+                return BadRequest("Registration failed due to a database error.");
+            }
+            catch (Exception)
+            {
+                return BadRequest("Registration failed. Please try again.");
+            }
         }
 
         

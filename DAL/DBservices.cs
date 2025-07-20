@@ -202,6 +202,7 @@ public class DBservices
 
 
 
+    // Get user by id, username, or email
     public User GetUser(string email = null, int? id = null, string name = null)
     {
         SqlConnection con = null;
@@ -211,19 +212,15 @@ public class DBservices
 
         try
         {
-            con = connect("myProjDB"); // create the connection  
-
+            con = connect("myProjDB");
             var paramDic = new Dictionary<string, object>
-        {
-            { "@UserID", id.HasValue ? id.Value : DBNull.Value },
-            { "@Username", string.IsNullOrEmpty(name) ? DBNull.Value : name },
-            { "@Email", string.IsNullOrEmpty(email) ? DBNull.Value : email }
-        };
-
-            cmd = CreateCommandWithStoredProcedureGeneral("sp_Users_News_Get", con, paramDic); // create the command  
-
+            {
+                { "@UserID", id.HasValue ? id.Value : DBNull.Value },
+                { "@Username", string.IsNullOrEmpty(name) ? DBNull.Value : name },
+                { "@Email", string.IsNullOrEmpty(email) ? DBNull.Value : email }
+            };
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Users_Get", con, paramDic);
             reader = cmd.ExecuteReader();
-
             if (reader.Read())
             {
                 user = new User
@@ -235,7 +232,9 @@ public class DBservices
                     IsAdmin = reader["IsAdmin"] != DBNull.Value && Convert.ToBoolean(reader["IsAdmin"]),
                     IsLocked = reader["IsLocked"] != DBNull.Value && Convert.ToBoolean(reader["IsLocked"]),
                     Bio = reader["Bio"]?.ToString(),
-                    JoinDate = reader["JoinDate"] != DBNull.Value ? Convert.ToDateTime(reader["JoinDate"]) : DateTime.Now
+                    JoinDate = reader["JoinDate"] != DBNull.Value ? Convert.ToDateTime(reader["JoinDate"]) : DateTime.Now,
+                    // Add ProfilePicture if needed
+                    // ProfilePicture = reader["ProfilePicture"]?.ToString()
                 };
             }
         }
@@ -248,70 +247,104 @@ public class DBservices
             reader?.Close();
             con?.Close();
         }
-
         return user;
     }
 
-public bool CreateUser(User user)
-{
-    SqlConnection con = null;
-    SqlCommand cmd = null;
-    try
+    // Check if email already exists
+    public bool EmailExists(string email)
     {
-        con = connect("myProjDB");
-        var paramDic = new Dictionary<string, object>
+        var user = GetUser(email: email);
+        return user != null;
+    }
+
+    // Create user
+    public bool CreateUser(User user)
+    {
+        SqlConnection con = null;
+        SqlCommand cmd = null;
+        try
         {
-            { "@Username", user.Name },
-            { "@Email", user.Email },
-            { "@PasswordHash", user.PasswordHash },
-            { "@IsAdmin", user.IsAdmin },
-            { "@IsLocked", user.IsLocked }
-        };
-
-        cmd = CreateCommandWithStoredProcedureGeneral("sp_Users_News_Insert", con, paramDic);
-        int affectedRows = cmd.ExecuteNonQuery();
-        return affectedRows > 0;
-    }
-    catch (Exception)
-    {
-        throw;
-    }
-    finally
-    {
-        con?.Close();
-    }
-}
-
-public bool UpdateUser(User user)
-{
-    SqlConnection con = null;
-    SqlCommand cmd = null;
-    try
-    {
-        con = connect("myProjDB");
-        var paramDic = new Dictionary<string, object>
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@Username", user.Name },
+                { "@Email", user.Email },
+                { "@PasswordHash", user.PasswordHash },
+                { "@IsAdmin", user.IsAdmin },
+                { "@IsLocked", user.IsLocked },
+                { "@Bio", user.Bio ?? (object)DBNull.Value }
+            };
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Users_Insert", con, paramDic);
+            int affectedRows = cmd.ExecuteNonQuery();
+            return affectedRows > 0;
+        }
+        catch (Exception)
         {
-            { "@UserID", user.Id },
-            { "@Username", user.Name },
-            { "@PasswordHash", user.PasswordHash },
-            { "@IsAdmin", user.IsAdmin },
-            { "@IsLocked", user.IsLocked }
-        };
+            throw;
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
 
-        cmd = CreateCommandWithStoredProcedureGeneral("sp_Users_News_Update", con, paramDic);
-        int affectedRows = cmd.ExecuteNonQuery();
-        return affectedRows > 0;
-    }
-    catch (Exception)
+    // Update user (basic info)
+    public bool UpdateUser(User user)
     {
-        throw;
+        SqlConnection con = null;
+        SqlCommand cmd = null;
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@UserID", user.Id },
+                { "@Username", user.Name },
+                { "@PasswordHash", user.PasswordHash },
+                { "@IsAdmin", user.IsAdmin },
+                { "@IsLocked", user.IsLocked },
+                { "@Bio", user.Bio ?? (object)DBNull.Value }
+            };
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Users_Update", con, paramDic);
+            int affectedRows = cmd.ExecuteNonQuery();
+            return affectedRows > 0;
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+        finally
+        {
+            con?.Close();
+        }
     }
-    finally
-    {
-        con?.Close();
-    }
-}
 
+    // Update user profile picture
+    public async Task<bool> UpdateUserProfilePic(int userId, string profilePicPath)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@UserID", userId },
+                { "@ProfilePicture", profilePicPath }
+            };
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Users_UpdateProfilePic", con, paramDic);
+            int affectedRows = await cmd.ExecuteNonQueryAsync();
+            return affectedRows > 0;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
 
     //--------------------------------------------------------------------------------------------------
     // News Articles Database Methods
@@ -1894,5 +1927,178 @@ public bool UpdateUser(User user)
         return await GetUserNotificationPreferences(userId);
     }
 
+    //--------------------------------------------------------------------------------------------------
+    // Comment Management Methods
+    //--------------------------------------------------------------------------------------------------
+    
+    public async Task<List<NewsSite.BL.Comment>> GetCommentsByPostId(int postId)
+    {
+        var comments = new List<NewsSite.BL.Comment>();
+        SqlConnection con = null;
+        SqlCommand cmd = null;
+        SqlDataReader reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@PostID", postId }
+            };
+            
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Comments_GetByPostID", con, paramDic);
+            reader = await cmd.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                var comment = new NewsSite.BL.Comment
+                {
+                    ID = Convert.ToInt32(reader["CommentID"]),
+                    PostID = Convert.ToInt32(reader["PostID"]),
+                    UserID = Convert.ToInt32(reader["UserID"]),
+                    Content = reader["Content"]?.ToString() ?? "",
+                    CreatedAt = Convert.ToDateTime(reader["CreatedAt"]),
+                    UpdatedAt = reader["UpdatedAt"] != DBNull.Value ? Convert.ToDateTime(reader["UpdatedAt"]) : null,
+                    IsDeleted = Convert.ToBoolean(reader["IsDeleted"]),
+                    ParentCommentID = reader["ParentCommentID"] != DBNull.Value ? Convert.ToInt32(reader["ParentCommentID"]) : null,
+                    UserName = reader["UserName"]?.ToString(),
+                    LikesCount = reader["LikesCount"] != DBNull.Value ? Convert.ToInt32(reader["LikesCount"]) : 0
+                };
+                comments.Add(comment);
+            }
+            
+            // Organize comments into parent-child structure
+            var parentComments = comments.Where(c => c.ParentCommentID == null).ToList();
+            foreach (var parent in parentComments)
+            {
+                parent.Replies = comments.Where(c => c.ParentCommentID == parent.ID).ToList();
+            }
+            
+            return parentComments;
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    public async Task<bool> CreateComment(NewsSite.BL.Comment comment)
+    {
+        SqlConnection con = null;
+        SqlCommand cmd = null;
+        
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@PostID", comment.PostID },
+                { "@UserID", comment.UserID },
+                { "@Content", comment.Content },
+                { "@ParentCommentID", comment.ParentCommentID ?? (object)DBNull.Value }
+            };
+            
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Comments_Insert", con, paramDic);
+            int result = await cmd.ExecuteNonQueryAsync();
+            return result > 0;
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
+
+    public async Task<bool> UpdateComment(int commentId, int userId, string content)
+    {
+        SqlConnection con = null;
+        SqlCommand cmd = null;
+        
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@CommentID", commentId },
+                { "@UserID", userId },
+                { "@Content", content }
+            };
+            
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Comments_Update", con, paramDic);
+            int result = await cmd.ExecuteNonQueryAsync();
+            return result > 0;
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
+
+    public async Task<bool> DeleteComment(int commentId, int userId)
+    {
+        SqlConnection con = null;
+        SqlCommand cmd = null;
+        
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@CommentID", commentId },
+                { "@UserID", userId }
+            };
+            
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Comments_Delete", con, paramDic);
+            int result = await cmd.ExecuteNonQueryAsync();
+            return result > 0;
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
+
+    public async Task<int> GetCommentsCount(int postId)
+    {
+        SqlConnection con = null;
+        SqlCommand cmd = null;
+        
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@PostID", postId }
+            };
+            
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Comments_GetCount", con, paramDic);
+            object result = await cmd.ExecuteScalarAsync();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
 
 }
