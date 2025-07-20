@@ -261,6 +261,47 @@ namespace NewsSite.Controllers
             }
         }
 
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeletePost(int id)
+        {
+            try
+            {
+                var currentUserId = GetCurrentUserId();
+                if (currentUserId == null)
+                {
+                    return Unauthorized(new { success = false, message = "Authentication required" });
+                }
+
+                // Get the post to check ownership
+                var post = await _dbService.GetNewsArticleById(id);
+                if (post == null)
+                {
+                    return NotFound(new { success = false, message = "Post not found" });
+                }
+
+                // Check if current user owns the post or is admin
+                if (post.UserID != currentUserId && !IsCurrentUserAdmin())
+                {
+                    return StatusCode(403, new { success = false, message = "You don't have permission to delete this post" });
+                }
+
+                // Delete the post
+                bool success = await _dbService.DeleteNewsArticle(id);
+                if (success)
+                {
+                    return Ok(new { success = true, message = "Post deleted successfully" });
+                }
+                else
+                {
+                    return BadRequest(new { success = false, message = "Failed to delete post" });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "Internal server error: " + ex.Message });
+            }
+        }
+
         private bool IsCurrentUserAdmin()
         {
             try
