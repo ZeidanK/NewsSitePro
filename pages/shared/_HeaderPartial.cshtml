@@ -1,0 +1,30 @@
+@model NewsSitePro.Models.HeaderViewModel
+
+<header class="main-header">
+    <nav class="header-nav">
+        <div class="header-brand">
+            <a href="/" class="brand-link">
+                <span class="brand-icon">📰</span>
+                <span class="brand-text">NewsSitePro</span>
+            </a>
+        </div>
+        
+        <div class="header-controls" id="headerControls">
+            <!-- Will be populated by auth service -->
+        </div>
+        
+        <!-- Notification Dropdown -->
+        <div class="notification-dropdown" id="notificationDropdown">
+            <div class="notification-header">
+                <h4>Notifications</h4>
+                <button class="mark-all-read" onclick="authService.markAllNotificationsRead()">Mark all as read</button>
+            </div>
+            <div class="notification-content" id="notificationContent">
+                <!-- Notifications will be loaded here -->
+            </div>
+            <div class="notification-footer">
+                <a href="/Notifications" class="view-all-link">View all notifications</a>
+            </div>
+        </div>
+    </nav>
+</header>
