@@ -1,8 +1,41 @@
-@page "/user/{userId:int}"
+@page "/userprofile/{userId:int?}"
 @model NewsSite.Pages.UserProfileModel
 @{
+    Layout = "~/Pages/Shared/_Layout.cshtml";
     ViewData["Title"] = $"{Model.UserProfile?.Username ?? "User"}'s Profile";
+    ViewData["HeaderData"] = Model.HeaderData;
 }
+
+@if (ViewData["ErrorMessage"] != null)
+{
+    <div class="container mt-4">
+        <div class="alert alert-danger" role="alert">
+            <h4 class="alert-heading">
+                <i class="fas fa-exclamation-triangle"></i>
+                Error
+            </h4>
+            <p>@ViewData["ErrorMessage"]</p>
+            @if (ViewData["ExceptionMessage"] != null)
+            {
+                <hr>
+                <p class="mb-0 small text-muted">
+                    <strong>Technical details:</strong> @ViewData["ExceptionMessage"]
+                </p>
+            }
+            <hr>
+            <div class="d-flex gap-2">
+                <a href="/" class="btn btn-primary">
+                    <i class="fas fa-home"></i> Go Home
+                </a>
+                <button onclick="window.history.back()" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Go Back
+                </button>
+            </div>
+        </div>
+    </div>
+}
+else
+{
 
 <div class="user-profile-container">
     <div class="profile-header">
@@ -40,50 +73,90 @@
                     <i class="fas fa-star"></i> Admin
                 </span>
             }
+            
+            @* Action buttons *@
+            <div class="profile-actions mt-3">
+                @if (Model.IsOwnProfile)
+                {
+                    <a href="/Profile" class="btn btn-primary">
+                        <i class="fas fa-edit"></i> Edit Profile
+                    </a>
+                }
+                else
+                {
+                    <button type="button" class="btn btn-outline-primary btn-follow" 
+                            data-user-id="@(Model.UserProfile?.UserID ?? 0)"
+                            data-following="@Model.IsFollowing.ToString().ToLower()">
+                        <i class="fas @(Model.IsFollowing ? "fa-user-minus" : "fa-user-plus")"></i>
+                        @(Model.IsFollowing ? "Unfollow" : "Follow")
+                    </button>
+                }
+            </div>
         </div>
     </div>
 
     <div class="profile-stats">
         <div class="stat-item">
-            <span class="stat-number">@Model.UserProfile?.Activity?.PostsCount</span>
+            <span class="stat-number">@(Model.UserProfile?.Activity?.PostsCount ?? 0)</span>
             <span class="stat-label">Posts</span>
         </div>
         <div class="stat-item">
-            <span class="stat-number">@Model.UserProfile?.Activity?.LikesCount</span>
+            <span class="stat-number">@(Model.UserProfile?.Activity?.LikesCount ?? 0)</span>
             <span class="stat-label">Likes Given</span>
         </div>
         <div class="stat-item">
-            <span class="stat-number">@Model.UserProfile?.Activity?.FollowersCount</span>
-            <span class="stat-label">Followers</span>
+            <span class="stat-number">@(Model.UserProfile?.Activity?.SavedCount ?? 0)</span>
+            <span class="stat-label">Saved Articles</span>
         </div>
         <div class="stat-item">
-            <span class="stat-number">@Model.UserProfile?.Activity?.SavedCount</span>
-            <span class="stat-label">Saved Articles</span>
+            <span class="stat-number">@(Model.UserProfile?.Activity?.FollowersCount ?? 0)</span>
+            <span class="stat-label">Followers</span>
         </div>
     </div>
 
     <div class="profile-content">
         <div class="content-tabs">
             <button class="tab-btn active" data-tab="posts">
-                <i class="fas fa-newspaper"></i> Recent Posts
+                <i class="fas fa-newspaper"></i> My Posts
             </button>
+            @if (Model.IsOwnProfile)
+            {
+                <button class="tab-btn" data-tab="liked">
+                    <i class="fas fa-heart"></i> Liked Posts
+                </button>
+                <button class="tab-btn" data-tab="saved">
+                    <i class="fas fa-bookmark"></i> Saved Posts
+                </button>
+            }
             <button class="tab-btn" data-tab="activity">
                 <i class="fas fa-chart-line"></i> Activity
             </button>
         </div>
 
+        <!-- My Posts Tab -->
         <div class="tab-content active" id="posts-tab">
             <div class="user-posts">
                 @if (Model.UserProfile?.RecentPosts?.Any() == true)
                 {
                     @foreach (var post in Model.UserProfile.RecentPosts)
                     {
-                        <div class="post-card">
+                        <div class="post-card" data-post-id="@post.ArticleID">
                             <div class="post-header">
                                 <h3 class="post-title">@post.Title</h3>
                                 <div class="post-meta">
                                     <span class="post-category">@post.Category</span>
                                     <span class="post-date">@post.PublishDate.ToString("MMM dd, yyyy")</span>
+                                    @if (Model.IsOwnProfile)
+                                    {
+                                        <div class="post-actions">
+                                            <button class="btn btn-sm btn-outline-primary edit-post" data-post-id="@post.ArticleID">
+                                                <i class="fas fa-edit"></i> Edit
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger delete-post" data-post-id="@post.ArticleID">
+                                                <i class="fas fa-trash"></i> Delete
+                                            </button>
+                                        </div>
+                                    }
                                 </div>
                             </div>
                             
@@ -117,7 +190,31 @@
                                 <span class="stat">
                                     <i class="fas fa-eye"></i> @post.ViewsCount views
                                 </span>
+                                <div class="post-actions-inline">
+                                    <a href="/Post/@post.ArticleID" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-external-link-alt"></i> Read More
+                                    </a>
+                                    @if (Model.IsOwnProfile)
+                                    {
+                                        <button class="btn btn-sm btn-outline-success comment-own-post" data-post-id="@post.ArticleID">
+                                            <i class="fas fa-comment"></i> Comment
+                                        </button>
+                                    }
+                                </div>
                             </div>
+
+                            <!-- Comment section for own posts -->
+                            @if (Model.IsOwnProfile)
+                            {
+                                <div class="comment-section" id="comment-section-@post.ArticleID" style="display: none;">
+                                    <div class="add-comment">
+                                        <textarea class="form-control comment-input" data-post-id="@post.ArticleID" placeholder="Add a comment to your post..."></textarea>
+                                        <button class="btn btn-primary btn-sm mt-2 submit-comment" data-post-id="@post.ArticleID">
+                                            <i class="fas fa-paper-plane"></i> Post Comment
+                                        </button>
+                                    </div>
+                                </div>
+                            }
                         </div>
                     }
                 }
@@ -126,11 +223,40 @@
                     <div class="empty-state">
                         <i class="fas fa-newspaper"></i>
                         <h3>No posts yet</h3>
-                        <p>This user hasn't published any articles yet.</p>
+                        @if (Model.IsOwnProfile)
+                        {
+                            <p>You haven't published any articles yet. Start sharing your thoughts with the community!</p>
+                            <a href="/Post" class="btn btn-primary mt-2">
+                                <i class="fas fa-plus"></i> Create Your First Post
+                            </a>
+                        }
+                        else
+                        {
+                            <p>@(Model.UserProfile?.Username ?? "This user") hasn't published any articles yet.</p>
+                        }
                     </div>
                 }
             </div>
         </div>
+
+        <!-- Liked Posts Tab (Only for own profile) -->
+        @if (Model.IsOwnProfile)
+        {
+            <div class="tab-content" id="liked-tab">
+                <div class="loading-placeholder" id="liked-loading">
+                    <i class="fas fa-spinner fa-spin"></i> Loading liked posts...
+                </div>
+                <div class="user-posts" id="liked-posts-container"></div>
+            </div>
+
+            <!-- Saved Posts Tab (Only for own profile) -->
+            <div class="tab-content" id="saved-tab">
+                <div class="loading-placeholder" id="saved-loading">
+                    <i class="fas fa-spinner fa-spin"></i> Loading saved posts...
+                </div>
+                <div class="user-posts" id="saved-posts-container"></div>
+            </div>
+        }
 
         <div class="tab-content" id="activity-tab">
             <div class="activity-overview">
@@ -170,6 +296,8 @@
     </div>
 </div>
 
+}
+
 @section Scripts {
 <script>
     // Tab switching functionality
@@ -184,13 +312,309 @@
                 tabContents.forEach(c => c.classList.remove('active'));
                 this.classList.add('active');
                 document.getElementById(targetTab + '-tab').classList.add('active');
+                
+                // Load content for specific tabs
+                if (targetTab === 'liked') {
+                    loadLikedPosts();
+                } else if (targetTab === 'saved') {
+                    loadSavedPosts();
+                }
             });
         });
 
-        // Profile picture preview and upload
+        // Post management functionality
+        setupPostManagement();
+        
+        // Comment functionality
+        setupCommentHandlers();
+        
+        // Follow/Unfollow functionality
+        setupFollowHandler();
+        
+        // Profile picture functionality
+        setupProfilePictureHandler();
+    });
+
+    function setupPostManagement() {
+        // Edit post buttons
+        document.querySelectorAll('.edit-post').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const postId = this.dataset.postId;
+                window.location.href = `/Posts/Edit/${postId}`;
+            });
+        });
+
+        // Delete post buttons
+        document.querySelectorAll('.delete-post').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const postId = this.dataset.postId;
+                if (confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+                    try {
+                        const response = await fetch(`/api/posts/${postId}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': getAntiForgeryToken()
+                            }
+                        });
+                        
+                        const result = await response.json();
+                        if (result.success) {
+                            // Remove post from UI
+                            const postCard = document.querySelector(`[data-post-id="${postId}"]`);
+                            if (postCard) {
+                                postCard.remove();
+                            }
+                            showMessage('Post deleted successfully', 'success');
+                        } else {
+                            showMessage(result.message || 'Failed to delete post', 'error');
+                        }
+                    } catch (error) {
+                        showMessage('An error occurred while deleting the post', 'error');
+                    }
+                }
+            });
+        });
+    }
+
+    function setupCommentHandlers() {
+        // Toggle comment sections
+        document.querySelectorAll('.comment-own-post').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const postId = this.dataset.postId;
+                const commentSection = document.getElementById(`comment-section-${postId}`);
+                if (commentSection) {
+                    commentSection.style.display = commentSection.style.display === 'none' ? 'block' : 'none';
+                }
+            });
+        });
+
+        // Submit comments
+        document.querySelectorAll('.submit-comment').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const postId = this.dataset.postId;
+                const textarea = document.querySelector(`.comment-input[data-post-id="${postId}"]`);
+                const comment = textarea.value.trim();
+                
+                if (!comment) {
+                    showMessage('Please enter a comment', 'error');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/api/comments', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': getAntiForgeryToken()
+                        },
+                        body: JSON.stringify({
+                            postId: parseInt(postId),
+                            content: comment
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        textarea.value = '';
+                        showMessage('Comment added successfully', 'success');
+                        // Optionally reload comments or update UI
+                    } else {
+                        showMessage(result.message || 'Failed to add comment', 'error');
+                    }
+                } catch (error) {
+                    showMessage('An error occurred while adding the comment', 'error');
+                }
+            });
+        });
+    }
+
+    async function loadLikedPosts() {
+        const container = document.getElementById('liked-posts-container');
+        const loading = document.getElementById('liked-loading');
+        
+        if (container.innerHTML.trim() !== '') return; // Already loaded
+        
+        loading.style.display = 'block';
+        
+        try {
+            const response = await fetch('/UserProfile?handler=GetLikedPosts', {
+                method: 'GET',
+                headers: {
+                    'RequestVerificationToken': getAntiForgeryToken()
+                }
+            });
+            
+            const result = await response.json();
+            if (result.success && result.posts) {
+                container.innerHTML = renderPosts(result.posts, 'liked');
+            } else {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-heart"></i>
+                        <h3>No liked posts</h3>
+                        <p>You haven't liked any posts yet. Start exploring and like posts you find interesting!</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Error loading liked posts</h3>
+                    <p>Please try again later.</p>
+                </div>
+            `;
+        } finally {
+            loading.style.display = 'none';
+        }
+    }
+
+    async function loadSavedPosts() {
+        const container = document.getElementById('saved-posts-container');
+        const loading = document.getElementById('saved-loading');
+        
+        if (container.innerHTML.trim() !== '') return; // Already loaded
+        
+        loading.style.display = 'block';
+        
+        try {
+            const response = await fetch('/UserProfile?handler=GetSavedPosts', {
+                method: 'GET',
+                headers: {
+                    'RequestVerificationToken': getAntiForgeryToken()
+                }
+            });
+            
+            const result = await response.json();
+            if (result.success && result.posts) {
+                container.innerHTML = renderPosts(result.posts, 'saved');
+            } else {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-bookmark"></i>
+                        <h3>No saved posts</h3>
+                        <p>You haven't saved any posts yet. Save posts to read them later!</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Error loading saved posts</h3>
+                    <p>Please try again later.</p>
+                </div>
+            `;
+        } finally {
+            loading.style.display = 'none';
+        }
+    }
+
+    function renderPosts(posts, type) {
+        if (!posts || posts.length === 0) {
+            return `
+                <div class="empty-state">
+                    <i class="fas fa-${type === 'liked' ? 'heart' : 'bookmark'}"></i>
+                    <h3>No ${type} posts</h3>
+                    <p>You haven't ${type} any posts yet.</p>
+                </div>
+            `;
+        }
+
+        return posts.map(post => `
+            <div class="post-card">
+                <div class="post-header">
+                    <h3 class="post-title">${post.title}</h3>
+                    <div class="post-meta">
+                        <span class="post-category">${post.category}</span>
+                        <span class="post-date">${new Date(post.publishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        <span class="post-author">by ${post.username}</span>
+                    </div>
+                </div>
+                
+                ${post.imageURL ? `
+                    <div class="post-image">
+                        <img src="${post.imageURL}" alt="${post.title}" loading="lazy">
+                    </div>
+                ` : ''}
+                
+                <div class="post-content">
+                    <p>${post.content.substring(0, 200)}${post.content.length > 200 ? '...' : ''}</p>
+                </div>
+
+                ${post.sourceURL ? `
+                    <div class="post-source">
+                        <i class="fas fa-external-link-alt"></i>
+                        <span>Source: 
+                            <a href="${post.sourceURL}" target="_blank" rel="noopener">
+                                ${post.sourceName || 'External Link'}
+                            </a>
+                        </span>
+                    </div>
+                ` : ''}
+                
+                <div class="post-stats">
+                    <span class="stat">
+                        <i class="fas fa-heart"></i> ${post.likesCount} likes
+                    </span>
+                    <span class="stat">
+                        <i class="fas fa-eye"></i> ${post.viewsCount} views
+                    </span>
+                    <a href="/Post/${post.articleID}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-external-link-alt"></i> Read More
+                    </a>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function setupFollowHandler() {
+        const followButton = document.querySelector('.btn-follow');
+        if (followButton) {
+            followButton.addEventListener('click', async function() {
+                const userId = this.dataset.userId;
+                const isFollowing = this.dataset.following === 'true';
+                
+                try {
+                    const response = await fetch('/UserProfile?handler=ToggleFollow', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': getAntiForgeryToken()
+                        },
+                        body: JSON.stringify({ userId: parseInt(userId) })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        // Update button state
+                        const newFollowing = result.isFollowing;
+                        this.dataset.following = newFollowing.toString();
+                        
+                        const icon = this.querySelector('i');
+                        icon.className = newFollowing ? 'fas fa-user-minus' : 'fas fa-user-plus';
+                        
+                        const text = this.childNodes[this.childNodes.length - 1];
+                        text.textContent = newFollowing ? ' Unfollow' : ' Follow';
+                        
+                        // Show success message
+                        showMessage(result.message, 'success');
+                    } else {
+                        showMessage(result.message || 'An error occurred', 'error');
+                    }
+                } catch (error) {
+                    showMessage('An error occurred', 'error');
+                }
+            });
+        }
+    }
+
+    function setupProfilePictureHandler() {
         const input = document.getElementById('profilePicInput');
         const preview = document.getElementById('profilePicPreview');
         const uploadBtn = document.getElementById('uploadPicBtn');
+        
         if (input && preview && uploadBtn) {
             input.addEventListener('change', function() {
                 preview.innerHTML = '';
@@ -202,32 +626,69 @@
                     reader.readAsDataURL(input.files[0]);
                 }
             });
+            
             uploadBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 if (!input.files || !input.files[0]) {
-                    alert('Please select an image.');
+                    showMessage('Please select an image.', 'error');
                     return;
                 }
+                
                 const formData = new FormData();
                 formData.append('file', input.files[0]);
+                
                 fetch('/api/user/UploadProfilePic', {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    headers: {
+                        'RequestVerificationToken': getAntiForgeryToken()
+                    }
                 })
                 .then(res => res.json())
                 .then(data => {
-                    if (data.path) {
+                    if (data.success && data.path) {
                         // Update the avatar image
-                        document.querySelector('.profile-pic-img').src = data.path;
-                        alert('Profile picture updated!');
+                        const profileImg = document.querySelector('.profile-pic-img');
+                        if (profileImg) {
+                            profileImg.src = data.path;
+                        }
+                        showMessage('Profile picture updated!', 'success');
                     } else {
-                        alert('Upload failed.');
+                        showMessage(data.message || 'Upload failed.', 'error');
                     }
                 })
-                .catch(() => alert('Upload failed.'));
+                .catch(error => {
+                    showMessage('Upload failed.', 'error');
+                });
             });
         }
-    });
+    }
+    
+    function getAntiForgeryToken() {
+        return document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+    }
+    
+    function showMessage(message, type) {
+        // Create toast notification
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+        toast.style.top = '20px';
+        toast.style.right = '20px';
+        toast.style.zIndex = '9999';
+        toast.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        // Auto remove after 3 seconds
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 3000);
+    }
 </script>
 }
 
@@ -268,6 +729,310 @@
 
 .username {
     font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.user-bio {
+    font-size: 1.1rem;
+    color: #666;
+    margin-bottom: 1rem;
+}
+
+.join-date {
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.admin-badge {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    display: inline-block;
+    margin-top: 0.5rem;
+}
+
+.profile-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    transition: transform 0.2s;
+}
+
+.stat-item:hover {
+    transform: translateY(-2px);
+}
+
+.stat-number {
+    display: block;
+    font-size: 2rem;
+    font-weight: bold;
+    color: #007bff;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.content-tabs {
+    display: flex;
+    border-bottom: 2px solid #e9ecef;
+    margin-bottom: 2rem;
+    gap: 0.5rem;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+    color: #666;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.3s;
+}
+
+.tab-btn:hover,
+.tab-btn.active {
+    color: #007bff;
+    border-bottom-color: #007bff;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.post-card {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    transition: box-shadow 0.3s;
+}
+
+.post-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.post-title {
+    font-size: 1.3rem;
+    font-weight: bold;
+    margin: 0;
+    color: #333;
+}
+
+.post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.post-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.post-category {
+    background: #e3f2fd;
+    color: #1976d2;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+.post-image img {
+    width: 100%;
+    max-height: 300px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.post-content p {
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.post-source {
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.post-source a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.post-source a:hover {
+    text-decoration: underline;
+}
+
+.post-stats {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid #e9ecef;
+    padding-top: 1rem;
+}
+
+.post-stats .stat {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.post-actions-inline {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.comment-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e9ecef;
+}
+
+.comment-input {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #666;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    color: #ccc;
+}
+
+.empty-state h3 {
+    margin-bottom: 1rem;
+}
+
+.loading-placeholder {
+    text-align: center;
+    padding: 2rem;
+    color: #666;
+    font-size: 1.1rem;
+}
+
+.loading-placeholder i {
+    margin-right: 0.5rem;
+}
+
+.activity-overview h3 {
+    margin-bottom: 1.5rem;
+    color: #333;
+}
+
+.activity-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.activity-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+}
+
+.activity-card i {
+    font-size: 2rem;
+    color: #007bff;
+}
+
+.activity-card h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    color: #333;
+}
+
+.activity-card p {
+    margin: 0;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+@@media (max-width: 768px) {
+    .user-profile-container {
+        padding: 1rem;
+    }
+    
+    .profile-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+    }
+    
+    .content-tabs {
+        flex-wrap: wrap;
+    }
+    
+    .tab-btn {
+        flex: 1;
+        min-width: 120px;
+    }
+    
+    .post-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .post-meta {
+        flex-wrap: wrap;
+    }
+    
+    .post-stats {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    
+    .post-actions-inline {
+        justify-content: center;
+    }
+}
+
+.username {
+    font-size: 2.5rem;
     font-weight: 700;
     margin: 0 0 0.5rem 0;
     color: #2c3e50;
@@ -301,6 +1066,24 @@
 
 .admin-badge i {
     margin-right: 0.5rem;
+}
+
+.profile-actions {
+    margin-top: 1rem;
+}
+
+.profile-actions .btn {
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.btn-follow {
+    min-width: 120px;
+    transition: all 0.3s ease;
+}
+
+.btn-follow:hover {
+    transform: translateY(-1px);
 }
 
 .profile-stats {

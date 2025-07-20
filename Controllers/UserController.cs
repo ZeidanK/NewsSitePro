@@ -88,6 +88,63 @@ namespace NewsSite.Controllers
                 return StatusCode(500, new { message = "Error retrieving preferences", error = ex.Message });
             }
         }
+
+        [HttpPost("UploadProfilePic")]
+        public async Task<IActionResult> UploadProfilePic(IFormFile file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                {
+                    return BadRequest(new { success = false, message = "No file selected" });
+                }
+
+                // Validate file type
+                var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif" };
+                if (!allowedTypes.Contains(file.ContentType))
+                {
+                    return BadRequest(new { success = false, message = "Only JPEG, PNG, and GIF images are allowed" });
+                }
+
+                // Validate file size (max 5MB)
+                if (file.Length > 5 * 1024 * 1024)
+                {
+                    return BadRequest(new { success = false, message = "File size must be less than 5MB" });
+                }
+
+                // Create uploads directory if it doesn't exist
+                var uploadsPath = Path.Combine("wwwroot", "uploads", "profiles");
+                if (!Directory.Exists(uploadsPath))
+                {
+                    Directory.CreateDirectory(uploadsPath);
+                }
+
+                // Generate unique filename
+                var fileExtension = Path.GetExtension(file.FileName);
+                var fileName = $"{Guid.NewGuid()}{fileExtension}";
+                var filePath = Path.Combine(uploadsPath, fileName);
+
+                // Save file
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                // TODO: Update user's profile picture in database
+                // For now, just return the URL
+                var imageUrl = $"/uploads/profiles/{fileName}";
+                
+                return Ok(new { 
+                    success = true, 
+                    message = "Profile picture uploaded successfully", 
+                    imageUrl = imageUrl 
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "Upload failed", error = ex.Message });
+            }
+        }
     }
 
     // Request models

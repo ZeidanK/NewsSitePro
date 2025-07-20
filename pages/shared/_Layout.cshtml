@@ -131,6 +131,25 @@
                 }
             });
         });
+
+        // Trending topics functionality
+        document.querySelectorAll('.trending-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const category = this.dataset.category;
+                const topic = this.dataset.topic;
+                
+                if (category && topic) {
+                    // Navigate to search page with the trending topic
+                    window.location.href = `/Search?q=${encodeURIComponent('#' + topic)}&category=${encodeURIComponent(category)}&type=posts`;
+                } else if (category) {
+                    // Navigate to search page with just the category
+                    window.location.href = `/Search?category=${encodeURIComponent(category)}&type=posts`;
+                }
+            });
+            
+            // Add hover effect
+            item.style.cursor = 'pointer';
+        });
     </script>
 </body>
 </html>

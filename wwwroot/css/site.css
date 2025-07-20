@@ -1046,11 +1046,18 @@ header nav {
     background: #1da1f2;
     color: white;
     border: none;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    font-size: 18px;
+    border-radius: 8px;
+    width: 45px;
+    height: 45px;
+    font-size: 20px;
     cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+}
+
+.mobile-menu-toggle:hover {
+    background: #1991db;
+    transform: scale(1.05);
 }
 
 /* Responsive Design */

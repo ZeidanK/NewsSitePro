@@ -11,6 +11,9 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddRazorPages();
 builder.Services.AddAuthorization();
+
+// Register DBservices for dependency injection
+builder.Services.AddScoped<DBservices>();
 // Configure authentication
 builder.Services.AddAuthentication(options =>
 {
