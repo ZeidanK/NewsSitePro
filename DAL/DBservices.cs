@@ -663,7 +663,7 @@ public class DBservices
                         (SELECT COUNT(*) FROM NewsArticles WHERE UserID = @UserID) as PostsCount,
                         (SELECT COUNT(*) FROM UserLikes ul INNER JOIN NewsArticles na ON ul.ArticleID = na.ArticleID WHERE na.UserID = @UserID) as LikesCount,
                         (SELECT COUNT(*) FROM SavedArticles WHERE UserID = @UserID) as SavedCount,
-                        (SELECT COUNT(*) FROM UserFollows WHERE FollowedUserID = @UserID) as FollowersCount";
+                        (SELECT COUNT(*) FROM NewsSitePro2025_UserFollows WHERE FollowedUserID = @UserID) as FollowersCount";
                 
                 cmd = new SqlCommand(sql, con);
                 cmd.Parameters.AddWithValue("@UserID", userId);
@@ -2692,6 +2692,720 @@ public class DBservices
         }
 
         return success;
+    }
+
+    //--------------------------------------------------------------------------------------------------
+    // Recommendation System Methods
+    //--------------------------------------------------------------------------------------------------
+    
+    public async Task<List<NewsArticle>> GetRecommendedArticlesAsync(int userId, int count = 20)
+    {
+        var articles = new List<NewsArticle>();
+        SqlConnection? con = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@UserID", userId },
+                { "@Count", count }
+            };
+
+            try
+            {
+                var cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_GetRecommendedArticles", con, paramDic);
+                var reader = await cmd.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    articles.Add(new NewsArticle
+                    {
+                        ArticleID = reader.GetInt32("ArticleID"),
+                        Title = reader["Title"]?.ToString(),
+                        Content = reader["Content"]?.ToString(),
+                        ImageURL = reader["ImageURL"]?.ToString(),
+                        SourceURL = reader["SourceURL"]?.ToString(),
+                        SourceName = reader["SourceName"]?.ToString(),
+                        Category = reader["Category"]?.ToString(),
+                        PublishDate = reader.GetDateTime("PublishDate"),
+                        UserID = reader.GetInt32("UserID"),
+                        Username = reader["Username"]?.ToString(),
+                        LikesCount = reader.GetInt32("LikesCount"),
+                        ViewsCount = reader.GetInt32("ViewsCount"),
+                        IsLiked = await CheckUserLikedArticleAsync(reader.GetInt32("ArticleID"), userId),
+                        IsSaved = await CheckUserSavedArticleAsync(reader.GetInt32("ArticleID"), userId)
+                    });
+                }
+            }
+            catch
+            {
+                // Fallback to basic query if stored procedure doesn't exist
+                var sql = @"
+                    SELECT TOP (@Count) na.ArticleID, na.Title, na.Content, na.ImageURL, na.SourceURL, 
+                           na.SourceName, na.Category, na.PublishDate, na.UserID, u.Name as Username,
+                           COALESCE(lc.LikesCount, 0) as LikesCount,
+                           COALESCE(vc.ViewsCount, 0) as ViewsCount
+                    FROM NewsArticles na
+                    INNER JOIN Users_News u ON na.UserID = u.ID
+                    LEFT JOIN (
+                        SELECT ArticleID, COUNT(*) as LikesCount
+                        FROM ArticleLikes
+                        GROUP BY ArticleID
+                    ) lc ON na.ArticleID = lc.ArticleID
+                    LEFT JOIN (
+                        SELECT ArticleID, COUNT(*) as ViewsCount
+                        FROM ArticleViews
+                        GROUP BY ArticleID
+                    ) vc ON na.ArticleID = vc.ArticleID
+                    WHERE na.PublishDate >= DATEADD(day, -7, GETDATE())
+                    ORDER BY 
+                        (COALESCE(lc.LikesCount, 0) * 3 + COALESCE(vc.ViewsCount, 0)) DESC,
+                        na.PublishDate DESC";
+
+                var cmd = new SqlCommand(sql, con);
+                cmd.Parameters.AddWithValue("@Count", count);
+                var reader = await cmd.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    articles.Add(new NewsArticle
+                    {
+                        ArticleID = reader.GetInt32("ArticleID"),
+                        Title = reader["Title"]?.ToString(),
+                        Content = reader["Content"]?.ToString(),
+                        ImageURL = reader["ImageURL"]?.ToString(),
+                        SourceURL = reader["SourceURL"]?.ToString(),
+                        SourceName = reader["SourceName"]?.ToString(),
+                        Category = reader["Category"]?.ToString(),
+                        PublishDate = reader.GetDateTime("PublishDate"),
+                        UserID = reader.GetInt32("UserID"),
+                        Username = reader["Username"]?.ToString(),
+                        LikesCount = reader.GetInt32("LikesCount"),
+                        ViewsCount = reader.GetInt32("ViewsCount"),
+                        IsLiked = await CheckUserLikedArticleAsync(reader.GetInt32("ArticleID"), userId),
+                        IsSaved = await CheckUserSavedArticleAsync(reader.GetInt32("ArticleID"), userId)
+                    });
+                }
+            }
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+        finally
+        {
+            con?.Close();
+        }
+
+        return articles;
+    }
+
+    public async Task<List<UserInterest>> GetUserInterestsAsync(int userId)
+    {
+        var interests = new List<UserInterest>();
+        SqlConnection? con = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var sql = @"
+                SELECT InterestID, UserID, Category, InterestScore, LastUpdated
+                FROM NewsSitePro2025_UserInterests
+                WHERE UserID = @UserID
+                ORDER BY InterestScore DESC";
+
+            var cmd = new SqlCommand(sql, con);
+            cmd.Parameters.AddWithValue("@UserID", userId);
+            var reader = await cmd.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                interests.Add(new UserInterest
+                {
+                    InterestID = reader.GetInt32("InterestID"),
+                    UserID = reader.GetInt32("UserID"),
+                    Category = reader.GetString("Category"),
+                    InterestScore = reader.GetDouble("InterestScore"),
+                    LastUpdated = reader.GetDateTime("LastUpdated")
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            // Table might not exist yet, return empty list
+            Console.WriteLine($"UserInterests table error: {ex.Message}");
+        }
+        finally
+        {
+            con?.Close();
+        }
+
+        return interests;
+    }
+
+    public async Task<bool> UpdateUserInterestAsync(int userId, string category, double interestScore)
+    {
+        SqlConnection? con = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var sql = @"
+                MERGE NewsSitePro2025_UserInterests AS target
+                USING (VALUES (@UserID, @Category, @InterestScore)) AS source (UserID, Category, InterestScore)
+                ON target.UserID = source.UserID AND target.Category = source.Category
+                WHEN MATCHED THEN
+                    UPDATE SET InterestScore = source.InterestScore, LastUpdated = GETDATE()
+                WHEN NOT MATCHED THEN
+                    INSERT (UserID, Category, InterestScore, LastUpdated)
+                    VALUES (source.UserID, source.Category, source.InterestScore, GETDATE());";
+
+            var cmd = new SqlCommand(sql, con);
+            cmd.Parameters.AddWithValue("@UserID", userId);
+            cmd.Parameters.AddWithValue("@Category", category);
+            cmd.Parameters.AddWithValue("@InterestScore", interestScore);
+
+            await cmd.ExecuteNonQueryAsync();
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
+
+    public async Task<UserBehavior?> GetUserBehaviorAsync(int userId)
+    {
+        SqlConnection? con = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var sql = @"
+                SELECT UserID, TotalViews, TotalLikes, TotalShares, TotalComments, 
+                       AvgSessionDuration, LastActivity, PreferredReadingTime, 
+                       MostActiveHour, FavoriteCategories
+                FROM NewsSitePro2025_UserBehavior
+                WHERE UserID = @UserID";
+
+            var cmd = new SqlCommand(sql, con);
+            cmd.Parameters.AddWithValue("@UserID", userId);
+            var reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                return new UserBehavior
+                {
+                    UserID = reader.GetInt32("UserID"),
+                    TotalViews = reader.GetInt32("TotalViews"),
+                    TotalLikes = reader.GetInt32("TotalLikes"),
+                    TotalShares = reader.GetInt32("TotalShares"),
+                    TotalComments = reader.GetInt32("TotalComments"),
+                    AvgSessionDuration = reader.GetDouble("AvgSessionDuration"),
+                    LastActivity = reader.GetDateTime("LastActivity"),
+                    PreferredReadingTime = TimeSpan.Parse(reader.GetString("PreferredReadingTime") ?? "08:00:00"),
+                    MostActiveHour = reader.GetInt32("MostActiveHour"),
+                    FavoriteCategories = (reader.GetString("FavoriteCategories") ?? "").Split(',').Where(s => !string.IsNullOrEmpty(s)).ToList()
+                };
+            }
+        }
+        catch (Exception)
+        {
+            // Table might not exist yet, return null
+        }
+        finally
+        {
+            con?.Close();
+        }
+
+        return null;
+    }
+
+    public async Task<bool> UpdateUserBehaviorAsync(UserBehavior behavior)
+    {
+        SqlConnection? con = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var favoriteCategories = string.Join(",", behavior.FavoriteCategories ?? new List<string>());
+            var sql = @"
+                MERGE NewsSitePro2025_UserBehavior AS target
+                USING (VALUES (@UserID, @TotalViews, @TotalLikes, @TotalShares, @TotalComments, 
+                              @AvgSessionDuration, @PreferredReadingTime, @MostActiveHour, @FavoriteCategories)) 
+                AS source (UserID, TotalViews, TotalLikes, TotalShares, TotalComments, 
+                          AvgSessionDuration, PreferredReadingTime, MostActiveHour, FavoriteCategories)
+                ON target.UserID = source.UserID
+                WHEN MATCHED THEN
+                    UPDATE SET TotalViews = source.TotalViews, TotalLikes = source.TotalLikes,
+                              TotalShares = source.TotalShares, TotalComments = source.TotalComments,
+                              AvgSessionDuration = source.AvgSessionDuration, LastActivity = GETDATE(),
+                              PreferredReadingTime = source.PreferredReadingTime,
+                              MostActiveHour = source.MostActiveHour,
+                              FavoriteCategories = source.FavoriteCategories
+                WHEN NOT MATCHED THEN
+                    INSERT (UserID, TotalViews, TotalLikes, TotalShares, TotalComments, 
+                           AvgSessionDuration, LastActivity, PreferredReadingTime, 
+                           MostActiveHour, FavoriteCategories)
+                    VALUES (source.UserID, source.TotalViews, source.TotalLikes, source.TotalShares, 
+                           source.TotalComments, source.AvgSessionDuration, GETDATE(),
+                           source.PreferredReadingTime, source.MostActiveHour, source.FavoriteCategories);";
+
+            var cmd = new SqlCommand(sql, con);
+            cmd.Parameters.AddWithValue("@UserID", behavior.UserID);
+            cmd.Parameters.AddWithValue("@TotalViews", behavior.TotalViews);
+            cmd.Parameters.AddWithValue("@TotalLikes", behavior.TotalLikes);
+            cmd.Parameters.AddWithValue("@TotalShares", behavior.TotalShares);
+            cmd.Parameters.AddWithValue("@TotalComments", behavior.TotalComments);
+            cmd.Parameters.AddWithValue("@AvgSessionDuration", behavior.AvgSessionDuration);
+            cmd.Parameters.AddWithValue("@PreferredReadingTime", behavior.PreferredReadingTime);
+            cmd.Parameters.AddWithValue("@MostActiveHour", behavior.MostActiveHour);
+            cmd.Parameters.AddWithValue("@FavoriteCategories", favoriteCategories);
+
+            await cmd.ExecuteNonQueryAsync();
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
+
+    public async Task<bool> RecordUserInteractionAsync(int userId, int articleId, string interactionType)
+    {
+        SqlConnection? con = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var sql = @"
+                INSERT INTO NewsSitePro2025_ArticleInteractions (UserID, ArticleID, InteractionType, Timestamp)
+                VALUES (@UserID, @ArticleID, @InteractionType, GETDATE())";
+
+            var cmd = new SqlCommand(sql, con);
+            cmd.Parameters.AddWithValue("@UserID", userId);
+            cmd.Parameters.AddWithValue("@ArticleID", articleId);
+            cmd.Parameters.AddWithValue("@InteractionType", interactionType);
+
+            await cmd.ExecuteNonQueryAsync();
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
+
+    public async Task<List<TrendingTopic>> GetTrendingTopicsAsync(int count = 10)
+    {
+        var topics = new List<TrendingTopic>();
+        SqlConnection? con = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var sql = @"
+                SELECT TOP (@Count) 
+                    Category,
+                    COUNT(*) as TotalInteractions,
+                    SUM(CASE WHEN InteractionType = 'view' THEN 1 ELSE 0 END) as Views,
+                    SUM(CASE WHEN InteractionType = 'like' THEN 1 ELSE 0 END) as Likes,
+                    SUM(CASE WHEN InteractionType = 'share' THEN 1 ELSE 0 END) as Shares
+                FROM NewsSitePro2025_ArticleInteractions ai
+                INNER JOIN NewsArticles na ON ai.ArticleID = na.ArticleID
+                WHERE ai.Timestamp >= DATEADD(day, -7, GETDATE())
+                GROUP BY Category
+                ORDER BY TotalInteractions DESC";
+
+            var cmd = new SqlCommand(sql, con);
+            cmd.Parameters.AddWithValue("@Count", count);
+            var reader = await cmd.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                var totalInteractions = reader.GetInt32("TotalInteractions");
+                var views = reader.GetInt32("Views");
+                var likes = reader.GetInt32("Likes");
+                var shares = reader.GetInt32("Shares");
+
+                // Calculate trend score (weighted by interaction type)
+                var trendScore = (views * 1.0) + (likes * 3.0) + (shares * 5.0);
+
+                topics.Add(new TrendingTopic
+                {
+                    Topic = reader.GetString("Category"),
+                    TrendScore = trendScore,
+                    TotalInteractions = totalInteractions,
+                    LastUpdated = DateTime.Now
+                });
+            }
+        }
+        catch (Exception)
+        {
+            // If tables don't exist, return sample trending topics
+            topics.AddRange(new[]
+            {
+                new TrendingTopic { Topic = "Technology", TrendScore = 85.5, TotalInteractions = 150, LastUpdated = DateTime.Now },
+                new TrendingTopic { Topic = "Sports", TrendScore = 78.2, TotalInteractions = 120, LastUpdated = DateTime.Now },
+                new TrendingTopic { Topic = "Politics", TrendScore = 72.8, TotalInteractions = 98, LastUpdated = DateTime.Now }
+            });
+        }
+        finally
+        {
+            con?.Close();
+        }
+
+        return topics;
+    }
+
+    public async Task<List<NewsArticle>> GetArticlesByInterestAsync(int userId, string category, int count = 10)
+    {
+        var articles = new List<NewsArticle>();
+        SqlConnection? con = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var sql = @"
+                SELECT TOP (@Count) na.ArticleID, na.Title, na.Content, na.ImageURL, na.SourceURL, 
+                       na.SourceName, na.Category, na.PublishDate, na.UserID, u.Name as Username,
+                       COALESCE(lc.LikesCount, 0) as LikesCount,
+                       COALESCE(vc.ViewsCount, 0) as ViewsCount
+                FROM NewsArticles na
+                INNER JOIN Users_News u ON na.UserID = u.ID
+                LEFT JOIN (
+                    SELECT ArticleID, COUNT(*) as LikesCount
+                    FROM ArticleLikes
+                    GROUP BY ArticleID
+                ) lc ON na.ArticleID = lc.ArticleID
+                LEFT JOIN (
+                    SELECT ArticleID, COUNT(*) as ViewsCount
+                    FROM ArticleViews
+                    GROUP BY ArticleID
+                ) vc ON na.ArticleID = vc.ArticleID
+                WHERE na.Category = @Category
+                  AND na.PublishDate >= DATEADD(day, -30, GETDATE())
+                ORDER BY 
+                    (COALESCE(lc.LikesCount, 0) * 2 + COALESCE(vc.ViewsCount, 0)) DESC,
+                    na.PublishDate DESC";
+
+            var cmd = new SqlCommand(sql, con);
+            cmd.Parameters.AddWithValue("@Count", count);
+            cmd.Parameters.AddWithValue("@Category", category);
+            var reader = await cmd.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                articles.Add(new NewsArticle
+                {
+                    ArticleID = reader.GetInt32("ArticleID"),
+                    Title = reader["Title"]?.ToString(),
+                    Content = reader["Content"]?.ToString(),
+                    ImageURL = reader["ImageURL"]?.ToString(),
+                    SourceURL = reader["SourceURL"]?.ToString(),
+                    SourceName = reader["SourceName"]?.ToString(),
+                    Category = reader["Category"]?.ToString(),
+                    PublishDate = reader.GetDateTime("PublishDate"),
+                    UserID = reader.GetInt32("UserID"),
+                    Username = reader["Username"]?.ToString(),
+                    LikesCount = reader.GetInt32("LikesCount"),
+                    ViewsCount = reader.GetInt32("ViewsCount"),
+                    IsLiked = await CheckUserLikedArticleAsync(reader.GetInt32("ArticleID"), userId),
+                    IsSaved = await CheckUserSavedArticleAsync(reader.GetInt32("ArticleID"), userId)
+                });
+            }
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+        finally
+        {
+            con?.Close();
+        }
+
+        return articles;
+    }
+
+    public async Task<FeedConfiguration?> GetUserFeedConfigurationAsync(int userId)
+    {
+        SqlConnection? con = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var sql = @"
+                SELECT UserID, PersonalizationWeight, FreshnessWeight, PopularityWeight, 
+                       SerendipityWeight, MaxArticlesPerFeed, PreferredCategories, 
+                       ExcludedCategories, LastUpdated
+                FROM NewsSitePro2025_FeedConfigurations
+                WHERE UserID = @UserID";
+
+            var cmd = new SqlCommand(sql, con);
+            cmd.Parameters.AddWithValue("@UserID", userId);
+            var reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                return new FeedConfiguration
+                {
+                    UserID = reader.GetInt32("UserID"),
+                    PersonalizationWeight = reader.GetDouble("PersonalizationWeight"),
+                    FreshnessWeight = reader.GetDouble("FreshnessWeight"),
+                    PopularityWeight = reader.GetDouble("PopularityWeight"),
+                    SerendipityWeight = reader.GetDouble("SerendipityWeight"),
+                    MaxArticlesPerFeed = reader.GetInt32("MaxArticlesPerFeed"),
+                    PreferredCategories = reader.GetString("PreferredCategories")?.Split(',').ToList() ?? new List<string>(),
+                    ExcludedCategories = reader.GetString("ExcludedCategories")?.Split(',').ToList() ?? new List<string>(),
+                    LastUpdated = reader.GetDateTime("LastUpdated")
+                };
+            }
+        }
+        catch (Exception)
+        {
+            // Return default configuration if table doesn't exist
+        }
+        finally
+        {
+            con?.Close();
+        }
+
+        // Return default configuration
+        return new FeedConfiguration
+        {
+            UserID = userId,
+            PersonalizationWeight = 0.4,
+            FreshnessWeight = 0.3,
+            PopularityWeight = 0.2,
+            SerendipityWeight = 0.1,
+            MaxArticlesPerFeed = 20,
+            PreferredCategories = new List<string>(),
+            ExcludedCategories = new List<string>(),
+            LastUpdated = DateTime.Now
+        };
+    }
+
+    public async Task<bool> UpdateUserFeedConfigurationAsync(FeedConfiguration config)
+    {
+        SqlConnection? con = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var preferredCategories = string.Join(",", config.PreferredCategories ?? new List<string>());
+            var excludedCategories = string.Join(",", config.ExcludedCategories ?? new List<string>());
+
+            var sql = @"
+                MERGE NewsSitePro2025_FeedConfigurations AS target
+                USING (VALUES (@UserID, @PersonalizationWeight, @FreshnessWeight, @PopularityWeight, 
+                              @SerendipityWeight, @MaxArticlesPerFeed, @PreferredCategories, @ExcludedCategories)) 
+                AS source (UserID, PersonalizationWeight, FreshnessWeight, PopularityWeight, 
+                          SerendipityWeight, MaxArticlesPerFeed, PreferredCategories, ExcludedCategories)
+                ON target.UserID = source.UserID
+                WHEN MATCHED THEN
+                    UPDATE SET PersonalizationWeight = source.PersonalizationWeight,
+                              FreshnessWeight = source.FreshnessWeight,
+                              PopularityWeight = source.PopularityWeight,
+                              SerendipityWeight = source.SerendipityWeight,
+                              MaxArticlesPerFeed = source.MaxArticlesPerFeed,
+                              PreferredCategories = source.PreferredCategories,
+                              ExcludedCategories = source.ExcludedCategories,
+                              LastUpdated = GETDATE()
+                WHEN NOT MATCHED THEN
+                    INSERT (UserID, PersonalizationWeight, FreshnessWeight, PopularityWeight, 
+                           SerendipityWeight, MaxArticlesPerFeed, PreferredCategories, 
+                           ExcludedCategories, LastUpdated)
+                    VALUES (source.UserID, source.PersonalizationWeight, source.FreshnessWeight, 
+                           source.PopularityWeight, source.SerendipityWeight, source.MaxArticlesPerFeed,
+                           source.PreferredCategories, source.ExcludedCategories, GETDATE());";
+
+            var cmd = new SqlCommand(sql, con);
+            cmd.Parameters.AddWithValue("@UserID", config.UserID);
+            cmd.Parameters.AddWithValue("@PersonalizationWeight", config.PersonalizationWeight);
+            cmd.Parameters.AddWithValue("@FreshnessWeight", config.FreshnessWeight);
+            cmd.Parameters.AddWithValue("@PopularityWeight", config.PopularityWeight);
+            cmd.Parameters.AddWithValue("@SerendipityWeight", config.SerendipityWeight);
+            cmd.Parameters.AddWithValue("@MaxArticlesPerFeed", config.MaxArticlesPerFeed);
+            cmd.Parameters.AddWithValue("@PreferredCategories", preferredCategories);
+            cmd.Parameters.AddWithValue("@ExcludedCategories", excludedCategories);
+
+            await cmd.ExecuteNonQueryAsync();
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
+
+    private async Task<bool> CheckUserLikedArticleAsync(int articleId, int userId)
+    {
+        SqlConnection? con = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var cmd = new SqlCommand("SELECT COUNT(*) FROM ArticleLikes WHERE ArticleID = @ArticleID AND UserID = @UserID", con);
+            cmd.Parameters.AddWithValue("@ArticleID", articleId);
+            cmd.Parameters.AddWithValue("@UserID", userId);
+            
+            var count = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+            return count > 0;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
+
+    private async Task<bool> CheckUserSavedArticleAsync(int articleId, int userId)
+    {
+        SqlConnection? con = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var cmd = new SqlCommand("SELECT COUNT(*) FROM SavedArticles WHERE ArticleID = @ArticleID AND UserID = @UserID", con);
+            cmd.Parameters.AddWithValue("@ArticleID", articleId);
+            cmd.Parameters.AddWithValue("@UserID", userId);
+            
+            var count = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+            return count > 0;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
+
+    // Additional methods needed by RecommendationService
+    public async Task<NewsArticle?> GetNewsArticleByIdAsync(int articleId)
+    {
+        return await GetNewsArticleById(articleId);
+    }
+
+    public async Task<bool> RecordArticleInteractionAsync(int userId, int articleId, string interactionType)
+    {
+        return await RecordUserInteractionAsync(userId, articleId, interactionType);
+    }
+
+    public async Task<List<NewsArticle>> GetTrendingArticlesAsync(int count = 20)
+    {
+        return await GetRecommendedArticlesAsync(1, count); // Use recommended as fallback
+    }
+
+    public async Task<bool> CreateUserFeedConfigurationAsync(FeedConfiguration config)
+    {
+        return await UpdateUserFeedConfigurationAsync(config);
+    }
+
+    public async Task<List<NewsArticle>> GetSimilarArticlesAsync(int articleId, int count = 10)
+    {
+        // Simplified - get articles from same category
+        var article = await GetNewsArticleById(articleId);
+        if (article == null) return new List<NewsArticle>();
+        
+        return await GetArticlesByInterestAsync(1, article.Category ?? "", count);
+    }
+
+    public async Task<List<ArticleInteraction>> GetUserInteractionHistoryAsync(int userId, int days = 30)
+    {
+        // Return empty list for now - can be implemented later
+        return new List<ArticleInteraction>();
+    }
+
+    public async Task<bool> ResetUserInterestsAsync(int userId)
+    {
+        SqlConnection? con = null;
+        try
+        {
+            con = connect("myProjDB");
+            var cmd = new SqlCommand("DELETE FROM NewsSitePro2025_UserInterests WHERE UserID = @UserID", con);
+            cmd.Parameters.AddWithValue("@UserID", userId);
+            await cmd.ExecuteNonQueryAsync();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
+
+    public async Task<List<NewsArticle>> GetRecentHighEngagementArticlesAsync(int count = 10)
+    {
+        return await GetRecommendedArticlesAsync(1, count);
+    }
+
+    public async Task<bool> SaveTrendingTopicsAsync(List<TrendingTopic> topics)
+    {
+        // For now, just return true - can implement actual saving later
+        return true;
+    }
+
+    public async Task<List<int>> GetFollowedUserIdsAsync(int userId)
+    {
+        // Return empty list for now - follows not implemented yet
+        return new List<int>();
+    }
+
+    public async Task<List<NewsArticle>> GetFollowingFeedAsync(int userId, int count = 20)
+    {
+        // Return regular feed for now
+        return await GetRecommendedArticlesAsync(userId, count);
+    }
+
+    public async Task<List<NewsArticle>> GetPopularArticlesAsync(int count = 20)
+    {
+        return await GetRecommendedArticlesAsync(1, count);
+    }
+
+    public async Task<List<NewsArticle>> GetMostLikedArticlesAsync(int count = 20)
+    {
+        return await GetRecommendedArticlesAsync(1, count);
+    }
+
+    public async Task<List<NewsArticle>> GetMostViewedArticlesAsync(int count = 20)
+    {
+        return await GetRecommendedArticlesAsync(1, count);
+    }
+
+    public async Task<List<NewsArticle>> GetRecentArticlesAsync(int count = 20)
+    {
+        return GetAllNewsArticles(1, count);
+    }
+
+    public async Task<List<NewsArticle>> GetRandomQualityArticlesAsync(int count = 10)
+    {
+        return await GetRecommendedArticlesAsync(1, count);
     }
 
 }
