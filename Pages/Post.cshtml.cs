@@ -24,6 +24,7 @@ namespace NewsSite.Pages
                 CurrentPage = "Post",
                 user = isAuthenticated ? new User 
                 { 
+                    Id = int.Parse(User?.Claims?.FirstOrDefault(c => c.Type == "userId")?.Value ?? "0"),
                     Name = User?.Identity?.Name ?? "Guest",
                     Email = User?.Claims?.FirstOrDefault(c => c.Type == "email")?.Value ?? "",
                     IsAdmin = User?.IsInRole("Admin") == true || User?.Claims?.Any(c => c.Type == "isAdmin" && c.Value == "True") == true
