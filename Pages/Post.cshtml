@@ -1,4 +1,4 @@
-﻿@page
+@page
 @model NewsSite.Pages.PostModel
 @{
     Layout = "~/Pages/Shared/_Layout.cshtml";
@@ -16,7 +16,7 @@
     <div class="create-post-section" id="createPostSection">
         <div class="create-post-header">
             <h3>What's happening?</h3>
-            <button id="toggleCreatePost" class="toggle-create-btn">✏️ New Post</button>
+            <button id="toggleCreatePost" class="toggle-create-btn">?? New Post</button>
         </div>
         
         <form id="createPostForm" class="create-post-form" style="display: none;">
@@ -46,7 +46,7 @@
             </div>
             <div class="post-actions-create">
                 <div class="char-counter">
-                    <span id="titleCounter">0/100</span> • <span id="contentCounter">0/500</span>
+                    <span id="titleCounter">0/100</span> � <span id="contentCounter">0/500</span>
                 </div>
                 <div class="post-buttons">
                     <button type="button" id="cancelPost" class="btn btn-secondary">Cancel</button>
@@ -60,7 +60,7 @@
         <h2>
             <span>News Feed</span>
             <div class="feed-controls">
-                <button id="refreshBtn" class="refresh-btn" title="Refresh Feed">🔄</button>
+                <button id="refreshBtn" class="refresh-btn" title="Refresh Feed">??</button>
             </div>
         </h2>
         
@@ -70,15 +70,15 @@
             <button class="filter-tab" data-filter="following">Following</button>
             <button class="filter-tab" data-filter="trending">Trending</button>
             <button class="filter-tab" data-filter="saved">Saved</button>
-            <button class="filter-tab" data-filter="live-news">🔴 Live News</button>
+            <button class="filter-tab" data-filter="live-news">?? Live News</button>
         </div>
         
         <!-- News API Controls (initially hidden) -->
         <div id="newsApiControls" class="news-api-controls" style="display: none;">
             <div class="news-controls-header">
-                <h4>📡 Live News Feed</h4>
+                <h4>?? Live News Feed</h4>
                 <button id="syncNewsBtn" class="btn btn-success">
-                    <span class="btn-icon">⬇️</span>
+                    <span class="btn-icon">??</span>
                     <span class="btn-text">Sync to Database</span>
                 </button>
             </div>
@@ -108,7 +108,7 @@
     </div>
     
     <div id="endOfFeed" class="end-of-feed" style="display: none;">
-        <p>🎉 You've reached the end of your feed!</p>
+        <p>?? You've reached the end of your feed!</p>
         <button id="backToTop" class="back-to-top-btn">Back to Top</button>
     </div>
 </div>
@@ -210,7 +210,7 @@
 
         // Set up current user for interactions
         function initializePostInteractions() {
-            const currentUserId = '@(Model.HeaderData?.user?.UserID ?? 0)';
+            const currentUserId = '@(Model.HeaderData?.user?.Id ?? 0)';
             if (currentUserId && currentUserId !== '0') {
                 window.postTemplateHelpers.setCurrentUser(currentUserId);
             }
@@ -492,10 +492,10 @@
                         liveNotice.className = 'live-notice';
                         liveNotice.innerHTML = `
                             <div class="notice-content">
-                                <h4>📡 Fresh News Available</h4>
+                                <h4>?? Fresh News Available</h4>
                                 <p>Want the latest headlines? Click below to fetch fresh articles (uses API quota).</p>
                                 <button class="btn btn-primary" onclick="fetchFreshNews('${category}')">
-                                    <span class="btn-icon">🔄</span>
+                                    <span class="btn-icon">??</span>
                                     <span class="btn-text">Get Fresh Headlines</span>
                                 </button>
                             </div>
@@ -508,7 +508,7 @@
                                 <h3>No cached articles for ${category}</h3>
                                 <p>Would you like to fetch fresh headlines from NewsAPI?</p>
                                 <button class="btn btn-primary" onclick="fetchFreshNews('${category}')">
-                                    <span class="btn-icon">📡</span>
+                                    <span class="btn-icon">??</span>
                                     <span class="btn-text">Fetch Fresh Headlines</span>
                                 </button>
                             </div>
@@ -664,7 +664,7 @@
             const syncBtn = document.getElementById('syncNewsBtn');
             const originalText = syncBtn.innerHTML;
             
-            syncBtn.innerHTML = '<span class="btn-icon">⏳</span><span class="btn-text">Syncing...</span>';
+            syncBtn.innerHTML = '<span class="btn-icon">?</span><span class="btn-text">Syncing...</span>';
             syncBtn.disabled = true;
             
             try {

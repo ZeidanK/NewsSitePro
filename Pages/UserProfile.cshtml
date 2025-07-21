@@ -56,7 +56,7 @@ else
                 }
             </div>
             @* Only show upload if this is the logged-in user's profile *@
-            @if (User.Identity?.IsAuthenticated == true && Model.UserProfile?.UserID == int.Parse(User.FindFirst("userId")?.Value ?? "0"))
+                @if (User.Identity?.IsAuthenticated == true && Model.UserProfile?.UserID == int.Parse(User.FindFirst("userId")?.Value ?? "0"))
             {
                 <form id="profilePicForm" enctype="multipart/form-data">
                     <input type="file" id="profilePicInput" name="file" accept="image/*" style="margin-top:10px;" />
@@ -89,8 +89,8 @@ else
                 }
                 else
                 {
-                    <button type="button" class="btn btn-outline-primary btn-follow" 
-                            data-user-id="@(Model.UserProfile?.UserID ?? 0)"
+                    <button type="button" class="btn btn-outline-primary btn-follow"
+                                data-user-id="@(Model.UserProfile?.UserID ?? 0)"
                             data-following="@Model.IsFollowing.ToString().ToLower()">
                         <i class="fas @(Model.IsFollowing ? "fa-user-minus" : "fa-user-plus")"></i>
                         @(Model.IsFollowing ? "Unfollow" : "Follow")
@@ -251,7 +251,7 @@ else
 
     // Initialize user profile with unified template system
     function initializeUserProfile() {
-        const currentUserId = '@(Model.HeaderData?.user?.UserID ?? 0)';
+        const currentUserId = '@(Model.HeaderData?.user?.Id ?? 0)';
         const profileUserId = '@(Model.UserProfile?.UserID ?? 0)';
         const isOwnProfile = @Model.IsOwnProfile.ToString().ToLower();
         
@@ -273,7 +273,7 @@ else
         const container = document.getElementById('userPostsContainer');
         if (!container) return;
         
-        const profileUserId = window.profileContext?.profileUserId || '@(Model.UserProfile?.UserID ?? 0)';
+            const profileUserId = window.profileContext?.profileUserId || '@(Model.UserProfile?.UserID ?? 0)';
         
         try {
             container.innerHTML = '<div class="posts-loading">Loading posts...</div>';
