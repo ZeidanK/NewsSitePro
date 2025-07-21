@@ -133,6 +133,28 @@ namespace NewsSite.Controllers
             }
         }
 
+        [HttpPost("like/{commentId}")]
+        public IActionResult ToggleCommentLike(int commentId)
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null)
+            {
+                return Unauthorized(new { success = false, message = "Authentication required" });
+            }
+
+            try
+            {
+                // For now, we'll implement a simple toggle mechanism
+                // You would need to implement ToggleCommentLike in DBservices
+                // This is a placeholder implementation
+                return Ok(new { success = true, action = "liked" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
         private int? GetCurrentUserId()
         {
             try
