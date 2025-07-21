@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NewsSite.BL;
 using NewsSite.Models;
+using NewsSite.Services;
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
 
@@ -12,10 +13,14 @@ namespace NewsSite.Controllers
     public class PostsController : ControllerBase
     {
         private readonly DBservices _dbService;
+        private readonly INewsApiService _newsApiService;
+        private readonly ILogger<PostsController> _logger;
 
-        public PostsController()
+        public PostsController(DBservices dbService, INewsApiService newsApiService, ILogger<PostsController> logger)
         {
-            _dbService = new DBservices();
+            _dbService = dbService;
+            _newsApiService = newsApiService;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -354,6 +359,196 @@ namespace NewsSite.Controllers
             catch (Exception)
             {
                 return false;
+            }
+        }
+
+        // News API Integration Endpoints
+
+        /// <summary>
+        /// Manually trigger sync of News API articles to database
+        /// </summary>
+        [HttpPost("sync-news")]
+        public async Task<IActionResult> SyncNewsFromApi()
+        {
+            try
+            {
+                var articlesAdded = await _newsApiService.SyncNewsArticlesToDatabase();
+                return Ok(new { 
+                    success = true, 
+                    articlesAdded = articlesAdded,
+                    message = $"Successfully synced {articlesAdded} new articles from News API" 
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error syncing news from API");
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "Failed to sync news from API" 
+                });
+            }
+        }
+
+        /// <summary>
+        /// Get fresh headlines from News API (not stored in database)
+        /// </summary>
+        [HttpGet("live-headlines")]
+        public async Task<IActionResult> GetLiveHeadlines(
+            [FromQuery] string? category = null,
+            [FromQuery] string? country = null,
+            [FromQuery] int? pageSize = null)
+        {
+            try
+            {
+                // Apply defaults if parameters are missing
+                category = string.IsNullOrEmpty(category) ? "general" : category;
+                country = string.IsNullOrEmpty(country) ? "us" : country;
+                pageSize = pageSize ?? 20;
+                
+                var articles = await _newsApiService.FetchTopHeadlinesAsync(category, country, pageSize.Value);
+                
+                // Transform to match your existing frontend format
+                var response = articles.Select(a => new
+                {
+                    articleID = 0, // Live articles don't have DB IDs yet
+                    title = a.Title,
+                    content = a.Description ?? a.Content ?? "",
+                    imageURL = a.UrlToImage,
+                    publishDate = a.PublishedAt,
+                    category = category,
+                    sourceURL = a.Url,
+                    sourceName = a.Source.Name,
+                    user = new { username = "NewsBot" },
+                    likes = 0,
+                    views = 0,
+                    isLiked = false,
+                    isSaved = false,
+                    isLive = true // Flag to indicate this is from News API
+                }).ToList();
+
+                return Ok(new { 
+                    posts = response,
+                    totalPages = 1,
+                    currentPage = 1,
+                    isLive = true
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching live headlines");
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "Failed to fetch live headlines" 
+                });
+            }
+        }
+
+        /// <summary>
+        /// Search News API for specific topics
+        /// </summary>
+        [HttpGet("search-live")]
+        public async Task<IActionResult> SearchLiveNews(
+            [FromQuery] string query,
+            [FromQuery] int pageSize = 20)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(query))
+                {
+                    return BadRequest(new { success = false, message = "Query parameter is required" });
+                }
+
+                var articles = await _newsApiService.FetchEverythingAsync(query, pageSize);
+                
+                // Transform to match your existing frontend format
+                var response = articles.Select(a => new
+                {
+                    articleID = 0,
+                    title = a.Title,
+                    content = a.Description ?? a.Content ?? "",
+                    imageURL = a.UrlToImage,
+                    publishDate = a.PublishedAt,
+                    category = "search",
+                    sourceURL = a.Url,
+                    sourceName = a.Source.Name,
+                    user = new { username = "NewsBot" },
+                    likes = 0,
+                    views = 0,
+                    isLiked = false,
+                    isSaved = false,
+                    isLive = true
+                }).ToList();
+
+                return Ok(new { 
+                    posts = response,
+                    totalPages = 1,
+                    currentPage = 1,
+                    query = query,
+                    isLive = true
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error searching live news for query: {query}");
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "Failed to search live news" 
+                });
+            }
+        }
+
+        /// <summary>
+        /// Add a News API article to the database as a new post
+        /// </summary>
+        [HttpPost("save-live-article")]
+        public IActionResult SaveLiveArticle([FromBody] NewsApiArticle article)
+        {
+            try
+            {
+                var currentUserId = GetCurrentUserId();
+                if (currentUserId == null)
+                {
+                    return Unauthorized(new { success = false, message = "Authentication required" });
+                }
+
+                // Create NewsArticle from NewsApiArticle
+                var newsArticle = new NewsArticle
+                {
+                    Title = article.Title,
+                    Content = article.Content ?? article.Description ?? "",
+                    SourceURL = article.Url,
+                    SourceName = article.Source.Name,
+                    ImageURL = article.UrlToImage,
+                    PublishDate = article.PublishedAt,
+                    Category = "general", // You might want to detect category
+                    UserID = currentUserId.Value,
+                    Username = User?.Identity?.Name ?? "User"
+                };
+
+                var articleId = _dbService.CreateNewsArticle(newsArticle);
+                if (articleId > 0)
+                {
+                    return Ok(new { 
+                        success = true, 
+                        articleId = articleId,
+                        message = "Article saved successfully" 
+                    });
+                }
+                else
+                {
+                    return BadRequest(new { 
+                        success = false, 
+                        message = "Failed to save article" 
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving live article");
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "Failed to save article" 
+                });
             }
         }
     }

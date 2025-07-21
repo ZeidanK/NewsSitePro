@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using NewsSite.Services;
+using NewsSite.BackgroundServices;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -14,6 +17,16 @@ builder.Services.AddAuthorization();
 
 // Register DBservices for dependency injection
 builder.Services.AddScoped<DBservices>();
+
+// Register HttpClient for News API
+builder.Services.AddHttpClient<INewsApiService, NewsApiService>();
+
+// Register News API Service
+builder.Services.AddScoped<INewsApiService, NewsApiService>();
+
+// Register Background Service for automatic news fetching
+builder.Services.AddHostedService<NewsApiBackgroundService>();
+
 // Configure authentication
 builder.Services.AddAuthentication(options =>
 {
