@@ -1,0 +1,350 @@
+@model NewsSite.BL.Post
+
+<div class="post-container" data-post-id="@Model.PostID">
+    <div class="post-header">
+        <div class="user-info">
+            <img src="@(Model.UserProfileImageURL ?? "/images/default-avatar.png")" 
+                 alt="@Model.UserName" 
+                 class="user-avatar" />
+            <div class="user-details">
+                <h4 class="username">@Model.UserName</h4>
+                @if (Model.IsShared)
+                {
+                    <span class="shared-info">shared from 
+                        <img src="@(Model.OriginalPosterProfileImageURL ?? "/images/default-avatar.png")" 
+                             alt="@Model.OriginalPosterName" 
+                             class="original-user-avatar" />
+                        <strong>@Model.OriginalPosterName</strong>
+                    </span>
+                }
+                <span class="post-time">@Model.PostedDate.ToString("MMM dd, yyyy 'at' h:mm tt")</span>
+            </div>
+        </div>
+        <div class="post-actions-menu">
+            <button class="btn-menu" onclick="togglePostMenu(@Model.PostID)">⋯</button>
+            <div id="post-menu-@Model.PostID" class="post-menu hidden">
+                <a href="#" onclick="sharePost(@Model.PostID)">Share</a>
+                <a href="#" onclick="reportPost(@Model.PostID)">Report</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="post-content">
+        @if (Model.Article != null)
+        {
+            <div class="article-content">
+                @if (!string.IsNullOrEmpty(Model.Article.ImageURL))
+                {
+                    <div class="article-image">
+                        <img src="@Model.Article.ImageURL" alt="@Model.Article.Title" />
+                    </div>
+                }
+                
+                <div class="article-details">
+                    <h3 class="article-title">
+                        <a href="@Model.Article.SourceURL" target="_blank" rel="noopener noreferrer">
+                            @Model.Article.Title
+                        </a>
+                    </h3>
+                    
+                    @if (!string.IsNullOrEmpty(Model.Article.Content))
+                    {
+                        <p class="article-excerpt">@Model.Article.Content.Substring(0, Math.Min(200, Model.Article.Content.Length))@(Model.Article.Content.Length > 200 ? "..." : "")</p>
+                    }
+                    
+                    <div class="article-meta">
+                        <span class="source-name">@Model.Article.SourceName</span>
+                        <span class="category">@Model.Article.Category</span>
+                        <span class="publish-date">@Model.Article.PublishDate.ToString("MMM dd, yyyy")</span>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="post-interactions">
+        <div class="interaction-stats">
+            <span class="likes-count">@Model.LikeCount @(Model.LikeCount == 1 ? "like" : "likes")</span>
+            <span class="comments-count">@Model.CommentCount @(Model.CommentCount == 1 ? "comment" : "comments")</span>
+            <span class="shares-count">@Model.ShareCount @(Model.ShareCount == 1 ? "share" : "shares")</span>
+        </div>
+        
+        <div class="interaction-buttons">
+            <button class="btn-interaction like-btn @(Model.IsLikedByCurrentUser ? "liked" : "")" 
+                    onclick="toggleLike(@Model.PostID)">
+                <i class="fas fa-heart"></i>
+                <span>@(Model.IsLikedByCurrentUser ? "Unlike" : "Like")</span>
+            </button>
+            
+            <button class="btn-interaction comment-btn" onclick="toggleComments(@Model.PostID)">
+                <i class="fas fa-comment"></i>
+                <span>Comment</span>
+            </button>
+            
+            <button class="btn-interaction share-btn" onclick="sharePost(@Model.PostID)">
+                <i class="fas fa-share"></i>
+                <span>Share</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Comments Section -->
+    <div id="comments-section-@Model.PostID" class="comments-section hidden">
+        <div class="comment-form">
+            <textarea id="comment-input-@Model.PostID" 
+                      placeholder="Write a comment..." 
+                      class="comment-textarea"></textarea>
+            <button onclick="postComment(@Model.PostID)" class="btn-post-comment">Post</button>
+        </div>
+        
+        <div id="comments-list-@Model.PostID" class="comments-list">
+            @if (Model.Comments != null && Model.Comments.Any())
+            {
+                @foreach (var comment in Model.Comments.Take(3))
+                {
+                    <div class="comment">
+                        <img src="@(comment.UserProfileImageURL ?? "/images/default-avatar.png")" 
+                             alt="@comment.UserName" 
+                             class="comment-avatar" />
+                        <div class="comment-content">
+                            <strong>@comment.UserName</strong>
+                            <p>@comment.Content</p>
+                            <span class="comment-time">@comment.CommentDate.ToString("MMM dd 'at' h:mm tt")</span>
+                        </div>
+                    </div>
+                }
+                @if (Model.Comments.Count > 3)
+                {
+                    <button onclick="loadMoreComments(@Model.PostID)" class="btn-load-more">
+                        Load @(Model.Comments.Count - 3) more comments
+                    </button>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+.post-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    padding: 20px;
+    border: 1px solid #e1e5e9;
+}
+
+.post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-avatar, .original-user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.original-user-avatar {
+    width: 20px;
+    height: 20px;
+    margin: 0 5px;
+}
+
+.user-details h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.shared-info {
+    color: #666;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+}
+
+.post-time {
+    color: #999;
+    font-size: 12px;
+}
+
+.article-content {
+    margin-bottom: 15px;
+}
+
+.article-image img {
+    width: 100%;
+    max-height: 300px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.article-title a {
+    color: #1a1a1a;
+    text-decoration: none;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.article-title a:hover {
+    color: #0084ff;
+}
+
+.article-excerpt {
+    color: #666;
+    line-height: 1.5;
+    margin: 10px 0;
+}
+
+.article-meta {
+    display: flex;
+    gap: 15px;
+    font-size: 12px;
+    color: #999;
+}
+
+.interaction-stats {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 10px;
+    font-size: 14px;
+    color: #666;
+}
+
+.interaction-buttons {
+    display: flex;
+    gap: 20px;
+    padding-top: 10px;
+    border-top: 1px solid #e1e5e9;
+}
+
+.btn-interaction {
+    background: none;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    color: #666;
+}
+
+.btn-interaction:hover {
+    background-color: #f0f2f5;
+}
+
+.btn-interaction.liked {
+    color: #e91e63;
+}
+
+.comments-section {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #e1e5e9;
+}
+
+.comment-form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.comment-textarea {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    resize: none;
+    font-family: inherit;
+}
+
+.btn-post-comment {
+    background: #0084ff;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+}
+
+.comment {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.comment-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.comment-content {
+    flex: 1;
+    background: #f0f2f5;
+    padding: 8px 12px;
+    border-radius: 12px;
+}
+
+.comment-content strong {
+    font-size: 14px;
+}
+
+.comment-content p {
+    margin: 2px 0;
+    font-size: 14px;
+}
+
+.comment-time {
+    font-size: 12px;
+    color: #666;
+}
+
+.hidden {
+    display: none;
+}
+
+.post-menu {
+    position: absolute;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    z-index: 10;
+}
+
+.post-menu a {
+    display: block;
+    padding: 8px 16px;
+    text-decoration: none;
+    color: #333;
+}
+
+.post-menu a:hover {
+    background: #f0f2f5;
+}
+
+.btn-load-more {
+    background: none;
+    border: none;
+    color: #0084ff;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 5px 0;
+}
+</style>

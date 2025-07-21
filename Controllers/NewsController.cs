@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+using NewsSite.BL;
+using NewsSite.Services;
 
 namespace NewsSite.Controllers
 {
@@ -8,36 +8,103 @@ namespace NewsSite.Controllers
     [ApiController]
     public class NewsController : ControllerBase
     {
-        // GET: api/<NewsController>
-        [HttpGet]
-        public IEnumerable<string> Get()
+        private readonly INewsApiService _newsApiService;
+        private readonly DBservices _dbServices;
+        private readonly ILogger<NewsController> _logger;
+
+        public NewsController(INewsApiService newsApiService, DBservices dbServices, ILogger<NewsController> logger)
         {
-            return new string[] { "value1", "value2" };
+            _newsApiService = newsApiService;
+            _dbServices = dbServices;
+            _logger = logger;
         }
 
-        // GET api/<NewsController>/5
-        [HttpGet("{id}")]
-        public string Get(int id)
+        // GET: api/News/headlines
+        [HttpGet("headlines")]
+        public async Task<ActionResult<List<NewsApiArticle>>> GetTopHeadlines(
+            [FromQuery] string category = "general", 
+            [FromQuery] string country = "us", 
+            [FromQuery] int pageSize = 20)
         {
-            return "value";
+            try
+            {
+                var articles = await _newsApiService.FetchTopHeadlinesAsync(category, country, pageSize);
+                return Ok(articles);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching top headlines");
+                return StatusCode(500, "Error fetching news");
+            }
         }
 
-        // POST api/<NewsController>
-        [HttpPost]
-        public void Post([FromBody] string value)
+        // GET: api/News/search
+        [HttpGet("search")]
+        public async Task<ActionResult<List<NewsApiArticle>>> SearchNews([FromQuery] string query, [FromQuery] int pageSize = 20)
         {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(query))
+                {
+                    return BadRequest("Query parameter is required");
+                }
+
+                var articles = await _newsApiService.FetchEverythingAsync(query, pageSize);
+                return Ok(articles);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error searching news for query: {query}");
+                return StatusCode(500, "Error searching news");
+            }
         }
 
-        // PUT api/<NewsController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
+        // POST: api/News/sync
+        [HttpPost("sync")]
+        public async Task<ActionResult<int>> SyncNewsToDatabase()
         {
+            try
+            {
+                var articlesAdded = await _newsApiService.SyncNewsArticlesToDatabase();
+                return Ok(new { ArticlesAdded = articlesAdded, Message = $"Successfully synced {articlesAdded} articles" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error syncing news to database");
+                return StatusCode(500, "Error syncing news");
+            }
         }
 
-        // DELETE api/<NewsController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
+        // GET: api/News/categories
+        [HttpGet("categories")]
+        public ActionResult<List<string>> GetAvailableCategories()
         {
+            var categories = new List<string> 
+            { 
+                "general", "business", "entertainment", "health", 
+                "science", "sports", "technology" 
+            };
+            return Ok(categories);
+        }
+
+        // GET: api/News/database
+        [HttpGet("database")]
+        public ActionResult<List<NewsArticle>> GetNewsFromDatabase(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? category = null,
+            [FromQuery] int? currentUserId = null)
+        {
+            try
+            {
+                var articles = _dbServices.GetAllNewsArticles(pageNumber, pageSize, category, currentUserId);
+                return Ok(articles);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching news from database");
+                return StatusCode(500, "Error fetching news from database");
+            }
         }
     }
 }

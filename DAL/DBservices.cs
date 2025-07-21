@@ -1980,9 +1980,9 @@ public class DBservices
     public async Task<List<NewsSite.BL.Comment>> GetCommentsByPostId(int postId)
     {
         var comments = new List<NewsSite.BL.Comment>();
-        SqlConnection con = null;
-        SqlCommand cmd = null;
-        SqlDataReader reader = null;
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
 
         try
         {
@@ -2108,8 +2108,8 @@ public class DBservices
 
     public async Task<bool> UpdateComment(int commentId, int userId, string content)
     {
-        SqlConnection con = null;
-        SqlCommand cmd = null;
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
         
         try
         {
@@ -2137,8 +2137,8 @@ public class DBservices
 
     public async Task<bool> DeleteComment(int commentId, int userId)
     {
-        SqlConnection con = null;
-        SqlCommand cmd = null;
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
         
         try
         {
@@ -2165,8 +2165,8 @@ public class DBservices
 
     public async Task<int> GetCommentsCount(int postId)
     {
-        SqlConnection con = null;
-        SqlCommand cmd = null;
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
         
         try
         {

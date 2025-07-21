@@ -16,6 +16,8 @@ namespace NewsSite.BL
         // Navigation properties (not stored in DB)
         public string? UserName { get; set; }
         public string? UserAvatar { get; set; }
+        public string? UserProfileImageURL { get; set; }
+        public DateTime CommentDate => CreatedAt; // Alias for CreatedAt
         public List<Comment> Replies { get; set; } = new List<Comment>();
         public int LikesCount { get; set; } = 0;
         public bool IsLikedByCurrentUser { get; set; } = false;

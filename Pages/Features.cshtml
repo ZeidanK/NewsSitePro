@@ -1,0 +1,790 @@
+@page
+@{
+    ViewData["Title"] = "Website Features - NewsSitePro";
+    Layout = "~/Pages/Shared/_Layout.cshtml";
+}
+
+<div class="features-container">
+    <div class="features-header">
+        <h1><i class="fas fa-rocket"></i> NewsSitePro Features</h1>
+        <p class="lead">A comprehensive overview of our news aggregation and social platform capabilities</p>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-tabs features-tabs" id="featuresTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="basic-tab" data-bs-toggle="tab" data-bs-target="#basic" type="button" role="tab">
+                <i class="fas fa-check-circle"></i> Core Features
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="admin-tab" data-bs-toggle="tab" data-bs-target="#admin" type="button" role="tab">
+                <i class="fas fa-shield-alt"></i> Admin Panel
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="advanced-tab" data-bs-toggle="tab" data-bs-target="#advanced" type="button" role="tab">
+                <i class="fas fa-star"></i> Advanced Features
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tech-tab" data-bs-toggle="tab" data-bs-target="#tech" type="button" role="tab">
+                <i class="fas fa-code"></i> Technical
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content features-content" id="featuresTabContent">
+        
+        <!-- Core Features Tab -->
+        <div class="tab-pane fade show active" id="basic" role="tabpanel">
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="feature-section">
+                        <h3><i class="fas fa-user-circle"></i> User Management</h3>
+                        <div class="feature-list">
+                            <div class="feature-item">
+                                <i class="fas fa-user-plus text-success"></i>
+                                <div>
+                                    <strong>User Registration & Authentication</strong>
+                                    <p>Secure user registration with email validation and JWT-based authentication system</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-id-card text-primary"></i>
+                                <div>
+                                    <strong>Profile Management</strong>
+                                    <p>Comprehensive user profiles with bio, avatar, activity statistics, and personalization options</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-users text-info"></i>
+                                <div>
+                                    <strong>Social Features</strong>
+                                    <p>Follow/unfollow other users, view public profiles, and social interaction tracking</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-section">
+                        <h3><i class="fas fa-newspaper"></i> News & Content</h3>
+                        <div class="feature-list">
+                            <div class="feature-item">
+                                <i class="fas fa-rss text-warning"></i>
+                                <div>
+                                    <strong>News API Integration</strong>
+                                    <p>Automatic news aggregation from multiple sources via News API with hourly updates</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-eye text-secondary"></i>
+                                <div>
+                                    <strong>Article Viewing & Tracking</strong>
+                                    <p>Read articles with view counting, source attribution, and publication date tracking</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-plus-circle text-success"></i>
+                                <div>
+                                    <strong>User-Generated Content</strong>
+                                    <p>Users can create and share their own news posts with images, categories, and links</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="feature-section">
+                        <h3><i class="fas fa-heart"></i> Engagement Features</h3>
+                        <div class="feature-list">
+                            <div class="feature-item">
+                                <i class="fas fa-thumbs-up text-danger"></i>
+                                <div>
+                                    <strong>Like System</strong>
+                                    <p>Like/unlike articles with real-time count updates and user preference tracking</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-bookmark text-primary"></i>
+                                <div>
+                                    <strong>Save Articles</strong>
+                                    <p>Bookmark articles for later reading with personal saved articles collection</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-share text-info"></i>
+                                <div>
+                                    <strong>Content Sharing</strong>
+                                    <p>Share articles with comments and engage with community through social sharing</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-comments text-success"></i>
+                                <div>
+                                    <strong>Comment System</strong>
+                                    <p>Comment on posts with nested replies, like comments, and threaded discussions</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-section">
+                        <h3><i class="fas fa-search"></i> Discovery & Search</h3>
+                        <div class="feature-list">
+                            <div class="feature-item">
+                                <i class="fas fa-search-plus text-primary"></i>
+                                <div>
+                                    <strong>Advanced Search</strong>
+                                    <p>Search articles and users with real-time suggestions, filters, and keyword navigation</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-filter text-secondary"></i>
+                                <div>
+                                    <strong>Content Filtering</strong>
+                                    <p>Filter by categories, date ranges, sources, and other criteria for personalized browsing</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-fire text-danger"></i>
+                                <div>
+                                    <strong>Trending Topics</strong>
+                                    <p>Discover trending topics and popular content with one-click search integration</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Panel Tab -->
+        <div class="tab-pane fade" id="admin" role="tabpanel">
+            <div class="admin-notice">
+                <i class="fas fa-info-circle"></i>
+                <strong>Admin Access:</strong> Use username "admin" and password "admin" through the regular login interface
+            </div>
+            
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="feature-section">
+                        <h3><i class="fas fa-users-cog"></i> User Management</h3>
+                        <div class="feature-list">
+                            <div class="feature-item">
+                                <i class="fas fa-ban text-danger"></i>
+                                <div>
+                                    <strong>User Moderation</strong>
+                                    <p>Ban/unban users with customizable duration (1 day to permanent) and reason tracking</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-user-slash text-warning"></i>
+                                <div>
+                                    <strong>Account Control</strong>
+                                    <p>Activate/deactivate user accounts to prevent login or content sharing</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-search text-info"></i>
+                                <div>
+                                    <strong>User Search & Filter</strong>
+                                    <p>Search users by name/email, filter by status, join date, and activity levels</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-list-check text-primary"></i>
+                                <div>
+                                    <strong>Bulk Actions</strong>
+                                    <p>Perform bulk operations on multiple users: ban, deactivate, or activate</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="feature-section">
+                        <h3><i class="fas fa-chart-line"></i> Analytics & Monitoring</h3>
+                        <div class="feature-list">
+                            <div class="feature-item">
+                                <i class="fas fa-tachometer-alt text-success"></i>
+                                <div>
+                                    <strong>Dashboard Statistics</strong>
+                                    <p>Real-time stats: total users, active users, banned users, total posts, and reports</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-history text-secondary"></i>
+                                <div>
+                                    <strong>Activity Logs</strong>
+                                    <p>Comprehensive activity tracking with timestamps, IP addresses, and user actions</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-flag text-warning"></i>
+                                <div>
+                                    <strong>Report Management</strong>
+                                    <p>Handle user reports for inappropriate content with resolution tracking</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-download text-info"></i>
+                                <div>
+                                    <strong>Data Export</strong>
+                                    <p>Export user data and analytics for external analysis and reporting</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-section">
+                        <h3><i class="fas fa-shield-check"></i> Security & Compliance</h3>
+                        <div class="feature-list">
+                            <div class="feature-item">
+                                <i class="fas fa-user-shield text-primary"></i>
+                                <div>
+                                    <strong>Content Moderation</strong>
+                                    <p>Review and moderate user-generated content for community guidelines compliance</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-exclamation-triangle text-danger"></i>
+                                <div>
+                                    <strong>Report System</strong>
+                                    <p>Users can report inappropriate content, with admin resolution workflow</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Features Tab -->
+        <div class="tab-pane fade" id="advanced" role="tabpanel">
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="feature-section">
+                        <h3><i class="fas fa-robot"></i> News API Automation</h3>
+                        <div class="feature-list">
+                            <div class="feature-item">
+                                <i class="fas fa-sync text-primary"></i>
+                                <div>
+                                    <strong>Automatic News Sync</strong>
+                                    <p>Background service fetches news every hour from multiple categories automatically</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-broadcast-tower text-success"></i>
+                                <div>
+                                    <strong>Live News Feed</strong>
+                                    <p>Real-time news from News API with category browsing and search functionality</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-database text-info"></i>
+                                <div>
+                                    <strong>Smart Content Curation</strong>
+                                    <p>NewsBot system user automatically populates site with fresh content</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-section">
+                        <h3><i class="fas fa-bell"></i> Notifications System</h3>
+                        <div class="feature-list">
+                            <div class="feature-item">
+                                <i class="fas fa-cog text-secondary"></i>
+                                <div>
+                                    <strong>Notification Preferences</strong>
+                                    <p>Customizable notification settings for likes, comments, follows, and system messages</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-envelope text-warning"></i>
+                                <div>
+                                    <strong>Email Notifications</strong>
+                                    <p>Optional email notifications for important activities and updates</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-search text-primary"></i>
+                                <div>
+                                    <strong>Notification Search</strong>
+                                    <p>Search through notification history with filtering and categorization</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="feature-section">
+                        <h3><i class="fas fa-mobile-alt"></i> Mobile Experience</h3>
+                        <div class="feature-list">
+                            <div class="feature-item">
+                                <i class="fas fa-mobile text-success"></i>
+                                <div>
+                                    <strong>Responsive Design</strong>
+                                    <p>Mobile-first responsive design with touch-optimized interactions</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-bars text-secondary"></i>
+                                <div>
+                                    <strong>Mobile Navigation</strong>
+                                    <p>Hamburger menu with mobile-optimized sidebar and navigation</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-hand-pointer text-info"></i>
+                                <div>
+                                    <strong>Touch-Friendly Interface</strong>
+                                    <p>Optimized button sizes, swipe gestures, and mobile-friendly layouts</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-section">
+                        <h3><i class="fas fa-tags"></i> Interest Management</h3>
+                        <div class="feature-list">
+                            <div class="feature-item">
+                                <i class="fas fa-tag text-primary"></i>
+                                <div>
+                                    <strong>Interest Tags</strong>
+                                    <p>Manage personal interest tags for customized content discovery</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-sliders-h text-secondary"></i>
+                                <div>
+                                    <strong>Content Preferences</strong>
+                                    <p>Customize news categories, notification settings, and feed preferences</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-filter text-info"></i>
+                                <div>
+                                    <strong>User Filtering</strong>
+                                    <p>Block or filter content from specific users for personalized experience</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Technical Features Tab -->
+        <div class="tab-pane fade" id="tech" role="tabpanel">
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="feature-section">
+                        <h3><i class="fas fa-code"></i> Architecture</h3>
+                        <div class="feature-list">
+                            <div class="feature-item">
+                                <i class="fas fa-layer-group text-primary"></i>
+                                <div>
+                                    <strong>Three-Layer Architecture</strong>
+                                    <p>Proper separation: Business Logic (BL), Data Access Layer (DAL), and Presentation Layer</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-cube text-success"></i>
+                                <div>
+                                    <strong>ASP.NET Core 6</strong>
+                                    <p>Modern web framework with Razor Pages, API controllers, and dependency injection</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-database text-info"></i>
+                                <div>
+                                    <strong>SQL Server Integration</strong>
+                                    <p>Robust database with stored procedures, indexing, and efficient data management</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-section">
+                        <h3><i class="fas fa-shield-alt"></i> Security</h3>
+                        <div class="feature-list">
+                            <div class="feature-item">
+                                <i class="fas fa-key text-warning"></i>
+                                <div>
+                                    <strong>JWT Authentication</strong>
+                                    <p>Secure token-based authentication with proper token management</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-lock text-danger"></i>
+                                <div>
+                                    <strong>Password Security</strong>
+                                    <p>BCrypt password hashing with salt for secure credential storage</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-shield-check text-success"></i>
+                                <div>
+                                    <strong>SQL Injection Prevention</strong>
+                                    <p>Parameterized queries and stored procedures for secure database operations</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="feature-section">
+                        <h3><i class="fas fa-rocket"></i> Performance</h3>
+                        <div class="feature-list">
+                            <div class="feature-item">
+                                <i class="fas fa-bolt text-warning"></i>
+                                <div>
+                                    <strong>Async Operations</strong>
+                                    <p>Non-blocking database operations with async/await pattern throughout</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-list text-primary"></i>
+                                <div>
+                                    <strong>Efficient Pagination</strong>
+                                    <p>Server-side pagination for large datasets with optimized queries</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-image text-secondary"></i>
+                                <div>
+                                    <strong>Lazy Loading</strong>
+                                    <p>Images and content loaded as needed for improved page load times</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-section">
+                        <h3><i class="fas fa-cogs"></i> Development</h3>
+                        <div class="feature-list">
+                            <div class="feature-item">
+                                <i class="fab fa-github text-dark"></i>
+                                <div>
+                                    <strong>Version Control</strong>
+                                    <p>Git-based development with proper branching and collaboration workflow</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-bug text-danger"></i>
+                                <div>
+                                    <strong>Error Handling</strong>
+                                    <p>Comprehensive error handling with user-friendly error messages and logging</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-file-code text-info"></i>
+                                <div>
+                                    <strong>Clean Code</strong>
+                                    <p>Well-documented, maintainable code following best practices and SOLID principles</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feature Status Legend -->
+    <div class="feature-status-legend">
+        <h4>Feature Status</h4>
+        <div class="status-items">
+            <span class="status-item status-complete">
+                <i class="fas fa-check-circle"></i> Fully Implemented
+            </span>
+            <span class="status-item status-progress">
+                <i class="fas fa-clock"></i> In Development
+            </span>
+            <span class="status-item status-planned">
+                <i class="fas fa-calendar"></i> Planned Feature
+            </span>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="quick-stats">
+        <div class="row text-center">
+            <div class="col-md-3">
+                <div class="stat-item">
+                    <h3>20+</h3>
+                    <p>Core Features</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-item">
+                    <h3>100%</h3>
+                    <p>Mobile Responsive</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-item">
+                    <h3>7</h3>
+                    <p>News Categories</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-item">
+                    <h3>24/7</h3>
+                    <p>Auto News Updates</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.features-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.features-header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 40px 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px;
+}
+
+.features-header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+}
+
+.features-tabs {
+    margin-bottom: 30px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.features-tabs .nav-link {
+    color: #6c757d;
+    border: none;
+    padding: 15px 25px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.features-tabs .nav-link:hover {
+    color: #495057;
+    background-color: #f8f9fa;
+}
+
+.features-tabs .nav-link.active {
+    color: #007bff;
+    background-color: transparent;
+    border-bottom: 3px solid #007bff;
+}
+
+.features-content {
+    background: white;
+    border-radius: 10px;
+    padding: 30px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.feature-section {
+    margin-bottom: 40px;
+}
+
+.feature-section h3 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.feature-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.feature-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+    transition: transform 0.2s ease;
+}
+
+.feature-item:hover {
+    transform: translateX(5px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.feature-item i {
+    font-size: 1.5rem;
+    margin-top: 2px;
+}
+
+.feature-item strong {
+    display: block;
+    margin-bottom: 5px;
+    color: #2c3e50;
+}
+
+.feature-item p {
+    margin: 0;
+    color: #6c757d;
+    line-height: 1.5;
+}
+
+.admin-notice {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+}
+
+.feature-status-legend {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 40px;
+}
+
+.status-items {
+    display: flex;
+    gap: 30px;
+    margin-top: 15px;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+
+.status-complete { color: #28a745; }
+.status-progress { color: #ffc107; }
+.status-planned { color: #6c757d; }
+
+.quick-stats {
+    background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+    color: white;
+    padding: 40px;
+    border-radius: 10px;
+    margin-top: 40px;
+}
+
+.stat-item h3 {
+    font-size: 2.5rem;
+    margin-bottom: 5px;
+}
+
+.stat-item p {
+    margin: 0;
+    opacity: 0.9;
+}
+
+/* Responsive Design */
+@@media (max-width: 768px) {
+    .features-header h1 {
+        font-size: 2rem;
+    }
+    
+    .features-tabs .nav-link {
+        padding: 10px 15px;
+        font-size: 0.9rem;
+    }
+    
+    .features-content {
+        padding: 20px;
+    }
+    
+    .feature-item {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .status-items {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .quick-stats .row > div {
+        margin-bottom: 20px;
+    }
+}
+
+@@media (max-width: 576px) {
+    .features-container {
+        padding: 10px;
+    }
+    
+    .features-header {
+        padding: 20px;
+    }
+    
+    .features-tabs {
+        flex-wrap: wrap;
+    }
+    
+    .features-tabs .nav-link {
+        flex: 1;
+        text-align: center;
+        min-width: 120px;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add smooth scrolling for tab transitions
+    const tabButtons = document.querySelectorAll('.features-tabs .nav-link');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Smooth scroll to top of content
+            document.querySelector('.features-content').scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        });
+    });
+
+    // Add animation to feature items when they come into view
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver(function(entries) {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, observerOptions);
+
+    // Observe all feature items
+    document.querySelectorAll('.feature-item').forEach(item => {
+        item.style.opacity = '0';
+        item.style.transform = 'translateY(20px)';
+        item.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+        observer.observe(item);
+    });
+});
+</script>

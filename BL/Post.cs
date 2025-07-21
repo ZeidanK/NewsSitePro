@@ -13,13 +13,13 @@ namespace NewsSite.BL
         
         // User who posted/shared this content
         public int UserID { get; set; }
-        public string UserName { get; set; }
-        public string UserProfileImageURL { get; set; }
+        public string? UserName { get; set; }
+        public string? UserProfileImageURL { get; set; }
         
         // Original post info (if this is a share/repost)
         public int? OriginalPostID { get; set; }
-        public string OriginalPosterName { get; set; }
-        public string OriginalPosterProfileImageURL { get; set; }
+        public string? OriginalPosterName { get; set; }
+        public string? OriginalPosterProfileImageURL { get; set; }
         public bool IsShared => OriginalPostID.HasValue;
         
         // Post metadata
@@ -35,29 +35,29 @@ namespace NewsSite.BL
         public bool IsLikedByCurrentUser { get; set; }
         
         // Optional collections for detailed view
-        public List<Comment> Comments { get; set; }
-        public List<Like> Likes { get; set; }
+        public List<Comment>? Comments { get; set; }
+        public List<Like>? Likes { get; set; }
     }
 
     // Supporting classes
-    //public class Comment
-    //{
-    //    public int CommentID { get; set; }
-    //    public int PostID { get; set; }
-    //    public int UserID { get; set; }
-    //    public string UserName { get; set; }
-    //    public string UserProfileImageURL { get; set; }
-    //    public string Content { get; set; }
-    //    public DateTime CommentDate { get; set; }
-    //    public int LikeCount { get; set; }
-    //}
+    public class PostComment
+    {
+        public int CommentID { get; set; }
+        public int PostID { get; set; }
+        public int UserID { get; set; }
+        public string? UserName { get; set; }
+        public string? UserProfileImageURL { get; set; }
+        public string? Content { get; set; }
+        public DateTime CommentDate { get; set; }
+        public int LikeCount { get; set; }
+    }
 
     public class Like
     {
         public int LikeID { get; set; }
         public int PostID { get; set; }
         public int UserID { get; set; }
-        public string UserName { get; set; }
+        public string? UserName { get; set; }
         public DateTime LikeDate { get; set; }
     }
 }
