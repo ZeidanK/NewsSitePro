@@ -24,6 +24,9 @@ builder.Services.AddHttpClient<INewsApiService, NewsApiService>();
 // Register News API Service
 builder.Services.AddScoped<INewsApiService, NewsApiService>();
 
+// Register Recommendation Service
+builder.Services.AddScoped<IRecommendationService, RecommendationService>();
+
 // Register Background Service for automatic news fetching
 builder.Services.AddHostedService<NewsApiBackgroundService>();
 
