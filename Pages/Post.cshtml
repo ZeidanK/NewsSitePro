@@ -6,6 +6,11 @@
     ViewData["HeaderData"] = Model.HeaderData;
 }
 
+@{
+    // Include unified post template system
+    await Html.RenderPartialAsync("_PostTemplatePartial");
+}
+
 <div class="posts-container">
     <!-- Create New Post Section -->
     <div class="create-post-section" id="createPostSection">
@@ -149,10 +154,17 @@
                     const data = await response.json();
                     
                     if (data.posts && data.posts.length > 0) {
-                        data.posts.forEach(post => {
-                            const postElement = createPostElement(post);
-                            postsContainer.appendChild(postElement);
+                        // Use unified template system
+                        const template = window.postTemplates.feed;
+                        
+                        data.posts.forEach((post, index) => {
+                            // Add staggered animation
+                            setTimeout(() => {
+                                const postElement = template.createPostElement(post);
+                                postsContainer.appendChild(postElement);
+                            }, index * 50);
                         });
+                        
                         currentPage++;
                         
                         // Check if we've reached the end
@@ -179,178 +191,28 @@
             }
         }
 
-        // Create enhanced post element
-        function createPostElement(post) {
-            const postBlock = document.createElement('div');
-            postBlock.className = 'post-card';
-            postBlock.innerHTML = `
-                <div class="post-header">
-                    <div class="post-user">
-                        <div class="user-avatar">
-                            ${post.user.username.charAt(0).toUpperCase()}
-                        </div>
-                        <div class="user-info">
-                            <a href="/user/${post.user.userId || post.articleID}" class="username">${post.user.username}</a>
-                            <span class="post-time">${formatTimeAgo(post.publishDate)}</span>
-                        </div>
-                    </div>
-                    <div class="post-category">
-                        <span class="category-badge">${post.category}</span>
-                    </div>
-                </div>
-                
-                ${post.imageURL ? `<img src="${post.imageURL}" alt="${post.title}" class="post-image" loading="lazy" />` : ''}
-                
-                <div class="post-content">
-                    <h3>${post.title}</h3>
-                    <p>${post.content}</p>
-                </div>
-                
-                ${post.sourceURL ? `
-                <div class="post-source">
-                    <i class="fas fa-external-link-alt"></i>
-                    <span>Source: <a href="${post.sourceURL}" target="_blank" rel="noopener">${post.sourceName || 'External Link'}</a></span>
-                </div>
-                ` : ''}
-                
-                <div class="post-footer">
-                    <div class="post-stats">
-                        <span class="stat-item">
-                            <span class="stat-icon">👁️</span>
-                            <span class="stat-count">${post.views || Math.floor(Math.random() * 1000)}</span>
-                        </span>
-                        <span class="stat-item">
-                            <span class="stat-icon">❤️</span>
-                            <span class="stat-count" id="likes-${post.articleID}">${post.likes || 0}</span>
-                        </span>
-                    </div>
-                    
-                    <div class="post-actions">
-                        <button class="btn btn-success ${post.isLiked ? 'liked' : ''}" onclick="likePost(${post.articleID})" id="like-btn-${post.articleID}">
-                            <span class="btn-icon">${post.isLiked ? '❤️' : '🤍'}</span>
-                            <span class="btn-text">Like</span>
-                        </button>
-                        <button class="btn btn-primary" onclick="sharePost(${post.articleID})">
-                            <span class="btn-icon">🔄</span>
-                            <span class="btn-text">Share</span>
-                        </button>
-                        <button class="btn btn-secondary" onclick="savePost(${post.articleID})">
-                            <span class="btn-icon">🔖</span>
-                            <span class="btn-text">Save</span>
-                        </button>
-                        <button class="btn btn-danger" onclick="reportPost(${post.articleID})">
-                            <span class="btn-icon">⚠️</span>
-                            <span class="btn-text">Report</span>
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            // Add animation
-            postBlock.classList.add('new-post');
-            return postBlock;
+        // Legacy function compatibility - redirect to unified system
+        function likePost(articleId) {
+            window.postInteractions.likePost(articleId);
         }
 
-        // Enhanced like functionality
-        async function likePost(articleId) {
-            const btn = document.getElementById(`like-btn-${articleId}`);
-            const likesCount = document.getElementById(`likes-${articleId}`);
-            const isLiked = btn.classList.contains('liked');
-            
-            try {
-                const response = await fetch(`/api/Posts/Like/${articleId}`, {
-                    method: "POST",
-                    headers: {
-                        "Authorization": "Bearer " + localStorage.getItem('jwtToken'),
-                        "Content-Type": "application/json"
-                    }
-                });
-
-                if (response.ok) {
-                    // Toggle like state
-                    btn.classList.toggle('liked');
-                    const icon = btn.querySelector('.btn-icon');
-                    const currentCount = parseInt(likesCount.textContent);
-                    
-                    if (isLiked) {
-                        icon.textContent = '🤍';
-                        likesCount.textContent = currentCount - 1;
-                        showToast("Post unliked", "info");
-                    } else {
-                        icon.textContent = '❤️';
-                        likesCount.textContent = currentCount + 1;
-                        showToast("Post liked!", "success");
-                    }
-                } else {
-                    showToast("Failed to like post. Please try again.", "error");
-                }
-            } catch (error) {
-                console.error("Error liking post:", error);
-                showToast("Network error. Please try again.", "error");
-            }
+        function sharePost(articleId, title = '', sourceUrl = '') {
+            window.postInteractions.sharePost(articleId, title, sourceUrl);
         }
 
-        // Enhanced share functionality
-        async function sharePost(articleId) {
-            if (navigator.share) {
-                try {
-                    await navigator.share({
-                        title: 'Check out this news article',
-                        url: window.location.href + `#post-${articleId}`
-                    });
-                    showToast("Post shared successfully!", "success");
-                } catch (error) {
-                    if (error.name !== 'AbortError') {
-                        copyToClipboard(window.location.href + `#post-${articleId}`);
-                    }
-                }
-            } else {
-                copyToClipboard(window.location.href + `#post-${articleId}`);
-            }
+        function savePost(articleId) {
+            window.postInteractions.savePost(articleId);
         }
 
-        // Save post functionality
-        async function savePost(articleId) {
-            try {
-                const response = await fetch(`/api/Posts/Save/${articleId}`, {
-                    method: "POST",
-                    headers: {
-                        "Authorization": "Bearer " + localStorage.getItem('jwtToken'),
-                        "Content-Type": "application/json"
-                    }
-                });
-
-                if (response.ok) {
-                    showToast("Post saved to bookmarks!", "success");
-                } else {
-                    showToast("Failed to save post. Please try again.", "error");
-                }
-            } catch (error) {
-                console.error("Error saving post:", error);
-                showToast("Network error. Please try again.", "error");
-            }
+        function reportPost(articleId) {
+            window.postInteractions.reportPost(articleId);
         }
 
-        async function reportPost(articleId) {
-            if (!confirm("Are you sure you want to report this post?")) return;
-            
-            try {
-                const response = await fetch(`/api/Posts/Report/${articleId}`, {
-                    method: "POST",
-                    headers: {
-                        "Authorization": "Bearer " + localStorage.getItem('jwtToken'),
-                        "Content-Type": "application/json"
-                    }
-                });
-
-                if (response.ok) {
-                    showToast("Post reported successfully. Thank you for helping keep our community safe.", "success");
-                } else {
-                    showToast("Failed to report post. Please try again.", "error");
-                }
-            } catch (error) {
-                console.error("Error reporting post:", error);
-                showToast("Network error. Please try again.", "error");
+        // Set up current user for interactions
+        function initializePostInteractions() {
+            const currentUserId = '@(Model.HeaderData?.user?.UserID ?? 0)';
+            if (currentUserId && currentUserId !== '0') {
+                window.postTemplateHelpers.setCurrentUser(currentUserId);
             }
         }
 
@@ -679,10 +541,21 @@
                     if (data.posts && data.posts.length > 0) {
                         // Clear existing content and show fresh articles
                         postsContainer.innerHTML = '';
-                        data.posts.forEach(post => {
-                            const postElement = createLivePostElement(post);
-                            postsContainer.appendChild(postElement);
+                        const template = window.postTemplates.liveNews;
+                        
+                        data.posts.forEach((post, index) => {
+                            // Mark as live post and add staggered animation
+                            post.isLivePost = true;
+                            post.sourceName = post.sourceName || post.source?.name;
+                            post.username = 'NewsBot';
+                            post.user = { username: 'NewsBot' };
+                            
+                            setTimeout(() => {
+                                const postElement = template.createPostElement(post);
+                                postsContainer.appendChild(postElement);
+                            }, index * 50);
                         });
+                        
                         showToast(`Loaded ${data.posts.length} fresh articles from ${category}`, 'success');
                     } else {
                         showToast('No fresh articles available', 'info');
@@ -721,10 +594,21 @@
                     const data = await response.json();
                     
                     if (data.posts && data.posts.length > 0) {
-                        data.posts.forEach(post => {
-                            const postElement = createLivePostElement(post);
-                            postsContainer.appendChild(postElement);
+                        const template = window.postTemplates.liveNews;
+                        
+                        data.posts.forEach((post, index) => {
+                            // Mark as live post and add staggered animation
+                            post.isLivePost = true;
+                            post.sourceName = post.sourceName || post.source?.name;
+                            post.username = 'NewsBot';
+                            post.user = { username: 'NewsBot' };
+                            
+                            setTimeout(() => {
+                                const postElement = template.createPostElement(post);
+                                postsContainer.appendChild(postElement);
+                            }, index * 50);
                         });
+                        
                         showToast(`Found ${data.posts.length} articles for "${query}"`, 'success');
                     } else {
                         postsContainer.innerHTML = `<div class="no-posts">No articles found for "${query}".</div>`;
@@ -741,101 +625,25 @@
             }
         }
 
-        // Create live post element (similar to createPostElement but for News API articles)
+        // Legacy function compatibility for live posts - redirect to unified system
         function createLivePostElement(post) {
-            const postBlock = document.createElement('div');
-            postBlock.className = 'post-card live-post';
-            postBlock.innerHTML = `
-                <div class="live-indicator">
-                    <span class="live-badge">🔴 LIVE</span>
-                    <span class="source-time">From ${post.sourceName} • ${formatTimeAgo(post.publishDate)}</span>
-                </div>
-                
-                <div class="post-header">
-                    <div class="post-user">
-                        <div class="user-avatar newsbot-avatar">
-                            🤖
-                        </div>
-                        <div class="user-info">
-                            <span class="username">NewsBot</span>
-                            <span class="post-time">Live from ${post.sourceName}</span>
-                        </div>
-                    </div>
-                    <div class="post-category">
-                        <span class="category-badge live">${post.category}</span>
-                    </div>
-                </div>
-                
-                ${post.imageURL ? `<img src="${post.imageURL}" alt="${post.title}" class="post-image" loading="lazy" />` : ''}
-                
-                <div class="post-content">
-                    <h3>${post.title}</h3>
-                    <p>${post.content}</p>
-                </div>
-                
-                <div class="post-source">
-                    <i class="fas fa-external-link-alt"></i>
-                    <span>Read full article: <a href="${post.sourceURL}" target="_blank" rel="noopener">${post.sourceName}</a></span>
-                </div>
-                
-                <div class="post-footer">
-                    <div class="live-post-actions">
-                        <button class="btn btn-primary" onclick="saveLiveArticle(${JSON.stringify(post).replace(/"/g, '&quot;')})">
-                            <span class="btn-icon">💾</span>
-                            <span class="btn-text">Save to Feed</span>
-                        </button>
-                        <button class="btn btn-secondary" onclick="shareLivePost('${post.sourceURL}', '${post.title.replace(/'/g, "\\'")}')">
-                            <span class="btn-icon">🔄</span>
-                            <span class="btn-text">Share</span>
-                        </button>
-                        <button class="btn btn-info" onclick="window.open('${post.sourceURL}', '_blank')">
-                            <span class="btn-icon">📖</span>
-                            <span class="btn-text">Read Full</span>
-                        </button>
-                    </div>
-                </div>
-            `;
+            // Mark as live post
+            post.isLivePost = true;
+            post.sourceName = post.sourceName || post.source?.name;
+            post.username = 'NewsBot';
+            post.user = { username: 'NewsBot' };
             
-            return postBlock;
+            const template = window.postTemplates.liveNews;
+            return template.createPostElement(post);
         }
 
-        // Save live article to database
-        async function saveLiveArticle(article) {
-            try {
-                const response = await fetch('/api/Posts/save-live-article', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + localStorage.getItem('jwtToken')
-                    },
-                    body: JSON.stringify({
-                        title: article.title,
-                        content: article.content,
-                        url: article.sourceURL,
-                        urlToImage: article.imageURL,
-                        publishedAt: article.publishDate,
-                        source: {
-                            name: article.sourceName
-                        }
-                    })
-                });
-
-                if (response.ok) {
-                    const result = await response.json();
-                    showToast('Article saved to your feed!', 'success');
-                } else if (response.status === 401) {
-                    showToast('Please log in to save articles', 'error');
-                } else {
-                    showToast('Failed to save article', 'error');
-                }
-            } catch (error) {
-                console.error('Error saving article:', error);
-                showToast('Network error saving article', 'error');
-            }
+        function saveLiveArticle(article) {
+            window.postInteractions.saveLiveArticle(article);
         }
 
-        // Share live post
         function shareLivePost(url, title) {
+            window.postInteractions.sharePost(null, title, url);
+        }
             if (navigator.share) {
                 navigator.share({
                     title: title,
@@ -885,7 +693,8 @@
             }
         }
 
-        // Initial load
+        // Initialize post interactions and load posts
+        initializePostInteractions();
         loadPosts();
     </script>
 

@@ -1,7 +1,11 @@
 -- =============================================
--- Recommendation System Database Tables
+-- Recommendation System Database Tables (FIXED)
 -- Following NewsSitePro2025 naming convention
 -- =============================================
+
+-- First, let's check the actual structure of Users_News table
+-- Run this query first to identify the correct primary key column:
+-- SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Users_News' AND COLUMNPROPERTY(OBJECT_ID('Users_News'), COLUMN_NAME, 'IsIdentity') = 1;
 
 -- User Interests Table
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='NewsSitePro2025_UserInterests' AND xtype='U')
@@ -12,7 +16,7 @@ BEGIN
         Category nvarchar(100) NOT NULL,
         InterestScore float NOT NULL DEFAULT 0.0,
         LastUpdated datetime NOT NULL DEFAULT GETDATE(),
-        CONSTRAINT FK_NewsSitePro2025_UserInterests_Users FOREIGN KEY (UserID) REFERENCES Users_News(ID),
+        -- Note: Foreign key will be added after confirming column name
         CONSTRAINT UQ_NewsSitePro2025_UserInterests_UserCategory UNIQUE (UserID, Category)
     );
 END
@@ -31,8 +35,8 @@ BEGIN
         LastActivity datetime NOT NULL DEFAULT GETDATE(),
         PreferredReadingTime time NOT NULL DEFAULT '08:00:00',
         MostActiveHour int NOT NULL DEFAULT 8,
-        FavoriteCategories nvarchar(500) NULL,
-        CONSTRAINT FK_NewsSitePro2025_UserBehavior_Users FOREIGN KEY (UserID) REFERENCES Users_News(ID)
+        FavoriteCategories nvarchar(500) NULL
+        -- Note: Foreign key will be added after confirming column name
     );
 END
 GO
@@ -45,9 +49,8 @@ BEGIN
         UserID int NOT NULL,
         ArticleID int NOT NULL,
         InteractionType nvarchar(50) NOT NULL, -- 'view', 'like', 'share', 'comment', 'save'
-        Timestamp datetime NOT NULL DEFAULT GETDATE(),
-        CONSTRAINT FK_NewsSitePro2025_ArticleInteractions_Users FOREIGN KEY (UserID) REFERENCES Users_News(ID),
-        CONSTRAINT FK_NewsSitePro2025_ArticleInteractions_Articles FOREIGN KEY (ArticleID) REFERENCES NewsArticles(ArticleID)
+        Timestamp datetime NOT NULL DEFAULT GETDATE()
+        -- Note: Foreign keys will be added after confirming column names
     );
 END
 GO
@@ -64,8 +67,8 @@ BEGIN
         MaxArticlesPerFeed int NOT NULL DEFAULT 20,
         PreferredCategories nvarchar(500) NULL,
         ExcludedCategories nvarchar(500) NULL,
-        LastUpdated datetime NOT NULL DEFAULT GETDATE(),
-        CONSTRAINT FK_NewsSitePro2025_FeedConfigurations_Users FOREIGN KEY (UserID) REFERENCES Users_News(ID)
+        LastUpdated datetime NOT NULL DEFAULT GETDATE()
+        -- Note: Foreign key will be added after confirming column name
     );
 END
 GO
@@ -90,12 +93,42 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_NewsSitePro2025_Articl
     CREATE NONCLUSTERED INDEX IX_NewsSitePro2025_ArticleInteractions_Timestamp ON NewsSitePro2025_ArticleInteractions (Timestamp);
 GO
 
--- Sample data for testing (optional)
--- Insert default feed configurations for existing users
-INSERT INTO NewsSitePro2025_FeedConfigurations (UserID, PersonalizationWeight, FreshnessWeight, PopularityWeight, SerendipityWeight)
-SELECT ID, 0.4, 0.3, 0.2, 0.1
-FROM Users_News 
-WHERE ID NOT IN (SELECT UserID FROM NewsSitePro2025_FeedConfigurations);
-GO
+PRINT 'NewsSitePro2025 Recommendation system tables created successfully (without foreign keys)!';
+PRINT 'Next: Run the column identification query and then add foreign keys manually.';
 
-PRINT 'NewsSitePro2025 Recommendation system tables created successfully!';
+
+-- Run this to find the correct primary key column in Users_News
+SELECT 
+    c.COLUMN_NAME,
+    c.DATA_TYPE,
+    CASE 
+        WHEN pk.COLUMN_NAME IS NOT NULL THEN 'PRIMARY KEY'
+        ELSE ''
+    END AS KEY_TYPE
+FROM INFORMATION_SCHEMA.COLUMNS c
+LEFT JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc 
+    ON c.TABLE_NAME = tc.TABLE_NAME
+LEFT JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE pk 
+    ON c.TABLE_NAME = pk.TABLE_NAME 
+    AND c.COLUMN_NAME = pk.COLUMN_NAME 
+    AND tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
+WHERE c.TABLE_NAME = 'Users_News'
+ORDER BY c.ORDINAL_POSITION;
+
+-- Also check NewsArticles table structure
+SELECT 
+    c.COLUMN_NAME,
+    c.DATA_TYPE,
+    CASE 
+        WHEN pk.COLUMN_NAME IS NOT NULL THEN 'PRIMARY KEY'
+        ELSE ''
+    END AS KEY_TYPE
+FROM INFORMATION_SCHEMA.COLUMNS c
+LEFT JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc 
+    ON c.TABLE_NAME = tc.TABLE_NAME
+LEFT JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE pk 
+    ON c.TABLE_NAME = pk.TABLE_NAME 
+    AND c.COLUMN_NAME = pk.COLUMN_NAME 
+    AND tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
+WHERE c.TABLE_NAME = 'NewsArticles'
+ORDER BY c.ORDINAL_POSITION;

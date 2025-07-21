@@ -6,6 +6,11 @@
     ViewData["HeaderData"] = Model.HeaderData;
 }
 
+@{
+    // Include unified post template system
+    await Html.RenderPartialAsync("_PostTemplatePartial");
+}
+
 @if (ViewData["ErrorMessage"] != null)
 {
     <div class="container mt-4">
@@ -135,107 +140,8 @@ else
 
         <!-- My Posts Tab -->
         <div class="tab-content active" id="posts-tab">
-            <div class="user-posts">
-                @if (Model.UserProfile?.RecentPosts?.Any() == true)
-                {
-                    @foreach (var post in Model.UserProfile.RecentPosts)
-                    {
-                        <div class="post-card" data-post-id="@post.ArticleID">
-                            <div class="post-header">
-                                <h3 class="post-title">@post.Title</h3>
-                                <div class="post-meta">
-                                    <span class="post-category">@post.Category</span>
-                                    <span class="post-date">@post.PublishDate.ToString("MMM dd, yyyy")</span>
-                                    @if (Model.IsOwnProfile)
-                                    {
-                                        <div class="post-actions">
-                                            <button class="btn btn-sm btn-outline-primary edit-post" data-post-id="@post.ArticleID">
-                                                <i class="fas fa-edit"></i> Edit
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-danger delete-post" data-post-id="@post.ArticleID">
-                                                <i class="fas fa-trash"></i> Delete
-                                            </button>
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-                            
-                            @if (!string.IsNullOrEmpty(post.ImageURL))
-                            {
-                                <div class="post-image">
-                                    <img src="@post.ImageURL" alt="@post.Title" loading="lazy">
-                                </div>
-                            }
-                            
-                            <div class="post-content">
-                                <p>@post.Content</p>
-                            </div>
-
-                            @if (!string.IsNullOrEmpty(post.SourceURL))
-                            {
-                                <div class="post-source">
-                                    <i class="fas fa-external-link-alt"></i>
-                                    <span>Source: 
-                                        <a href="@post.SourceURL" target="_blank" rel="noopener">
-                                            @(post.SourceName ?? "External Link")
-                                        </a>
-                                    </span>
-                                </div>
-                            }
-                            
-                            <div class="post-stats">
-                                <span class="stat">
-                                    <i class="fas fa-heart"></i> @post.LikesCount likes
-                                </span>
-                                <span class="stat">
-                                    <i class="fas fa-eye"></i> @post.ViewsCount views
-                                </span>
-                                <div class="post-actions-inline">
-                                    <a href="/Post/@post.ArticleID" class="btn btn-sm btn-outline-primary">
-                                        <i class="fas fa-external-link-alt"></i> Read More
-                                    </a>
-                                    @if (Model.IsOwnProfile)
-                                    {
-                                        <button class="btn btn-sm btn-outline-success comment-own-post" data-post-id="@post.ArticleID">
-                                            <i class="fas fa-comment"></i> Comment
-                                        </button>
-                                    }
-                                </div>
-                            </div>
-
-                            <!-- Comment section for own posts -->
-                            @if (Model.IsOwnProfile)
-                            {
-                                <div class="comment-section" id="comment-section-@post.ArticleID" style="display: none;">
-                                    <div class="add-comment">
-                                        <textarea class="form-control comment-input" data-post-id="@post.ArticleID" placeholder="Add a comment to your post..."></textarea>
-                                        <button class="btn btn-primary btn-sm mt-2 submit-comment" data-post-id="@post.ArticleID">
-                                            <i class="fas fa-paper-plane"></i> Post Comment
-                                        </button>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    }
-                }
-                else
-                {
-                    <div class="empty-state">
-                        <i class="fas fa-newspaper"></i>
-                        <h3>No posts yet</h3>
-                        @if (Model.IsOwnProfile)
-                        {
-                            <p>You haven't published any articles yet. Start sharing your thoughts with the community!</p>
-                            <a href="/Post" class="btn btn-primary mt-2">
-                                <i class="fas fa-plus"></i> Create Your First Post
-                            </a>
-                        }
-                        else
-                        {
-                            <p>@(Model.UserProfile?.Username ?? "This user") hasn't published any articles yet.</p>
-                        }
-                    </div>
-                }
+            <div class="user-posts" id="userPostsContainer">
+                <!-- Posts will be loaded dynamically using unified template -->
             </div>
         </div>
 
@@ -302,6 +208,9 @@ else
 <script>
     // Tab switching functionality
     document.addEventListener('DOMContentLoaded', function() {
+        // Initialize unified post template system
+        initializeUserProfile();
+        
         const tabBtns = document.querySelectorAll('.tab-btn');
         const tabContents = document.querySelectorAll('.tab-content');
         
@@ -318,6 +227,8 @@ else
                     loadLikedPosts();
                 } else if (targetTab === 'saved') {
                     loadSavedPosts();
+                } else if (targetTab === 'posts') {
+                    loadUserPosts();
                 }
             });
         });
@@ -333,47 +244,161 @@ else
         
         // Profile picture functionality
         setupProfilePictureHandler();
+        
+        // Load initial posts
+        loadUserPosts();
     });
 
-    function setupPostManagement() {
-        // Edit post buttons
-        document.querySelectorAll('.edit-post').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const postId = this.dataset.postId;
-                window.location.href = `/Posts/Edit/${postId}`;
-            });
-        });
+    // Initialize user profile with unified template system
+    function initializeUserProfile() {
+        const currentUserId = '@(Model.HeaderData?.user?.UserID ?? 0)';
+        const profileUserId = '@(Model.UserProfile?.UserID ?? 0)';
+        const isOwnProfile = @Model.IsOwnProfile.ToString().ToLower();
+        
+        if (currentUserId && currentUserId !== '0') {
+            window.postTemplateHelpers.setCurrentUser(currentUserId);
+        }
+        
+        // Store profile context
+        window.profileContext = {
+            currentUserId: currentUserId,
+            profileUserId: profileUserId,
+            isOwnProfile: isOwnProfile,
+            username: '@(Model.UserProfile?.Username ?? "")'
+        };
+    }
 
-        // Delete post buttons
-        document.querySelectorAll('.delete-post').forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const postId = this.dataset.postId;
-                if (confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
-                    try {
-                        const response = await fetch(`/api/posts/${postId}`, {
-                            method: 'DELETE',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'RequestVerificationToken': getAntiForgeryToken()
-                            }
-                        });
-                        
-                        const result = await response.json();
-                        if (result.success) {
-                            // Remove post from UI
-                            const postCard = document.querySelector(`[data-post-id="${postId}"]`);
-                            if (postCard) {
-                                postCard.remove();
-                            }
-                            showMessage('Post deleted successfully', 'success');
-                        } else {
-                            showMessage(result.message || 'Failed to delete post', 'error');
-                        }
-                    } catch (error) {
-                        showMessage('An error occurred while deleting the post', 'error');
-                    }
+    // Load user posts using unified template
+    async function loadUserPosts() {
+        const container = document.getElementById('userPostsContainer');
+        if (!container) return;
+        
+        const profileUserId = window.profileContext?.profileUserId || '@(Model.UserProfile?.UserID ?? 0)';
+        
+        try {
+            container.innerHTML = '<div class="posts-loading">Loading posts...</div>';
+            
+            const response = await fetch(`/api/Users/${profileUserId}/posts`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + (localStorage.getItem('jwtToken') || '')
                 }
             });
+            
+            if (response.ok) {
+                const data = await response.json();
+                
+                if (data && data.length > 0) {
+                    // Determine template context
+                    const context = window.profileContext?.isOwnProfile ? 'ownProfile' : 'profile';
+                    const options = {
+                        isOwnPost: window.profileContext?.isOwnProfile,
+                        isProfileView: true
+                    };
+                    
+                    // Convert posts to expected format
+                    const formattedPosts = data.map(post => ({
+                        articleID: post.ArticleID || post.articleID,
+                        title: post.Title || post.title,
+                        content: post.Content || post.content,
+                        category: post.Category || post.category,
+                        publishDate: post.PublishDate || post.publishDate,
+                        imageURL: post.ImageURL || post.imageURL,
+                        sourceURL: post.SourceURL || post.sourceURL,
+                        sourceName: post.SourceName || post.sourceName,
+                        likes: post.LikesCount || post.likes || 0,
+                        views: post.ViewsCount || post.views || 0,
+                        comments: post.CommentsCount || post.comments || 0,
+                        user: {
+                            username: window.profileContext?.username || 'Unknown User',
+                            userId: window.profileContext?.profileUserId
+                        }
+                    }));
+                    
+                    window.postTemplateHelpers.renderPosts(formattedPosts, 'userPostsContainer', context, options);
+                } else {
+                    container.innerHTML = `
+                        <div class="no-posts">
+                            <i class="fas fa-file-alt"></i>
+                            <h4>No Posts Yet</h4>
+                            <p>${window.profileContext?.isOwnProfile ? "You haven't" : window.profileContext?.username + " hasn't"} posted anything yet.</p>
+                            ${window.profileContext?.isOwnProfile ? '<a href="/Post" class="btn btn-primary"><i class="fas fa-plus"></i> Create Your First Post</a>' : ''}
+                        </div>
+                    `;
+                }
+            } else {
+                throw new Error('Failed to load posts');
+            }
+        } catch (error) {
+            console.error('Error loading user posts:', error);
+            container.innerHTML = `
+                <div class="error-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h4>Failed to Load Posts</h4>
+                    <p>There was an error loading the posts. Please try again.</p>
+                    <button onclick="loadUserPosts()" class="btn btn-primary">Retry</button>
+                </div>
+            `;
+        }
+    }
+
+    function setupPostManagement() {
+        // Set up global post interaction handlers for unified template
+        window.editPost = function(postId) {
+            window.location.href = `/Posts/Edit/${postId}`;
+        };
+        
+        window.deletePost = async function(postId) {
+            if (!confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/Posts/${postId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': 'Bearer ' + (localStorage.getItem('jwtToken') || ''),
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    // Remove post from UI using unified template helper
+                    window.postTemplateHelpers.removePost(postId, 'userPostsContainer');
+                    window.postInteractions.showToast('Post deleted successfully', 'success');
+                } else {
+                    throw new Error('Failed to delete post');
+                }
+            } catch (error) {
+                console.error('Error deleting post:', error);
+                window.postInteractions.showToast('Failed to delete post. Please try again.', 'error');
+            }
+        };
+        
+        window.commentPost = function(postId) {
+            // Toggle comment section for own posts
+            const commentSection = document.getElementById(`comment-section-${postId}`);
+            if (commentSection) {
+                commentSection.style.display = commentSection.style.display === 'none' ? 'block' : 'none';
+            } else {
+                // Redirect to post detail page for commenting
+                window.location.href = `/Post/${postId}`;
+            }
+        };
+        
+        // Legacy event handlers for any remaining old-style elements
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('edit-post')) {
+                const postId = e.target.dataset.postId;
+                window.editPost(postId);
+            } else if (e.target.classList.contains('delete-post')) {
+                const postId = e.target.dataset.postId;
+                window.deletePost(postId);
+            } else if (e.target.classList.contains('comment-post')) {
+                const postId = e.target.dataset.postId;
+                window.commentPost(postId);
+            }
         });
     }
 
