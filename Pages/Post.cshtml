@@ -1,22 +1,263 @@
-@page
+﻿@page "/Post/{id:int?}"
 @model NewsSite.Pages.PostModel
 @{
     Layout = "~/Pages/Shared/_Layout.cshtml";
-    ViewData["Title"] = "News Feed";
+    ViewData["Title"] = Model.PostData?.Title ?? "News Feed";
     ViewData["HeaderData"] = Model.HeaderData;
 }
 
-@{
-    // Include unified post template system
-    await Html.RenderPartialAsync("_PostTemplatePartial");
-}
+@if (Model.IsIndividualPost && Model.PostData != null)
+{
+    <!-- Individual Post View -->
+    <div class="individual-post-container">
+        <!-- Back Navigation -->
+        <div class="back-navigation">
+            <button onclick="window.history.back()" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back
+            </button>
+        </div>
 
-<div class="posts-container">
+        <!-- Post Content -->
+        <article class="full-post">
+            <header class="post-header">
+                <div class="post-user-info">
+                    <a href="/UserProfile/@(Model.PostData.UserID)" class="user-link">
+                        <div class="post-avatar">
+                            <div class="avatar-placeholder">
+                                @((Model.PostData.Username ?? "U").Substring(0, 1).ToUpper())
+                            </div>
+                        </div>
+                        <div class="user-details">
+                            <h4 class="username">@(Model.PostData.Username ?? "Anonymous")</h4>
+                            <span class="post-date">@Model.PostData.PublishDate.ToString("MMMM dd, yyyy")</span>
+                        </div>
+                    </a>
+                </div>
+                <div class="post-category">
+                    <span class="category-badge">@Model.PostData.Category</span>
+                </div>
+            </header>
+
+            <div class="post-content">
+                <h1 class="post-title">@Model.PostData.Title</h1>
+                
+                @if (!string.IsNullOrEmpty(Model.PostData.ImageURL))
+                {
+                    <div class="post-image">
+                        <img src="@Model.PostData.ImageURL" alt="@Model.PostData.Title" />
+                    </div>
+                }
+
+                <div class="post-text">
+                    @Html.Raw(Html.Encode(Model.PostData.Content).Replace("\n", "<br />"))
+                </div>
+
+                @if (!string.IsNullOrEmpty(Model.PostData.SourceURL))
+                {
+                    <div class="post-source">
+                        <i class="fas fa-external-link-alt"></i>
+                        <span>Source: 
+                            <a href="@Model.PostData.SourceURL" target="_blank" rel="noopener">
+                                @(Model.PostData.SourceName ?? "External Link")
+                            </a>
+                        </span>
+                    </div>
+                }
+            </div>
+
+            <div class="post-actions">
+                <div class="post-stats">
+                    <span class="stat">
+                        <i class="fas fa-heart @(Model.PostData.IsLiked ? "liked" : "")"></i>
+                        <span class="likes-count">@(Model.PostData.LikesCount)</span> likes
+                    </span>
+                    <span class="stat">
+                        <i class="fas fa-eye"></i>
+                        @(Model.PostData.ViewsCount) views
+                    </span>
+                </div>
+                <div class="post-buttons">
+                    <button class="action-btn like-btn @(Model.PostData.IsLiked ? "active" : "")" onclick="toggleLike(@Model.PostData.ArticleID, this)">
+                        <i class="fas fa-heart"></i>
+                        <span>@(Model.PostData.IsLiked ? "Liked" : "Like")</span>
+                    </button>
+                    <button class="action-btn save-btn @(Model.PostData.IsSaved ? "active" : "")" onclick="toggleSave(@Model.PostData.ArticleID, this)">
+                        <i class="fas fa-bookmark"></i>
+                        <span>@(Model.PostData.IsSaved ? "Saved" : "Save")</span>
+                    </button>
+                    <button class="action-btn share-btn" onclick="sharePost(@Model.PostData.ArticleID)">
+                        <i class="fas fa-share"></i>
+                        <span>Share</span>
+                    </button>
+                </div>
+            </div>
+        </article>
+
+        <!-- Comments Section -->
+        <section class="comments-section">
+            <div class="comments-header">
+                <h3>Comments (@Model.Comments.Count)</h3>
+            </div>
+
+            <!-- Add Comment Form (Only for authenticated users) -->
+            @if (Model.HeaderData?.user != null)
+            {
+                <div class="add-comment-form">
+                    <div class="comment-input-area">
+                        <div class="comment-avatar">
+                            <div class="avatar-small">
+                                @(Model.HeaderData.user.Name?.Substring(0, 1).ToUpper() ?? "U")
+                            </div>
+                        </div>
+                        <div class="comment-input-container">
+                            <textarea id="commentContent" class="comment-input" placeholder="Add a comment..." maxlength="1000"></textarea>
+                            <div class="comment-actions">
+                                <span class="char-counter">0/1000</span>
+                                <button id="submitComment" class="btn btn-primary" onclick="addComment(@Model.PostData.ArticleID)">
+                                    <i class="fas fa-paper-plane"></i> Comment
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="login-prompt">
+                    <p>Please <a href="/Login">log in</a> to add a comment.</p>
+                </div>
+            }
+
+            <!-- Comments List -->
+            <div class="comments-list" id="commentsList">
+                @if (Model.Comments.Any())
+                {
+                    @foreach (var comment in Model.Comments.Where(c => c.ParentCommentID == null))
+                    {
+                        <div class="comment" data-comment-id="@comment.ID">
+                            <div class="comment-content">
+                                <div class="comment-header">
+                                    <a href="/UserProfile/@comment.UserID" class="comment-user-link">
+                                        <div class="comment-avatar">
+                                            @if (!string.IsNullOrEmpty(comment.UserAvatar))
+                                            {
+                                                <img src="@comment.UserAvatar" alt="@comment.UserName" />
+                                            }
+                                            else
+                                            {
+                                                <div class="avatar-placeholder">
+                                                    @((comment.UserName ?? "U").Substring(0, 1).ToUpper())
+                                                </div>
+                                            }
+                                        </div>
+                                        <div class="comment-user-info">
+                                            <span class="comment-username">@(comment.UserName ?? "Anonymous")</span>
+                                            <span class="comment-date">@comment.CreatedAt.ToString("MMM dd, yyyy")</span>
+                                        </div>
+                                    </a>
+                                </div>
+                                <div class="comment-text">
+                                    @Html.Raw(Html.Encode(comment.Content).Replace("\n", "<br />"))
+                                </div>
+                                <div class="comment-actions">
+                                    <button class="comment-action-btn like-comment-btn" onclick="toggleCommentLike(@comment.ID, this)">
+                                        <i class="fas fa-heart @(comment.IsLikedByCurrentUser ? "liked" : "")"></i>
+                                        <span>@comment.LikesCount</span>
+                                    </button>
+                                    <button class="comment-action-btn reply-btn" onclick="toggleReply(@comment.ID)">
+                                        <i class="fas fa-reply"></i>
+                                        Reply
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Replies -->
+                            @if (comment.Replies.Any())
+                            {
+                                <div class="replies">
+                                    @foreach (var reply in comment.Replies)
+                                    {
+                                        <div class="comment reply" data-comment-id="@reply.ID">
+                                            <div class="comment-content">
+                                                <div class="comment-header">
+                                                    <a href="/UserProfile/@reply.UserID" class="comment-user-link">
+                                                        <div class="comment-avatar">
+                                                            @if (!string.IsNullOrEmpty(reply.UserAvatar))
+                                                            {
+                                                                <img src="@reply.UserAvatar" alt="@reply.UserName" />
+                                                            }
+                                                            else
+                                                            {
+                                                                <div class="avatar-placeholder">
+                                                                    @((reply.UserName ?? "U").Substring(0, 1).ToUpper())
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                        <div class="comment-user-info">
+                                                            <span class="comment-username">@(reply.UserName ?? "Anonymous")</span>
+                                                            <span class="comment-date">@reply.CreatedAt.ToString("MMM dd, yyyy")</span>
+                                                        </div>
+                                                    </a>
+                                                </div>
+                                                <div class="comment-text">
+                                                    @Html.Raw(Html.Encode(reply.Content).Replace("\n", "<br />"))
+                                                </div>
+                                                <div class="comment-actions">
+                                                    <button class="comment-action-btn like-comment-btn" onclick="toggleCommentLike(@reply.ID, this)">
+                                                        <i class="fas fa-heart @(reply.IsLikedByCurrentUser ? "liked" : "")"></i>
+                                                        <span>@reply.LikesCount</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                            <!-- Reply Form (Hidden by default) -->
+                            @if (Model.HeaderData?.user != null)
+                            {
+                                <div class="reply-form" id="replyForm-@comment.ID" style="display: none;">
+                                    <div class="comment-input-area">
+                                        <div class="comment-avatar">
+                                            <div class="avatar-small">
+                                                @(Model.HeaderData.user.Name?.Substring(0, 1).ToUpper() ?? "U")
+                                            </div>
+                                        </div>
+                                        <div class="comment-input-container">
+                                            <textarea id="replyContent-@comment.ID" class="comment-input reply-input" placeholder="Reply to @comment.UserName..." maxlength="1000"></textarea>
+                                            <div class="comment-actions">
+                                                <span class="char-counter">0/1000</span>
+                                                <button class="btn btn-sm btn-secondary" onclick="hideReplyForm(@comment.ID)">Cancel</button>
+                                                <button class="btn btn-sm btn-primary" onclick="submitReply(@comment.ID)">
+                                                    <i class="fas fa-paper-plane"></i> Reply
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="no-comments">
+                        <i class="fas fa-comments"></i>
+                        <p>No comments yet. Be the first to comment!</p>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+}
+else
+{
     <!-- Create New Post Section -->
     <div class="create-post-section" id="createPostSection">
         <div class="create-post-header">
             <h3>What's happening?</h3>
-            <button id="toggleCreatePost" class="toggle-create-btn">?? New Post</button>
+            <button id="toggleCreatePost" class="toggle-create-btn">✏️ New Post</button>
         </div>
         
         <form id="createPostForm" class="create-post-form" style="display: none;">
@@ -46,7 +287,7 @@
             </div>
             <div class="post-actions-create">
                 <div class="char-counter">
-                    <span id="titleCounter">0/100</span> � <span id="contentCounter">0/500</span>
+                    <span id="titleCounter">0/100</span> • <span id="contentCounter">0/500</span>
                 </div>
                 <div class="post-buttons">
                     <button type="button" id="cancelPost" class="btn btn-secondary">Cancel</button>
@@ -60,7 +301,7 @@
         <h2>
             <span>News Feed</span>
             <div class="feed-controls">
-                <button id="refreshBtn" class="refresh-btn" title="Refresh Feed">??</button>
+                <button id="refreshBtn" class="refresh-btn" title="Refresh Feed">🔄</button>
             </div>
         </h2>
         
@@ -70,31 +311,6 @@
             <button class="filter-tab" data-filter="following">Following</button>
             <button class="filter-tab" data-filter="trending">Trending</button>
             <button class="filter-tab" data-filter="saved">Saved</button>
-            <button class="filter-tab" data-filter="live-news">?? Live News</button>
-        </div>
-        
-        <!-- News API Controls (initially hidden) -->
-        <div id="newsApiControls" class="news-api-controls" style="display: none;">
-            <div class="news-controls-header">
-                <h4>?? Live News Feed</h4>
-                <button id="syncNewsBtn" class="btn btn-success">
-                    <span class="btn-icon">??</span>
-                    <span class="btn-text">Sync to Database</span>
-                </button>
-            </div>
-            <div class="news-categories">
-                <button class="category-btn active" data-category="general">General</button>
-                <button class="category-btn" data-category="business">Business</button>
-                <button class="category-btn" data-category="technology">Technology</button>
-                <button class="category-btn" data-category="sports">Sports</button>
-                <button class="category-btn" data-category="health">Health</button>
-                <button class="category-btn" data-category="entertainment">Entertainment</button>
-                <button class="category-btn" data-category="science">Science</button>
-            </div>
-            <div class="news-search">
-                <input type="text" id="liveSearchInput" placeholder="Search live news..." />
-                <button id="liveSearchBtn" class="btn btn-primary">Search</button>
-            </div>
         </div>
     </div>
     
@@ -108,10 +324,10 @@
     </div>
     
     <div id="endOfFeed" class="end-of-feed" style="display: none;">
-        <p>?? You've reached the end of your feed!</p>
+        <p>🎉 You've reached the end of your feed!</p>
         <button id="backToTop" class="back-to-top-btn">Back to Top</button>
     </div>
-</div>
+}
 
 <!-- Toast Container -->
 <div class="toast-container"></div>
@@ -154,17 +370,10 @@
                     const data = await response.json();
                     
                     if (data.posts && data.posts.length > 0) {
-                        // Use unified template system
-                        const template = window.postTemplates.feed;
-                        
-                        data.posts.forEach((post, index) => {
-                            // Add staggered animation
-                            setTimeout(() => {
-                                const postElement = template.createPostElement(post);
-                                postsContainer.appendChild(postElement);
-                            }, index * 50);
+                        data.posts.forEach(post => {
+                            const postElement = createPostElement(post);
+                            postsContainer.appendChild(postElement);
                         });
-                        
                         currentPage++;
                         
                         // Check if we've reached the end
@@ -191,28 +400,178 @@
             }
         }
 
-        // Legacy function compatibility - redirect to unified system
-        function likePost(articleId) {
-            window.postInteractions.likePost(articleId);
+        // Create enhanced post element
+        function createPostElement(post) {
+            const postBlock = document.createElement('div');
+            postBlock.className = 'post-card';
+            postBlock.innerHTML = `
+                <div class="post-header">
+                    <div class="post-user">
+                        <div class="user-avatar">
+                            ${post.user.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div class="user-info">
+                            <a href="/user/${post.user.userId || post.articleID}" class="username">${post.user.username}</a>
+                            <span class="post-time">${formatTimeAgo(post.publishDate)}</span>
+                        </div>
+                    </div>
+                    <div class="post-category">
+                        <span class="category-badge">${post.category}</span>
+                    </div>
+                </div>
+                
+                ${post.imageURL ? `<img src="${post.imageURL}" alt="${post.title}" class="post-image" loading="lazy" />` : ''}
+                
+                <div class="post-content">
+                    <h3>${post.title}</h3>
+                    <p>${post.content}</p>
+                </div>
+                
+                ${post.sourceURL ? `
+                <div class="post-source">
+                    <i class="fas fa-external-link-alt"></i>
+                    <span>Source: <a href="${post.sourceURL}" target="_blank" rel="noopener">${post.sourceName || 'External Link'}</a></span>
+                </div>
+                ` : ''}
+                
+                <div class="post-footer">
+                    <div class="post-stats">
+                        <span class="stat-item">
+                            <span class="stat-icon">👁️</span>
+                            <span class="stat-count">${post.views || Math.floor(Math.random() * 1000)}</span>
+                        </span>
+                        <span class="stat-item">
+                            <span class="stat-icon">❤️</span>
+                            <span class="stat-count" id="likes-${post.articleID}">${post.likes || 0}</span>
+                        </span>
+                    </div>
+                    
+                    <div class="post-actions">
+                        <button class="btn btn-success ${post.isLiked ? 'liked' : ''}" onclick="likePost(${post.articleID})" id="like-btn-${post.articleID}">
+                            <span class="btn-icon">${post.isLiked ? '❤️' : '🤍'}</span>
+                            <span class="btn-text">Like</span>
+                        </button>
+                        <button class="btn btn-primary" onclick="sharePost(${post.articleID})">
+                            <span class="btn-icon">🔄</span>
+                            <span class="btn-text">Share</span>
+                        </button>
+                        <button class="btn btn-secondary" onclick="savePost(${post.articleID})">
+                            <span class="btn-icon">🔖</span>
+                            <span class="btn-text">Save</span>
+                        </button>
+                        <button class="btn btn-danger" onclick="reportPost(${post.articleID})">
+                            <span class="btn-icon">⚠️</span>
+                            <span class="btn-text">Report</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Add animation
+            postBlock.classList.add('new-post');
+            return postBlock;
         }
 
-        function sharePost(articleId, title = '', sourceUrl = '') {
-            window.postInteractions.sharePost(articleId, title, sourceUrl);
+        // Enhanced like functionality
+        async function likePost(articleId) {
+            const btn = document.getElementById(`like-btn-${articleId}`);
+            const likesCount = document.getElementById(`likes-${articleId}`);
+            const isLiked = btn.classList.contains('liked');
+            
+            try {
+                const response = await fetch(`/api/Posts/Like/${articleId}`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": "Bearer " + localStorage.getItem('jwtToken'),
+                        "Content-Type": "application/json"
+                    }
+                });
+
+                if (response.ok) {
+                    // Toggle like state
+                    btn.classList.toggle('liked');
+                    const icon = btn.querySelector('.btn-icon');
+                    const currentCount = parseInt(likesCount.textContent);
+                    
+                    if (isLiked) {
+                        icon.textContent = '🤍';
+                        likesCount.textContent = currentCount - 1;
+                        showToast("Post unliked", "info");
+                    } else {
+                        icon.textContent = '❤️';
+                        likesCount.textContent = currentCount + 1;
+                        showToast("Post liked!", "success");
+                    }
+                } else {
+                    showToast("Failed to like post. Please try again.", "error");
+                }
+            } catch (error) {
+                console.error("Error liking post:", error);
+                showToast("Network error. Please try again.", "error");
+            }
         }
 
-        function savePost(articleId) {
-            window.postInteractions.savePost(articleId);
+        // Enhanced share functionality
+        async function sharePost(articleId) {
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'Check out this news article',
+                        url: window.location.href + `#post-${articleId}`
+                    });
+                    showToast("Post shared successfully!", "success");
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        copyToClipboard(window.location.href + `#post-${articleId}`);
+                    }
+                }
+            } else {
+                copyToClipboard(window.location.href + `#post-${articleId}`);
+            }
         }
 
-        function reportPost(articleId) {
-            window.postInteractions.reportPost(articleId);
+        // Save post functionality
+        async function savePost(articleId) {
+            try {
+                const response = await fetch(`/api/Posts/Save/${articleId}`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": "Bearer " + localStorage.getItem('jwtToken'),
+                        "Content-Type": "application/json"
+                    }
+                });
+
+                if (response.ok) {
+                    showToast("Post saved to bookmarks!", "success");
+                } else {
+                    showToast("Failed to save post. Please try again.", "error");
+                }
+            } catch (error) {
+                console.error("Error saving post:", error);
+                showToast("Network error. Please try again.", "error");
+            }
         }
 
-        // Set up current user for interactions
-        function initializePostInteractions() {
-            const currentUserId = '@(Model.HeaderData?.user?.Id ?? 0)';
-            if (currentUserId && currentUserId !== '0') {
-                window.postTemplateHelpers.setCurrentUser(currentUserId);
+        async function reportPost(articleId) {
+            if (!confirm("Are you sure you want to report this post?")) return;
+            
+            try {
+                const response = await fetch(`/api/Posts/Report/${articleId}`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": "Bearer " + localStorage.getItem('jwtToken'),
+                        "Content-Type": "application/json"
+                    }
+                });
+
+                if (response.ok) {
+                    showToast("Post reported successfully. Thank you for helping keep our community safe.", "success");
+                } else {
+                    showToast("Failed to report post. Please try again.", "error");
+                }
+            } catch (error) {
+                console.error("Error reporting post:", error);
+                showToast("Network error. Please try again.", "error");
             }
         }
 
@@ -415,508 +774,978 @@
 
             // Initialize character counters
             updateCharCounters();
-
-            // Initialize News API functionality
-            initializeNewsApi();
         });
 
-        // News API Functions
-        function initializeNewsApi() {
-            // Handle filter tab clicks
-            document.querySelectorAll('.filter-tab').forEach(tab => {
-                tab.addEventListener('click', function() {
-                    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
-                    this.classList.add('active');
-                    
-                    const filter = this.getAttribute('data-filter');
-                    currentFilter = filter;
-                    
-                    // Show/hide News API controls
-                    const newsApiControls = document.getElementById('newsApiControls');
-                    if (filter === 'live-news') {
-                        newsApiControls.style.display = 'block';
-                        loadLiveNews('general'); // Default category
-                    } else {
-                        newsApiControls.style.display = 'none';
-                        loadPosts(true); // Load regular posts
-                    }
-                });
-            });
-
-            // Handle category buttons
-            document.querySelectorAll('.category-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
-                    
-                    const category = this.getAttribute('data-category');
-                    loadLiveNews(category);
-                });
-            });
-
-            // Handle sync news button
-            document.getElementById('syncNewsBtn').addEventListener('click', syncNewsToDatabase);
-
-            // Handle live search
-            document.getElementById('liveSearchBtn').addEventListener('click', searchLiveNews);
-            document.getElementById('liveSearchInput').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    searchLiveNews();
-                }
-            });
-        }
-
-        // Load live news from News API (with conservative API usage)
-        async function loadLiveNews(category = 'general') {
-            isLoading = true;
-            loadingSpinner.style.display = 'block';
-            postsContainer.innerHTML = '';
-            
-            try {
-                // First try to load cached articles from database
-                let response = await fetch(`/api/Posts?page=1&limit=20&filter=${category}`);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    if (data.posts && data.posts.length > 0) {
-                        // Show cached articles first
-                        data.posts.forEach(post => {
-                            const postElement = createPostElement(post);
-                            postsContainer.appendChild(postElement);
-                        });
-                        showToast(`Showing ${data.posts.length} cached articles from ${category}`, 'info');
-                        
-                        // Add a notice about live updates
-                        const liveNotice = document.createElement('div');
-                        liveNotice.className = 'live-notice';
-                        liveNotice.innerHTML = `
-                            <div class="notice-content">
-                                <h4>?? Fresh News Available</h4>
-                                <p>Want the latest headlines? Click below to fetch fresh articles (uses API quota).</p>
-                                <button class="btn btn-primary" onclick="fetchFreshNews('${category}')">
-                                    <span class="btn-icon">??</span>
-                                    <span class="btn-text">Get Fresh Headlines</span>
-                                </button>
-                            </div>
-                        `;
-                        postsContainer.insertBefore(liveNotice, postsContainer.firstChild);
-                    } else {
-                        // No cached articles, offer to fetch fresh ones
-                        postsContainer.innerHTML = `
-                            <div class="no-posts">
-                                <h3>No cached articles for ${category}</h3>
-                                <p>Would you like to fetch fresh headlines from NewsAPI?</p>
-                                <button class="btn btn-primary" onclick="fetchFreshNews('${category}')">
-                                    <span class="btn-icon">??</span>
-                                    <span class="btn-text">Fetch Fresh Headlines</span>
-                                </button>
-                            </div>
-                        `;
-                    }
-                } else {
-                    showToast('Failed to load cached news', 'error');
-                }
-            } catch (error) {
-                console.error('Error loading cached news:', error);
-                showToast('Network error loading news', 'error');
-            } finally {
-                isLoading = false;
-                loadingSpinner.style.display = 'none';
-            }
-        }
-
-        // Fetch fresh news from API (only when user explicitly requests it)
-        async function fetchFreshNews(category = 'general') {
-            isLoading = true;
-            loadingSpinner.style.display = 'block';
-            
-            try {
-                showToast('Fetching fresh headlines from NewsAPI...', 'info');
-                const response = await fetch(`/api/Posts/live-headlines?category=${category}&country=us&pageSize=20`);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    if (data.posts && data.posts.length > 0) {
-                        // Clear existing content and show fresh articles
-                        postsContainer.innerHTML = '';
-                        const template = window.postTemplates.liveNews;
-                        
-                        data.posts.forEach((post, index) => {
-                            // Mark as live post and add staggered animation
-                            post.isLivePost = true;
-                            post.sourceName = post.sourceName || post.source?.name;
-                            post.username = 'NewsBot';
-                            post.user = { username: 'NewsBot' };
-                            
-                            setTimeout(() => {
-                                const postElement = template.createPostElement(post);
-                                postsContainer.appendChild(postElement);
-                            }, index * 50);
-                        });
-                        
-                        showToast(`Loaded ${data.posts.length} fresh articles from ${category}`, 'success');
-                    } else {
-                        showToast('No fresh articles available', 'info');
-                    }
-                } else {
-                    showToast('Failed to fetch fresh news', 'error');
-                }
-            } catch (error) {
-                console.error('Error fetching fresh news:', error);
-                showToast('Network error fetching fresh news', 'error');
-            } finally {
-                isLoading = false;
-                loadingSpinner.style.display = 'none';
-            }
-        }
-
-        // Make fetchFreshNews available globally
-        window.fetchFreshNews = fetchFreshNews;
-
-        // Search live news
-        async function searchLiveNews() {
-            const query = document.getElementById('liveSearchInput').value.trim();
-            if (!query) {
-                showToast('Please enter a search term', 'error');
-                return;
-            }
-
-            isLoading = true;
-            loadingSpinner.style.display = 'block';
-            postsContainer.innerHTML = '';
-            
-            try {
-                const response = await fetch(`/api/Posts/search-live?query=${encodeURIComponent(query)}&pageSize=20`);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    if (data.posts && data.posts.length > 0) {
-                        const template = window.postTemplates.liveNews;
-                        
-                        data.posts.forEach((post, index) => {
-                            // Mark as live post and add staggered animation
-                            post.isLivePost = true;
-                            post.sourceName = post.sourceName || post.source?.name;
-                            post.username = 'NewsBot';
-                            post.user = { username: 'NewsBot' };
-                            
-                            setTimeout(() => {
-                                const postElement = template.createPostElement(post);
-                                postsContainer.appendChild(postElement);
-                            }, index * 50);
-                        });
-                        
-                        showToast(`Found ${data.posts.length} articles for "${query}"`, 'success');
-                    } else {
-                        postsContainer.innerHTML = `<div class="no-posts">No articles found for "${query}".</div>`;
-                    }
-                } else {
-                    showToast('Failed to search live news', 'error');
-                }
-            } catch (error) {
-                console.error('Error searching live news:', error);
-                showToast('Network error searching news', 'error');
-            } finally {
-                isLoading = false;
-                loadingSpinner.style.display = 'none';
-            }
-        }
-
-        // Legacy function compatibility for live posts - redirect to unified system
-        function createLivePostElement(post) {
-            // Mark as live post
-            post.isLivePost = true;
-            post.sourceName = post.sourceName || post.source?.name;
-            post.username = 'NewsBot';
-            post.user = { username: 'NewsBot' };
-            
-            const template = window.postTemplates.liveNews;
-            return template.createPostElement(post);
-        }
-
-        function saveLiveArticle(article) {
-            window.postInteractions.saveLiveArticle(article);
-        }
-
-        function shareLivePost(url, title) {
-            window.postInteractions.sharePost(null, title, url);
-        }
-            if (navigator.share) {
-                navigator.share({
-                    title: title,
-                    url: url
-                });
-            } else {
-                // Fallback: copy to clipboard
-                navigator.clipboard.writeText(url).then(() => {
-                    showToast('Link copied to clipboard!', 'success');
-                }).catch(() => {
-                    showToast('Failed to copy link', 'error');
-                });
-            }
-        }
-
-        // Sync news to database
-        async function syncNewsToDatabase() {
-            const syncBtn = document.getElementById('syncNewsBtn');
-            const originalText = syncBtn.innerHTML;
-            
-            syncBtn.innerHTML = '<span class="btn-icon">?</span><span class="btn-text">Syncing...</span>';
-            syncBtn.disabled = true;
-            
-            try {
-                const response = await fetch('/api/Posts/sync-news', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + localStorage.getItem('jwtToken')
-                    }
-                });
-
-                if (response.ok) {
-                    const result = await response.json();
-                    showToast(`Synced ${result.articlesAdded} new articles to database!`, 'success');
-                } else if (response.status === 401) {
-                    showToast('Please log in to sync news', 'error');
-                } else {
-                    showToast('Failed to sync news', 'error');
-                }
-            } catch (error) {
-                console.error('Error syncing news:', error);
-                showToast('Network error syncing news', 'error');
-            } finally {
-                syncBtn.innerHTML = originalText;
-                syncBtn.disabled = false;
-            }
-        }
-
-        // Initialize post interactions and load posts
-        initializePostInteractions();
+        // Initial load
         loadPosts();
     </script>
 
-    <style>
-        /* News API Specific Styles */
-        .news-api-controls {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-
-        .news-controls-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .news-controls-header h4 {
-            margin: 0;
-            color: #495057;
-        }
-
-        .news-categories {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-
-        .category-btn {
-            background: #ffffff;
-            border: 1px solid #dee2e6;
-            border-radius: 20px;
-            padding: 6px 16px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .category-btn:hover {
-            background: #e9ecef;
-            border-color: #adb5bd;
-        }
-
-        .category-btn.active {
-            background: #007bff;
-            color: white;
-            border-color: #007bff;
-        }
-
-        .news-search {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .news-search input {
-            flex: 1;
-            padding: 8px 12px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-
-        .live-post {
-            border-left: 4px solid #dc3545;
-        }
-
-        .live-indicator {
-            background: linear-gradient(135deg, #dc3545, #c82333);
-            color: white;
-            padding: 8px 15px;
-            margin: -20px -20px 15px -20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 12px;
-        }
-
-        .live-badge {
-            font-weight: bold;
-            background: rgba(255,255,255,0.2);
-            padding: 2px 8px;
-            border-radius: 10px;
-        }
-
-        .source-time {
-            opacity: 0.9;
-        }
-
-        .newsbot-avatar {
-            background: linear-gradient(135deg, #007bff, #0056b3);
-            color: white;
-            font-size: 18px;
-        }
-
-        .category-badge.live {
-            background: #dc3545;
-            color: white;
-        }
-
-        .live-post-actions {
-            display: flex;
-            gap: 10px;
-            padding-top: 10px;
-            border-top: 1px solid #e1e5e9;
-        }
-
-        .live-post-actions .btn {
-            font-size: 12px;
-            padding: 6px 12px;
-        }
-
-        .no-posts {
-            text-align: center;
-            padding: 40px 20px;
-            color: #6c757d;
-            font-style: italic;
-        }
-
-        /* Live notice styles */
-        .live-notice {
-            background: linear-gradient(135deg, #007bff, #0056b3);
-            color: white;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .notice-content h4 {
-            margin: 0 0 10px 0;
-            font-size: 18px;
-        }
-
-        .notice-content p {
-            margin: 0 0 15px 0;
-            opacity: 0.9;
-        }
-
-        .live-notice .btn {
-            background: rgba(255,255,255,0.2);
-            border: 1px solid rgba(255,255,255,0.3);
-            color: white;
-        }
-
-        .live-notice .btn:hover {
-            background: rgba(255,255,255,0.3);
-            border-color: rgba(255,255,255,0.5);
-        }
-
-        /* Responsive adjustments */
-        @@media (max-width: 768px) {
-            .news-controls-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 10px;
+    <!-- Individual Post View Scripts -->
+    <script>
+        // Comment functionality for individual posts
+        async function addComment(postId) {
+            const content = document.getElementById('commentContent').value.trim();
+            if (!content) {
+                showMessage('Please enter a comment', 'error');
+                return;
             }
 
-            .news-categories {
-                justify-content: center;
-            }
+            try {
+                const jwt = localStorage.getItem('jwtToken');
+                const response = await fetch('/api/Comments', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': jwt ? 'Bearer ' + jwt : ''
+                    },
+                    body: JSON.stringify({
+                        postID: postId,
+                        content: content
+                    })
+                });
 
-            .live-post-actions {
-                flex-direction: column;
-                gap: 8px;
-            }
-
-            .live-post-actions .btn {
-                text-align: center;
+                const result = await response.json();
+                if (result.success) {
+                    showMessage('Comment added successfully!', 'success');
+                    location.reload(); // Reload to show new comment
+                } else {
+                    showMessage(result.message || 'Failed to add comment', 'error');
+                }
+            } catch (error) {
+                console.error('Error adding comment:', error);
+                showMessage('An error occurred while adding the comment', 'error');
             }
         }
 
-        /* Animation for new live posts */
-        @@keyframes slideInLive {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
+        async function submitReply(parentCommentId) {
+            const textarea = document.getElementById(`replyContent-${parentCommentId}`);
+            const content = textarea.value.trim();
+            if (!content) {
+                showMessage('Please enter a reply', 'error');
+                return;
             }
-            to {
-                opacity: 1;
-                transform: translateY(0);
+
+            try {
+                const jwt = localStorage.getItem('jwtToken');
+                const response = await fetch('/api/Comments', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': jwt ? 'Bearer ' + jwt : ''
+                    },
+                    body: JSON.stringify({
+                        postID: @(Model.PostData?.ArticleID ?? 0),
+                        content: content,
+                        parentCommentID: parentCommentId
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    showMessage('Reply added successfully!', 'success');
+                    location.reload(); // Reload to show new reply
+                } else {
+                    showMessage(result.message || 'Failed to add reply', 'error');
+                }
+            } catch (error) {
+                console.error('Error adding reply:', error);
+                showMessage('An error occurred while adding the reply', 'error');
             }
         }
 
-        .live-post {
-            animation: slideInLive 0.5s ease-out;
-        }
-
-        /* Filter tab indicator for live news */
-        .filter-tab[data-filter="live-news"] {
-            position: relative;
-        }
-
-        .filter-tab[data-filter="live-news"]::before {
-            content: "";
-            position: absolute;
-            top: -2px;
-            right: -2px;
-            width: 8px;
-            height: 8px;
-            background: #dc3545;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-
-        @@keyframes pulse {
-            0% {
-                transform: scale(0.95);
-                box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
-            }
-            70% {
-                transform: scale(1);
-                box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
-            }
-            100% {
-                transform: scale(0.95);
-                box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+        function toggleReply(commentId) {
+            const replyForm = document.getElementById(`replyForm-${commentId}`);
+            if (replyForm) {
+                replyForm.style.display = replyForm.style.display === 'none' ? 'block' : 'none';
+                if (replyForm.style.display === 'block') {
+                    const replyInput = replyForm.querySelector(`#replyContent-${commentId}`);
+                    if (replyInput) {
+                        replyInput.focus();
+                    }
+                }
             }
         }
-    </style>
+
+        function hideReplyForm(commentId) {
+            const replyForm = document.getElementById(`replyForm-${commentId}`);
+            if (replyForm) {
+                replyForm.style.display = 'none';
+                const replyInput = replyForm.querySelector(`#replyContent-${commentId}`);
+                if (replyInput) {
+                    replyInput.value = '';
+                }
+            }
+        }
+
+        function cancelReply(commentId) {
+            hideReplyForm(commentId);
+        }
+
+        async function toggleCommentLike(commentId, button) {
+            try {
+                const jwt = localStorage.getItem('jwtToken');
+                const response = await fetch(`/api/Comments/like/${commentId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': jwt ? 'Bearer ' + jwt : ''
+                    }
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    const heartIcon = button.querySelector('i');
+                    const countSpan = button.querySelector('span');
+                    
+                    if (result.action === 'liked') {
+                        heartIcon.classList.add('liked');
+                        countSpan.textContent = parseInt(countSpan.textContent) + 1;
+                    } else {
+                        heartIcon.classList.remove('liked');
+                        countSpan.textContent = Math.max(0, parseInt(countSpan.textContent) - 1);
+                    }
+                }
+            } catch (error) {
+                console.error('Error toggling comment like:', error);
+                showMessage('Failed to update like status', 'error');
+            }
+        }
+
+        // Character counter for comments
+        document.addEventListener('DOMContentLoaded', function() {
+            const commentInput = document.getElementById('commentContent');
+            if (commentInput) {
+                commentInput.addEventListener('input', function() {
+                    const charCounter = this.closest('.comment-input-container').querySelector('.char-counter');
+                    if (charCounter) {
+                        charCounter.textContent = `${this.value.length}/1000`;
+                    }
+                });
+            }
+
+            // Character counters for reply inputs
+            document.querySelectorAll('.reply-input').forEach(input => {
+                input.addEventListener('input', function() {
+                    const charCounter = this.closest('.comment-input-container').querySelector('.char-counter');
+                    if (charCounter) {
+                        charCounter.textContent = `${this.value.length}/1000`;
+                    }
+                });
+            });
+        });
+
+        // Common functions
+        async function toggleLike(postId, button) {
+            try {
+                const jwt = localStorage.getItem('jwtToken');
+                const response = await fetch(`/api/Posts/Like/${postId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': jwt ? 'Bearer ' + jwt : ''
+                    }
+                });
+
+                const result = await response.json();
+                if (result.action) {
+                    const likesCountSpan = button.closest('.individual-post-container, .post-card').querySelector('.likes-count');
+                    const heartIcon = button.querySelector('i');
+                    const buttonText = button.querySelector('span');
+                    
+                    if (result.action === 'liked') {
+                        button.classList.add('active');
+                        heartIcon.classList.add('liked');
+                        buttonText.textContent = 'Liked';
+                        if (likesCountSpan) {
+                            likesCountSpan.textContent = parseInt(likesCountSpan.textContent) + 1;
+                        }
+                    } else {
+                        button.classList.remove('active');
+                        heartIcon.classList.remove('liked');
+                        buttonText.textContent = 'Like';
+                        if (likesCountSpan) {
+                            likesCountSpan.textContent = Math.max(0, parseInt(likesCountSpan.textContent) - 1);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error toggling like:', error);
+                showMessage('Failed to update like status', 'error');
+            }
+        }
+
+        async function toggleSave(postId, button) {
+            try {
+                const jwt = localStorage.getItem('jwtToken');
+                const response = await fetch(`/api/Posts/Save/${postId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': jwt ? 'Bearer ' + jwt : ''
+                    }
+                });
+
+                const result = await response.json();
+                if (result.action) {
+                    const buttonText = button.querySelector('span');
+                    
+                    if (result.action === 'saved') {
+                        button.classList.add('active');
+                        buttonText.textContent = 'Saved';
+                    } else {
+                        button.classList.remove('active');
+                        buttonText.textContent = 'Save';
+                    }
+                }
+            } catch (error) {
+                console.error('Error toggling save:', error);
+                showMessage('Failed to update save status', 'error');
+            }
+        }
+
+        function sharePost(postId) {
+            const url = `${window.location.origin}/Post/${postId}`;
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Check out this post',
+                    url: url
+                });
+            } else {
+                navigator.clipboard.writeText(url).then(() => {
+                    showMessage('Link copied to clipboard!', 'success');
+                });
+            }
+        }
+
+        function showMessage(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show position-fixed`;
+            toast.style.top = '20px';
+            toast.style.right = '20px';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 3000);
+        }
+
+        function getAntiForgeryToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+        }
+    </script>
 }
+
+<style>
+/* Individual Post Styles */
+.individual-post-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.back-navigation {
+    margin-bottom: 1rem;
+}
+
+.full-post {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.full-post .post-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 1.5rem;
+    line-height: 1.3;
+}
+
+.full-post .post-image {
+    margin: 1.5rem 0;
+}
+
+.full-post .post-image img {
+    width: 100%;
+    height: auto;
+    max-height: 500px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.full-post .post-text {
+    font-size: 1.1rem;
+    line-height: 1.8;
+    color: #555;
+    margin-bottom: 1.5rem;
+}
+
+/* Comments Section */
+.comments-section {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.comments-header h3 {
+    color: #2c3e50;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.add-comment-form,
+.reply-form {
+    margin-bottom: 2rem;
+}
+
+.comment-input-area {
+    display: flex;
+    gap: 1rem;
+}
+
+.comment-avatar,
+.avatar-small {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.comment-input-container {
+    flex: 1;
+}
+
+.comment-input {
+    width: 100%;
+    min-height: 80px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-size: 1rem;
+    resize: vertical;
+    transition: border-color 0.3s ease;
+}
+
+.comment-input:focus {
+    outline: none;
+    border-color: #007bff;
+}
+
+.comment-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem;
+}
+
+.char-counter {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.comment {
+    border-bottom: 1px solid #e9ecef;
+    padding: 1.5rem 0;
+}
+
+.comment:last-child {
+    border-bottom: none;
+}
+
+.comment-header {
+    margin-bottom: 0.75rem;
+}
+
+.comment-user-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: inherit;
+}
+
+.comment-user-link:hover .comment-username {
+    color: #007bff;
+}
+
+.comment-user-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.comment-username {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.comment-date {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+.comment-text {
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 0.75rem;
+}
+
+.comment-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.comment-action-btn {
+    background: none;
+    border: none;
+    color: #6c757d;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.comment-action-btn:hover {
+    background: #f8f9fa;
+    color: #007bff;
+}
+
+.comment-action-btn i.liked {
+    color: #e74c3c;
+}
+
+.replies {
+    margin-left: 3rem;
+    margin-top: 1rem;
+}
+
+.reply {
+    padding: 1rem 0;
+}
+
+.no-comments {
+    text-align: center;
+    color: #6c757d;
+    padding: 2rem;
+}
+
+.no-comments i {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    color: #dee2e6;
+}
+
+.login-prompt {
+    text-align: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+}
+
+.login-prompt a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.login-prompt a:hover {
+    text-decoration: underline;
+}
+
+/* Feed Styles (inherited from original) */
+.posts-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.create-post-section {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.create-post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.toggle-create-btn {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.toggle-create-btn:hover {
+    background: #0056b3;
+}
+
+.create-post-form {
+    border-top: 1px solid #e9ecef;
+    padding-top: 1rem;
+}
+
+.post-input-area {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.post-avatar {
+    flex-shrink: 0;
+}
+
+.post-content-input {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.post-content-input input,
+.post-content-input textarea,
+.post-content-input select {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.post-content-input input:focus,
+.post-content-input textarea:focus,
+.post-content-input select:focus {
+    outline: none;
+    border-color: #007bff;
+}
+
+.post-content-input textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.source-fields {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.source-fields input {
+    flex: 1;
+}
+
+.post-actions-create {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+}
+
+.post-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.posts-header {
+    margin-bottom: 2rem;
+}
+
+.posts-header h2 {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+.refresh-btn {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    transition: background 0.3s ease;
+}
+
+.refresh-btn:hover {
+    background: #f8f9fa;
+}
+
+.filter-tabs {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 1rem;
+}
+
+.filter-tab {
+    background: none;
+    border: 2px solid #dee2e6;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    color: #6c757d;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.filter-tab:hover,
+.filter-tab.active {
+    background: #007bff;
+    border-color: #007bff;
+    color: white;
+}
+
+.post-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.3s ease;
+}
+
+.post-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.post-user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.user-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: inherit;
+}
+
+.user-link:hover .username {
+    color: #007bff;
+}
+
+.post-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+}
+
+.post-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+}
+
+.user-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.username {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.post-date {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+.category-badge {
+    background: #007bff;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.post-content {
+    cursor: pointer;
+    margin-bottom: 1rem;
+}
+
+.post-content:hover .post-title {
+    color: #007bff;
+}
+
+.post-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 0.75rem 0;
+    color: #2c3e50;
+    transition: color 0.3s ease;
+}
+
+.post-image {
+    margin: 0.75rem 0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.post-image img {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+}
+
+.post-text {
+    color: #555;
+    line-height: 1.6;
+    margin: 0 0 0.75rem 0;
+}
+
+.post-source {
+    padding: 0.5rem;
+    background: rgba(0, 123, 255, 0.1);
+    border-radius: 6px;
+    font-size: 0.875rem;
+}
+
+.post-source i {
+    color: #007bff;
+    margin-right: 0.5rem;
+}
+
+.post-source a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.post-source a:hover {
+    text-decoration: underline;
+}
+
+.post-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1px solid #e9ecef;
+}
+
+.post-stats {
+    display: flex;
+    gap: 1rem;
+}
+
+.post-stats .stat {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.post-stats .stat i.liked {
+    color: #e74c3c;
+}
+
+.post-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.action-btn {
+    background: none;
+    border: none;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    color: #6c757d;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.action-btn:hover {
+    background: #f8f9fa;
+    color: #007bff;
+}
+
+.action-btn.active {
+    color: #007bff;
+}
+
+.like-btn.active {
+    color: #e74c3c;
+}
+
+.save-btn.active {
+    color: #28a745;
+}
+
+.loading-spinner {
+    text-align: center;
+    padding: 2rem;
+    color: #6c757d;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+@@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.end-of-feed {
+    text-align: center;
+    padding: 2rem;
+    color: #6c757d;
+}
+
+.back-to-top-btn {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.back-to-top-btn:hover {
+    background: #0056b3;
+}
+
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+}
+
+.toast {
+    background: white;
+    border-left: 4px solid #007bff;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transform: translateX(100%);
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.toast.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.toast.toast-success {
+    border-left-color: #28a745;
+}
+
+.toast.toast-error {
+    border-left-color: #dc3545;
+}
+
+/* Responsive Design */
+@@media (max-width: 768px) {
+    .individual-post-container,
+    .posts-container {
+        padding: 0.5rem;
+    }
+    
+    .full-post {
+        padding: 1rem;
+    }
+    
+    .full-post .post-title {
+        font-size: 1.5rem;
+    }
+    
+    .post-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    
+    .post-actions {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .post-buttons {
+        justify-content: space-around;
+    }
+    
+    .filter-tabs {
+        flex-wrap: wrap;
+    }
+    
+    .comment-input-area {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .replies {
+        margin-left: 1rem;
+    }
+    
+    .source-fields {
+        flex-direction: column;
+    }
+}
+}
+</style>

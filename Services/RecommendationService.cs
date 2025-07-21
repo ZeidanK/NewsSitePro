@@ -162,7 +162,7 @@ namespace NewsSite.Services
                 await _dbServices.RecordUserInteractionAsync(userId, articleId, interactionType);
 
                 // Get article for category analysis
-                var article = await _dbServices.GetNewsArticleByIdAsync(articleId);
+                var article = await _dbServices.GetNewsArticleById(articleId);
                 if (article == null) return;
 
                 // Update interest score based on interaction type

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NewsSite.BL;
+using NewsSite.BL.Services;
 using NewsSite.Models;
 
 namespace NewsSite.Controllers
@@ -9,15 +10,123 @@ namespace NewsSite.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
-        [HttpPut("UpdateProfile")]
-        // [Authorize] // Temporarily removed
-        public IActionResult UpdateProfile([FromBody] UpdateProfileRequest request)
+        private readonly IUserService _userService;
+        private readonly INewsService _newsService;
+
+        public UserController(IUserService userService, INewsService newsService)
+        {
+            _userService = userService;
+            _newsService = newsService;
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetUser(int id)
         {
             try
             {
-                // TODO: Implement actual profile update logic with database
-                // For now, return success
-                return Ok(new { message = "Profile updated successfully" });
+                var user = await _userService.GetUserByIdAsync(id);
+                if (user == null)
+                {
+                    return NotFound(new { message = "User not found" });
+                }
+
+                // Don't return sensitive information
+                var userInfo = new
+                {
+                    id = user.Id,
+                    name = user.Name,
+                    email = user.Email,
+                    bio = user.Bio,
+                    joinDate = user.JoinDate,
+                    isAdmin = user.IsAdmin
+                };
+
+                return Ok(userInfo);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error retrieving user", error = ex.Message });
+            }
+        }
+
+        [HttpGet("{id}/stats")]
+        public async Task<IActionResult> GetUserStats(int id)
+        {
+            try
+            {
+                var stats = await _userService.GetUserStatsAsync(id);
+                return Ok(stats);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error retrieving user stats", error = ex.Message });
+            }
+        }
+
+        [HttpGet("{id}/posts")]
+        public async Task<IActionResult> GetUserPosts(int id, [FromQuery] int page = 1, [FromQuery] int limit = 10)
+        {
+            try
+            {
+                var articles = await _newsService.GetArticlesByUserAsync(id, page, limit);
+                return Ok(new { posts = articles });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error loading user posts", error = ex.Message });
+            }
+        }
+
+        [HttpGet("search")]
+        public async Task<IActionResult> SearchUsers([FromQuery] string query, [FromQuery] int page = 1, [FromQuery] int limit = 10)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(query))
+                {
+                    return BadRequest(new { message = "Search query is required" });
+                }
+
+                var users = await _userService.SearchUsersAsync(query, page, limit);
+                
+                // Return only public information
+                var publicUsers = users.Select(u => new
+                {
+                    id = u.Id,
+                    name = u.Name,
+                    bio = u.Bio,
+                    joinDate = u.JoinDate
+                }).ToList();
+
+                return Ok(new { users = publicUsers });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error searching users", error = ex.Message });
+            }
+        }
+
+        [HttpPut("UpdateProfile")]
+        [Authorize] // Re-enable authorization
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
+        {
+            try
+            {
+                var currentUserId = GetCurrentUserId();
+                if (currentUserId == null)
+                {
+                    return Unauthorized(new { message = "Authentication required" });
+                }
+
+                var success = await _userService.UpdateUserProfileAsync(currentUserId.Value, request.Username, request.Bio);
+                if (success)
+                {
+                    return Ok(new { message = "Profile updated successfully" });
+                }
+                else
+                {
+                    return BadRequest(new { message = "Failed to update profile" });
+                }
             }
             catch (Exception ex)
             {
@@ -25,44 +134,54 @@ namespace NewsSite.Controllers
             }
         }
 
-        [HttpPut("UpdatePreferences")]
-        // [Authorize] // Temporarily removed
-        public IActionResult UpdatePreferences([FromBody] UserPreferencesRequest request)
+        [HttpPut("ChangePassword")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
         {
             try
             {
-                // TODO: Implement actual preferences update logic with database
-                // For now, return success
-                return Ok(new { message = "Preferences updated successfully" });
+                var currentUserId = GetCurrentUserId();
+                if (currentUserId == null)
+                {
+                    return Unauthorized(new { message = "Authentication required" });
+                }
+
+                // Validate current password first
+                var user = await _userService.GetUserByIdAsync(currentUserId.Value);
+                if (user == null)
+                {
+                    return NotFound(new { message = "User not found" });
+                }
+
+                if (request.CurrentPassword != user.PasswordHash)
+                {
+                    return BadRequest(new { message = "Current password is incorrect" });
+                }
+
+                // For now, use simple string assignment (in real app, hash the password)
+                var newPasswordHash = request.NewPassword;
+                var success = await _userService.ChangePasswordAsync(currentUserId.Value, request.CurrentPassword, request.NewPassword);
+
+                if (success)
+                {
+                    return Ok(new { message = "Password changed successfully" });
+                }
+                else
+                {
+                    return BadRequest(new { message = "Failed to change password" });
+                }
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Error updating preferences", error = ex.Message });
+                return StatusCode(500, new { message = "Error changing password", error = ex.Message });
             }
         }
 
-        [HttpGet("Stats")]
-        // [Authorize] // Temporarily removed
-        public IActionResult GetUserStats()
+        private int? GetCurrentUserId()
         {
-            try
-            {
-                // TODO: Implement actual stats retrieval from database
-                // For now, return mock data
-                var stats = new
-                {
-                    postsCount = 12,
-                    likesCount = 45,
-                    savedCount = 23,
-                    followersCount = 78
-                };
-
-                return Ok(stats);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "Error retrieving stats", error = ex.Message });
-            }
+            // Implement JWT token parsing logic here
+            // For now, return a mock ID
+            return 1; // This should be replaced with actual JWT parsing
         }
 
         [HttpGet("Preferences")]
@@ -148,17 +267,4 @@ namespace NewsSite.Controllers
     }
 
     // Request models
-    public class UpdateProfileRequest
-    {
-        public string Name { get; set; } = string.Empty;
-        public string Bio { get; set; } = string.Empty;
-    }
-
-    public class UserPreferencesRequest
-    {
-        public string[] Categories { get; set; } = Array.Empty<string>();
-        public bool EmailNotifications { get; set; }
-        public bool PushNotifications { get; set; }
-        public bool WeeklyDigest { get; set; }
-    }
 }
