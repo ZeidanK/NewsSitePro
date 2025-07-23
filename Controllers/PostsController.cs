@@ -50,7 +50,8 @@ namespace NewsSite.Controllers
                     likes = a.LikesCount,
                     views = a.ViewsCount,
                     isLiked = a.IsLiked,
-                    isSaved = a.IsSaved
+                    isSaved = a.IsSaved,
+                    userProfilePicture = a.UserProfilePicture
                 }).ToList();
 
                 return Ok(new { posts = response, totalPages });
@@ -199,7 +200,8 @@ namespace NewsSite.Controllers
                     sourceURL = a.SourceURL,
                     sourceName = a.SourceName,
                     likes = a.LikesCount,
-                    views = a.ViewsCount
+                    views = a.ViewsCount,
+                    ProfilePicture = a.UserProfilePicture
                 }).ToList();
 
                 return Ok(new { posts = response });

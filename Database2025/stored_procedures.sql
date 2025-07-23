@@ -265,6 +265,7 @@ BEGIN
         na.PublishDate,
         na.UserID,
         u.Username,
+        u.ProfilePicture,
         (SELECT COUNT(*) FROM NewsSitePro2025_ArticleLikes al WHERE al.ArticleID = na.ArticleID) as LikesCount,
         ABS(CHECKSUM(NEWID())) % 1000 as ViewsCount
     FROM NewsSitePro2025_NewsArticles na
@@ -673,3 +674,25 @@ BEGIN
     SELECT 'Profile updated successfully' as Message;
 END
 GO 
+
+-- Update User Profile Picture
+CREATE PROCEDURE NewsSitePro2025_sp_Users_UpdateProfilePic
+    @UserID INT,
+    @ProfilePicture NVARCHAR(500)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Add ProfilePicture column to Users_News table if it doesn't exist
+    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Users_News' AND COLUMN_NAME = 'ProfilePicture')
+    BEGIN
+        ALTER TABLE Users_News ADD ProfilePicture NVARCHAR(500) NULL;
+    END
+    
+    UPDATE Users_News
+    SET ProfilePicture = @ProfilePicture
+    WHERE UserID = @UserID;
+    
+    SELECT @@ROWCOUNT as RowsAffected;
+END
+GO

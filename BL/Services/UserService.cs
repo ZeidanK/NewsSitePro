@@ -114,8 +114,7 @@ namespace NewsSite.BL.Services
 
         public async Task<bool> UpdateUserProfilePicAsync(int userId, string profilePicPath)
         {
-            // Note: This assumes DBservice method exists or returns a default value
-            return true; // Placeholder implementation
+            return await _dbService.UpdateUserProfilePic(userId, profilePicPath);
         }
 
         public async Task<bool> ChangePasswordAsync(int userId, string currentPassword, string newPassword)

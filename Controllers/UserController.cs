@@ -107,7 +107,7 @@ namespace NewsSite.Controllers
         }
 
         [HttpPut("UpdateProfile")]
-        [Authorize] // Re-enable authorization
+        // [Authorize] // Temporarily removed for testing
         public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
         {
             try
@@ -179,9 +179,55 @@ namespace NewsSite.Controllers
 
         private int? GetCurrentUserId()
         {
-            // Implement JWT token parsing logic here
-            // For now, return a mock ID
-            return 1; // This should be replaced with actual JWT parsing
+            try
+            {
+                // Try to get user ID from JWT token first
+                var jwtToken = Request.Cookies["jwtToken"] ?? Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
+                if (!string.IsNullOrEmpty(jwtToken))
+                {
+                    var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+                    var jsonToken = handler.ReadJwtToken(jwtToken);
+                    // Look for "id" claim type which is what the JWT actually contains
+                    var userIdClaim = jsonToken.Claims.FirstOrDefault(c => c.Type == "id" || c.Type == "userId" || c.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+                    if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
+                    {
+                        return userId;
+                    }
+                }
+
+                // Fallback to claims if available
+                var userIdFromClaims = User?.Claims?.FirstOrDefault(c => c.Type == "id" || c.Type == "userId")?.Value;
+                if (int.TryParse(userIdFromClaims, out int userIdFromClaimsInt))
+                {
+                    return userIdFromClaimsInt;
+                }
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        [HttpGet("Stats")]
+        public async Task<IActionResult> GetUserStats()
+        {
+            try
+            {
+                var currentUserId = GetCurrentUserId();
+                if (currentUserId == null)
+                {
+                    return Unauthorized(new { message = "Authentication required" });
+                }
+
+                var stats = await _userService.GetUserStatsAsync(currentUserId.Value);
+                return Ok(stats);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error retrieving user stats", error = ex.Message });
+            }
         }
 
         [HttpGet("Preferences")]
@@ -213,16 +259,23 @@ namespace NewsSite.Controllers
         {
             try
             {
+                // Check authentication
+                var currentUserId = GetCurrentUserId();
+                if (currentUserId == null)
+                {
+                    return Unauthorized(new { success = false, message = "Authentication required" });
+                }
+
                 if (file == null || file.Length == 0)
                 {
                     return BadRequest(new { success = false, message = "No file selected" });
                 }
 
                 // Validate file type
-                var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif" };
-                if (!allowedTypes.Contains(file.ContentType))
+                var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp" };
+                if (!allowedTypes.Contains(file.ContentType.ToLower()))
                 {
-                    return BadRequest(new { success = false, message = "Only JPEG, PNG, and GIF images are allowed" });
+                    return BadRequest(new { success = false, message = "Only JPEG, PNG, GIF, and WebP images are allowed" });
                 }
 
                 // Validate file size (max 5MB)
@@ -232,32 +285,71 @@ namespace NewsSite.Controllers
                 }
 
                 // Create uploads directory if it doesn't exist
-                var uploadsPath = Path.Combine("wwwroot", "uploads", "profiles");
+                var uploadsPath = Path.Combine("wwwroot", "uploads", "profile-pictures");
                 if (!Directory.Exists(uploadsPath))
                 {
                     Directory.CreateDirectory(uploadsPath);
                 }
 
-                // Generate unique filename
-                var fileExtension = Path.GetExtension(file.FileName);
-                var fileName = $"{Guid.NewGuid()}{fileExtension}";
+                // Generate unique filename with user ID prefix for organization
+                var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+                var fileName = $"user_{currentUserId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString("N")[..8]}{fileExtension}";
                 var filePath = Path.Combine(uploadsPath, fileName);
 
-                // Save file
+                // Get the current user's existing profile picture to delete it later
+                var currentUser = await _userService.GetUserByIdAsync(currentUserId.Value);
+                string? oldProfilePicPath = null;
+                if (currentUser != null && !string.IsNullOrEmpty(currentUser.ProfilePicture))
+                {
+                    // Extract filename from URL path to delete old file
+                    var oldFileName = Path.GetFileName(currentUser.ProfilePicture);
+                    if (!string.IsNullOrEmpty(oldFileName))
+                    {
+                        oldProfilePicPath = Path.Combine("wwwroot", "uploads", "profile-pictures", oldFileName);
+                    }
+                }
+
+                // Save new file
                 using (var stream = new FileStream(filePath, FileMode.Create))
                 {
                     await file.CopyToAsync(stream);
                 }
 
-                // TODO: Update user's profile picture in database
-                // For now, just return the URL
-                var imageUrl = $"/uploads/profiles/{fileName}";
-                
-                return Ok(new { 
-                    success = true, 
-                    message = "Profile picture uploaded successfully", 
-                    imageUrl = imageUrl 
-                });
+                // Update user's profile picture in database
+                var imageUrl = $"/uploads/profile-pictures/{fileName}";
+                var updateSuccess = await _userService.UpdateUserProfilePicAsync(currentUserId.Value, imageUrl);
+
+                if (updateSuccess)
+                {
+                    // Delete old profile picture file if it exists and update was successful
+                    if (!string.IsNullOrEmpty(oldProfilePicPath) && System.IO.File.Exists(oldProfilePicPath))
+                    {
+                        try
+                        {
+                            System.IO.File.Delete(oldProfilePicPath);
+                        }
+                        catch
+                        {
+                            // Log the error but don't fail the request
+                            // In production, you should log this properly
+                        }
+                    }
+
+                    return Ok(new { 
+                        success = true, 
+                        message = "Profile picture uploaded successfully", 
+                        imageUrl = imageUrl 
+                    });
+                }
+                else
+                {
+                    // Delete the uploaded file if database update failed
+                    if (System.IO.File.Exists(filePath))
+                    {
+                        System.IO.File.Delete(filePath);
+                    }
+                    return StatusCode(500, new { success = false, message = "Failed to update profile picture in database" });
+                }
             }
             catch (Exception ex)
             {

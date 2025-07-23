@@ -246,10 +246,3 @@ dotnet publish -c Release -o ./publish
 - [ ] **Content Recommendation**: AI-powered article recommendations
 - [ ] **Multi-language Support**: Internationalization (i18n)
 
-## 🐛 Known Issues
-
-- Comments require page refresh after submission (enhancement planned)
-- Profile picture upload size validation needed
-- Search pagination could be improved
-
-

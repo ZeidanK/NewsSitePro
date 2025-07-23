@@ -236,7 +236,7 @@ public class DBservices
                     Bio = reader["Bio"]?.ToString(),
                     JoinDate = reader["JoinDate"] != DBNull.Value ? Convert.ToDateTime(reader["JoinDate"]) : DateTime.Now,
                     // Add ProfilePicture if needed
-                    // ProfilePicture = reader["ProfilePicture"]?.ToString()
+                    ProfilePicture = reader["ProfilePicture"]?.ToString()
                 };
             }
         }
@@ -503,7 +503,8 @@ public class DBservices
                     Category = reader["Category"]?.ToString(),
                     PublishDate = Convert.ToDateTime(reader["PublishDate"]),
                     LikesCount = Convert.ToInt32(reader["LikesCount"]),
-                    ViewsCount = Convert.ToInt32(reader["ViewsCount"])
+                    ViewsCount = Convert.ToInt32(reader["ViewsCount"]),
+                    UserProfilePicture = reader["ProfilePicture"]?.ToString()
                 });
             }
         }

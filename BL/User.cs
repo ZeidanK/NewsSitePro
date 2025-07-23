@@ -19,6 +19,7 @@ namespace NewsSite.BL
         private bool isLocked;
         private string? bio;
         private DateTime joinDate;
+        private string? profilePicture;
         private readonly object? _config;
         
         public User(IConfiguration config)
@@ -34,6 +35,7 @@ namespace NewsSite.BL
         public bool IsLocked { get => isLocked; set => isLocked = value; }
         public string? Bio { get => bio; set => bio = value; }
         public DateTime JoinDate { get => joinDate; set => joinDate = value; }
+        public string? ProfilePicture { get => profilePicture; set => profilePicture = value; }
 
 
 

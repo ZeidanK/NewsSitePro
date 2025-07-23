@@ -1528,3 +1528,46 @@ html {
         flex-direction: column;
     }
 }
+
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+}
+
+.toast {
+    background: #333;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    opacity: 0;
+    transform: translateX(100%);
+    transition: all 0.3s ease;
+    min-width: 300px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toast.toast-success {
+    background: #28a745;
+}
+
+.toast.toast-error {
+    background: #dc3545;
+}
+
+.toast.toast-warning {
+    background: #ffc107;
+    color: #212529;
+}
+
+.toast.toast-info {
+    background: #17a2b8;
+}

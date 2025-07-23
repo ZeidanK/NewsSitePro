@@ -37,7 +37,8 @@ class AuthService {
                     id: userData.userId,
                     name: userData.username,
                     email: userData.email || '',
-                    isAdmin: userData.isAdmin || false
+                    isAdmin: userData.isAdmin || false,
+                    profilePicture: userData.profilePicture
                 });
             } else {
                 this.setUnauthenticated();
@@ -256,8 +257,12 @@ class AuthService {
                 
                 // Update user avatar
                 const userAvatar = document.getElementById('userAvatar');
-                if (userAvatar && this.currentUser.name) {
-                    userAvatar.textContent = this.currentUser.name.charAt(0).toUpperCase();
+                if (userAvatar) {
+                    if (this.currentUser.profilePicture) {
+                        userAvatar.innerHTML = `<img src="${this.currentUser.profilePicture}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" alt="alt" />`;
+                    } else if (this.currentUser.name) {
+                        userAvatar.textContent = "test";
+                    }
                 }
                 
                 // Update user name and email

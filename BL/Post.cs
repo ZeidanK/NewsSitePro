@@ -14,7 +14,7 @@ namespace NewsSite.BL
         // User who posted/shared this content
         public int UserID { get; set; }
         public string? UserName { get; set; }
-        public string? UserProfileImageURL { get; set; }
+        public string? UserProfilePicture { get; set; }
         
         // Original post info (if this is a share/repost)
         public int? OriginalPostID { get; set; }

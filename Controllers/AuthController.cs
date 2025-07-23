@@ -67,8 +67,21 @@ namespace NewsSite.Controllers
                 var user = new User().ExtractUserFromJWT(jwt); // Extract user details from the JWT token
                 if (user == null)
                     return Unauthorized("Invalid token.");
+
+                // Get full user data from database including profile picture
+                var dbService = new DBservices();
+                var fullUser = dbService.GetUserById(user.Id);
+                if (fullUser == null)
+                    return Unauthorized("User not found.");
         
-                return Ok(new { message = "Token is valid.", userId = user.Id, username = user.Name });
+                return Ok(new { 
+                    message = "Token is valid.", 
+                    userId = fullUser.Id, 
+                    username = fullUser.Name,
+                    email = fullUser.Email,
+                    isAdmin = fullUser.IsAdmin,
+                    profilePicture = fullUser.ProfilePicture
+                });
             }
             catch (Exception ex)
             {

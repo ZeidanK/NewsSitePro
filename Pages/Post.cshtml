@@ -23,9 +23,16 @@
                 <div class="post-user-info">
                     <a href="/UserProfile/@(Model.PostData.UserID)" class="user-link">
                         <div class="post-avatar">
-                            <div class="avatar-placeholder">
-                                @((Model.PostData.Username ?? "U").Substring(0, 1).ToUpper())
-                            </div>
+                            @if (!string.IsNullOrEmpty(Model.PostData.UserProfilePicture))
+                            {
+                                <img src="@Model.PostData.UserProfilePicture" alt="@Model.PostData.Username" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />
+                            }
+                            else
+                            {
+                                <div class="avatar-placeholder">
+                                    @((Model.PostData.Username ?? "U").Substring(0, 1).ToUpper())
+                                </div>
+                            }
                         </div>
                         <div class="user-details">
                             <h4 class="username">@(Model.PostData.Username ?? "Anonymous")</h4>
@@ -106,7 +113,14 @@
                     <div class="comment-input-area">
                         <div class="comment-avatar">
                             <div class="avatar-small">
-                                @(Model.HeaderData.user.Name?.Substring(0, 1).ToUpper() ?? "U")
+                                @if (!string.IsNullOrEmpty(Model.HeaderData?.user?.ProfilePicture))
+                                {
+                                    <img src="@Model.HeaderData.user.ProfilePicture" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" alt="@Model.HeaderData.user.Name" />
+                                }
+                                else
+                                {
+                                    @(Model.HeaderData.user.Name?.Substring(0, 1).ToUpper() ?? "U")
+                                }
                             </div>
                         </div>
                         <div class="comment-input-container">
@@ -221,7 +235,14 @@
                                     <div class="comment-input-area">
                                         <div class="comment-avatar">
                                             <div class="avatar-small">
-                                                @(Model.HeaderData.user.Name?.Substring(0, 1).ToUpper() ?? "U")
+                                                @if (!string.IsNullOrEmpty(Model.HeaderData?.user?.ProfilePicture))
+                                                {
+                                                    <img src="@Model.HeaderData.user.ProfilePicture" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" alt="@Model.HeaderData.user.Name" />
+                                                }
+                                                else
+                                                {
+                                                    @(Model.HeaderData.user.Name?.Substring(0, 1).ToUpper() ?? "U")
+                                                }
                                             </div>
                                         </div>
                                         <div class="comment-input-container">
@@ -264,7 +285,14 @@ else
             <div class="post-input-area">
                 <div class="post-avatar">
                     <div class="avatar-small">
-                        @(Model.HeaderData?.user?.Name?.Substring(0, 1).ToUpper() ?? "U")
+                        @if (!string.IsNullOrEmpty(Model.HeaderData?.user?.ProfilePicture))
+                        {
+                            <img src="@Model.HeaderData.user.ProfilePicture" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" alt="@Model.HeaderData.user.Name" />
+                        }
+                        else
+                        {
+                            @(Model.HeaderData?.user?.Name?.Substring(0, 1).ToUpper() ?? "U")
+                        }
                     </div>
                 </div>
                 <div class="post-content-input">
@@ -408,7 +436,8 @@ else
                 <div class="post-header">
                     <div class="post-user">
                         <div class="user-avatar">
-                            ${post.user.username.charAt(0).toUpperCase()}
+                        `<img src="${post.user.profilePicture}" alt="${post.user.username}" class="user-avatar-img" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />`
+                           
                         </div>
                         <div class="user-info">
                             <a href="/user/${post.user.userId || post.articleID}" class="username">${post.user.username}</a>

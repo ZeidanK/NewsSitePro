@@ -12,6 +12,7 @@
         public string? Category { get; set; }
         public int UserID { get; set; }
         public string? Username { get; set; }
+        public string? UserProfilePicture { get; set; }
         public int LikesCount { get; set; }
         public int ViewsCount { get; set; }
         public bool IsLiked { get; set; }
