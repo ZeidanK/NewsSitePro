@@ -1,0 +1,22 @@
+@model List<NewsSite.BL.NewsArticle>
+@using NewsSitePro.Models
+
+@foreach (var post in Model)
+{
+    @await Component.InvokeAsync("PostCard", new PostCardViewModel 
+    { 
+        Post = post, 
+        Config = new PostDisplayConfig 
+        { 
+            ShowAuthorInfo = true,
+            ShowCategory = true,
+            ShowImage = true,
+            ShowSource = true,
+            ShowStats = true,
+            EnableInteractions = true,
+            ShowFullContent = false,
+            ContentPreviewLength = 200,
+            ContainerClass = "post-card"
+        }
+    })
+}

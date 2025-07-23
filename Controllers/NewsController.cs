@@ -1,12 +1,14 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using NewsSite.BL;
 using NewsSite.Services;
+using Microsoft.AspNetCore.Mvc.ViewComponents;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using System.IO;
 
 namespace NewsSite.Controllers
 {
     [Route("api/[controller]")]
-    [ApiController]
-    public class NewsController : ControllerBase
+    public class NewsController : Controller
     {
         private readonly INewsApiService _newsApiService;
         private readonly DBservices _dbServices;
@@ -104,6 +106,30 @@ namespace NewsSite.Controllers
             {
                 _logger.LogError(ex, "Error fetching news from database");
                 return StatusCode(500, "Error fetching news from database");
+            }
+        }
+
+        // GET: api/News/posts/rendered - Returns server-rendered HTML for ViewComponents
+        [HttpGet("posts/rendered")]
+        public IActionResult GetPostsRendered(
+            [FromQuery] int page = 1, 
+            [FromQuery] int limit = 10,
+            [FromQuery] string? feed = null,
+            [FromQuery] string? category = null)
+        {
+            try
+            {
+                // Get current user ID using the centralized method
+                int? currentUserId = NewsSite.BL.User.GetCurrentUserId(Request, User);
+
+                var articles = _dbServices.GetAllNewsArticles(page, limit, category, currentUserId);
+                
+                return View("_PostsList", articles);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error rendering posts");
+                return StatusCode(500, "Error rendering posts");
             }
         }
     }

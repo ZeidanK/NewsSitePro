@@ -1,10 +1,13 @@
 @page
 @model IndexModel
+@using NewsSitePro.Models
 @{
     Layout = "~/Pages/Shared/_Layout.cshtml";
     ViewData["HeaderData"] = Model.HeaderData;
     ViewData["Title"] = "Home - NewsSitePro";
 }
+
+<link rel="stylesheet" href="~/css/post-card.css" />
 
 <div class="home-container">
     <!-- Feed Container -->
@@ -25,7 +28,30 @@
 
         <!-- Posts Container -->
         <div id="postsContainer" class="posts-container">
-            <!-- Posts will be loaded here dynamically -->
+            <!-- Initial posts will be loaded here -->
+            @if (Model.Posts != null && Model.Posts.Any())
+            {
+                @foreach (var post in Model.Posts)
+                {
+                    @await Component.InvokeAsync("PostCard", new PostCardViewModel 
+                    { 
+                        Post = post, 
+                        Config = new PostDisplayConfig 
+                        { 
+                            ShowAuthorInfo = true,
+                            ShowCategory = true,
+                            ShowImage = true,
+                            ShowSource = true,
+                            ShowStats = true,
+                            EnableInteractions = true,
+                            ShowFullContent = false,
+                            ContentPreviewLength = 200,
+                            ContainerClass = "post-card"
+                        },
+                        CurrentUser = Model.HeaderData?.user
+                    })
+                }
+            }
         </div>
 
         <!-- Load More Button -->
@@ -48,8 +74,9 @@
 </div>
 
 @section Scripts {
+<script src="~/js/post-interactions.js"></script>
 <script>
-    let currentPage = 1;
+    let currentPage = 2; // Start at 2 since page 1 is already loaded server-side
     let currentFeed = 'all';
     let isLoading = false;
     let hasMorePosts = true;
@@ -61,7 +88,16 @@
     });
 
     function initializeFeed() {
-        loadPosts(1, true);
+        // Check if we have initial posts
+        const postsContainer = document.getElementById('postsContainer');
+        const hasInitialPosts = postsContainer.children.length > 0;
+        
+        if (hasInitialPosts) {
+            document.getElementById('loading').style.display = 'none';
+            document.querySelector('.load-more-container').style.display = 'block';
+        } else {
+            loadPosts(1, true);
+        }
     }
 
     function setupFeedTabs() {
@@ -86,7 +122,7 @@
     function setupLoadMore() {
         document.getElementById('loadMoreBtn').addEventListener('click', function() {
             if (!isLoading && hasMorePosts) {
-                loadPosts(currentPage + 1, false);
+                loadPosts(currentPage, false);
             }
         });
     }
@@ -111,15 +147,23 @@
         }
 
         try {
-            const response = await fetch(`/api/posts?page=${page}&limit=10&feed=${currentFeed}`);
-            const data = await response.json();
-
-            if (response.ok && data.posts) {
+            // Fetch server-rendered HTML from ViewComponent endpoint
+            const response = await fetch(`/api/news/posts/rendered?page=${page}&limit=10&feed=${currentFeed}`);
+            
+            if (response.ok) {
+                const htmlContent = await response.text();
+                
                 if (replace) {
-                    container.innerHTML = '';
+                    container.innerHTML = htmlContent;
+                } else {
+                    container.insertAdjacentHTML('beforeend', htmlContent);
                 }
 
-                if (data.posts.length === 0) {
+                // Check if we got any content
+                const newPosts = container.querySelectorAll('.post-card');
+                const postsOnThisPage = replace ? newPosts.length : newPosts.length - (page - 1) * 10;
+                
+                if (postsOnThisPage === 0) {
                     if (replace) {
                         emptyState.style.display = 'block';
                     } else {
@@ -127,12 +171,8 @@
                         loadMoreContainer.style.display = 'none';
                     }
                 } else {
-                    data.posts.forEach(post => {
-                        container.appendChild(createPostElement(post));
-                    });
-
-                    currentPage = page;
-                    hasMorePosts = data.posts.length === 10; // If we got less than 10, no more posts
+                    currentPage = page + 1;
+                    hasMorePosts = postsOnThisPage === 10; // If we got less than 10, no more posts
                     
                     if (hasMorePosts) {
                         loadMoreContainer.style.display = 'block';
@@ -153,191 +193,8 @@
         }
     }
 
-    function createPostElement(post) {
-        const postDiv = document.createElement('div');
-        postDiv.className = 'post-card';
-        postDiv.dataset.postId = post.articleID;
-
-        const publishDate = new Date(post.publishDate).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-        });
-
-        postDiv.innerHTML = `
-            <div class="post-header">
-                <div class="post-user-info">
-                    <a href="/UserProfile/${post.user?.id || ''}" class="user-link">
-                        <div class="post-avatar">
-                                    ${post.UserProfilePicture ?
-                                    `<img src="${post.UserProfilePicture}" alt="2" />` :
-                                        `<img src="${post.UserProfilePicture}"  style="width:100%;height:100%;border-radius:50%;object-fit:cover;" alt="alt" />`
-                            }
-                        </div>
-                        <div class="user-details">
-                            <span class="username">${post.user?.username || 'Anonymous'}</span>
-                            <span class="post-date">${publishDate}</span>
-                        </div>
-                    </a>
-                </div>
-                <div class="post-category">
-                    <span class="category-badge">${post.category}</span>
-                </div>
-            </div>
-
-            <div class="post-content" onclick="openPost(${post.articleID})">
-                <h3 class="post-title">${post.title}</h3>
-                ${post.imageURL ? `
-                    <div class="post-image">
-                        <img src="${post.imageURL}" alt="${post.title}" loading="lazy" />
-                    </div>
-                ` : ''}
-                <p class="post-text">${post.content.length > 200 ? post.content.substring(0, 200) + '...' : post.content}</p>
-                ${post.sourceURL ? `
-                    <div class="post-source">
-                        <i class="fas fa-external-link-alt"></i>
-                        <a href="${post.sourceURL}" target="_blank" rel="noopener">
-                            ${post.sourceName || 'Source'}
-                        </a>
-                    </div>
-                ` : ''}
-            </div>
-
-            <div class="post-actions">
-                <div class="post-stats">
-                    <span class="stat">
-                        <i class="fas fa-heart ${post.isLiked ? 'liked' : ''}"></i>
-                        <span class="likes-count">${post.likes || 0}</span>
-                    </span>
-                    <span class="stat">
-                        <i class="fas fa-eye"></i>
-                        <span>${post.views || 0}</span>
-                    </span>
-                </div>
-                <div class="post-buttons">
-                    <button class="action-btn like-btn ${post.isLiked ? 'active' : ''}" onclick="toggleLike(${post.articleID}, this)" data-post-id="${post.articleID}">
-                        <i class="fas fa-heart"></i>
-                        <span>${post.isLiked ? 'Liked' : 'Like'}</span>
-                    </button>
-                    <button class="action-btn comment-btn" onclick="openPost(${post.articleID})">
-                        <i class="fas fa-comment"></i>
-                        <span>Comment</span>
-                    </button>
-                    <button class="action-btn save-btn ${post.isSaved ? 'active' : ''}" onclick="toggleSave(${post.articleID}, this)">
-                        <i class="fas fa-bookmark"></i>
-                        <span>${post.isSaved ? 'Saved' : 'Save'}</span>
-                    </button>
-                    <button class="action-btn share-btn" onclick="sharePost(${post.articleID})">
-                        <i class="fas fa-share"></i>
-                        <span>Share</span>
-                    </button>
-                </div>
-            </div>
-        `;
-
-        return postDiv;
-    }
-
-    function openPost(postId) {
-        window.location.href = `/Post/${postId}`;
-    }
-
-    async function toggleLike(postId, button) {
-        try {
-            const response = await fetch(`/api/posts/Like/${postId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            const result = await response.json();
-            if (result.action) {
-                const likesCountSpan = button.closest('.post-card').querySelector('.likes-count');
-                const heartIcon = button.querySelector('i');
-                const buttonText = button.querySelector('span');
-                
-                if (result.action === 'liked') {
-                    button.classList.add('active');
-                    heartIcon.classList.add('liked');
-                    buttonText.textContent = 'Liked';
-                    likesCountSpan.textContent = parseInt(likesCountSpan.textContent) + 1;
-                } else {
-                    button.classList.remove('active');
-                    heartIcon.classList.remove('liked');
-                    buttonText.textContent = 'Like';
-                    likesCountSpan.textContent = Math.max(0, parseInt(likesCountSpan.textContent) - 1);
-                }
-            }
-        } catch (error) {
-            console.error('Error toggling like:', error);
-            showError('Failed to update like status');
-        }
-    }
-
-    async function toggleSave(postId, button) {
-        try {
-            const response = await fetch(`/api/posts/Save/${postId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            const result = await response.json();
-            if (result.action) {
-                const buttonText = button.querySelector('span');
-                
-                if (result.action === 'saved') {
-                    button.classList.add('active');
-                    buttonText.textContent = 'Saved';
-                } else {
-                    button.classList.remove('active');
-                    buttonText.textContent = 'Save';
-                }
-            }
-        } catch (error) {
-            console.error('Error toggling save:', error);
-            showError('Failed to update save status');
-        }
-    }
-
-    function sharePost(postId) {
-        const url = `${window.location.origin}/Post/${postId}`;
-        if (navigator.share) {
-            navigator.share({
-                title: 'Check out this post',
-                url: url
-            });
-        } else {
-            navigator.clipboard.writeText(url).then(() => {
-                showMessage('Link copied to clipboard!', 'success');
-            });
-        }
-    }
-
     function showError(message) {
-        showMessage(message, 'error');
-    }
-
-    function showMessage(message, type = 'info') {
-        const toast = document.createElement('div');
-        toast.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show position-fixed`;
-        toast.style.top = '20px';
-        toast.style.right = '20px';
-        toast.style.zIndex = '9999';
-        toast.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        
-        document.body.appendChild(toast);
-        
-        setTimeout(() => {
-            if (toast.parentNode) {
-                toast.parentNode.removeChild(toast);
-            }
-        }, 3000);
+        PostCardInteractions.showMessage(message, 'error');
     }
 </script>
 }

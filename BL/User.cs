@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens; // namespace for SymmetricSecurityKey
 using System.IdentityModel.Tokens.Jwt; //  namespace for JwtSecurityToken and JwtSecurityTokenHandler
 using Microsoft.AspNetCore.Authorization; //  namespace for Claim
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
 
 namespace NewsSite.BL
 {
@@ -187,6 +188,65 @@ namespace NewsSite.BL
                 var bytes = Encoding.UTF8.GetBytes(password);
                 var hash = sha512.ComputeHash(bytes);
                 return Convert.ToBase64String(hash);
+            }
+        }
+
+        // Proper JWT authentication method - can be used across all controllers
+        public static int? GetCurrentUserId(Microsoft.AspNetCore.Http.HttpRequest request, ClaimsPrincipal? user = null)
+        {
+            try
+            {
+                // Try to get from JWT claims first (if user context is available)
+                if (user != null)
+                {
+                    var userIdClaim = user.FindFirst("id");
+                    if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
+                    {
+                        return userId;
+                    }
+                }
+
+                // Try to get from Authorization header
+                var authHeader = request.Headers["Authorization"].FirstOrDefault();
+                if (authHeader != null && authHeader.StartsWith("Bearer "))
+                {
+                    var token = authHeader.Substring("Bearer ".Length).Trim();
+                    var handler = new JwtSecurityTokenHandler();
+                    
+                    if (handler.CanReadToken(token))
+                    {
+                        var jsonToken = handler.ReadJwtToken(token);
+                        var idClaim = jsonToken.Claims.FirstOrDefault(x => x.Type == "id");
+                        
+                        if (idClaim != null && int.TryParse(idClaim.Value, out int tokenUserId))
+                        {
+                            return tokenUserId;
+                        }
+                    }
+                }
+
+                // Fallback: check for JWT token in cookies
+                var jwtCookie = request.Cookies["jwtToken"];
+                if (!string.IsNullOrEmpty(jwtCookie))
+                {
+                    var handler = new JwtSecurityTokenHandler();
+                    if (handler.CanReadToken(jwtCookie))
+                    {
+                        var jsonToken = handler.ReadJwtToken(jwtCookie);
+                        var idClaim = jsonToken.Claims.FirstOrDefault(x => x.Type == "id");
+                        
+                        if (idClaim != null && int.TryParse(idClaim.Value, out int cookieUserId))
+                        {
+                            return cookieUserId;
+                        }
+                    }
+                }
+
+                return null;
+            }
+            catch (Exception)
+            {
+                return null;
             }
         }
     }
