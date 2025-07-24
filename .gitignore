@@ -56,7 +56,7 @@ coverage/
 *.coveragexml
 
 # Publish output
-wwwroot/
+# wwwroot/
 dist/
 node_modules/
 
@@ -79,3 +79,4 @@ packages-microsoft-prod.deb
 
 # appsetting
 appsettings.json
+appsettings.Development.json

@@ -1,0 +1,124 @@
+@model NewsSitePro.Models.HeaderViewModel
+
+<div class="left-sidebar" id="leftSidebar">
+    <div class="sidebar-content">
+        <!-- User Profile Section - will be updated by auth service -->
+        <div class="user-profile-section" id="userProfileSection">
+            <div class="user-avatar" id="userAvatar">
+                <!-- Avatar will be set by auth service -->
+            </div>
+            <h4 data-user-name></h4>
+            <p class="user-email" data-user-email></p>
+        </div>
+
+        <!-- Navigation Menu -->
+        <nav class="sidebar-nav">
+            <ul class="nav-list">
+                <li class="nav-item">
+                    <a href="/" class="nav-link">
+                        <span class="nav-icon">🏠</span>
+                        <span class="nav-text">Home</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/Post" class="nav-link">
+                        <span class="nav-icon">📰</span>
+                        <span class="nav-text">News Feed</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/Search" class="nav-link">
+                        <span class="nav-icon">🔍</span>
+                        <span class="nav-text">Search</span>
+                    </a>
+                </li>
+                
+                <!-- Auth Required Items -->
+                <li class="nav-item" data-auth-required>
+                    <a href="/UserProfile" class="nav-link">
+                        <span class="nav-icon">👤</span>
+                        <span class="nav-text">Profile</span>
+                    </a>
+                </li>
+                <li class="nav-item" data-auth-required>
+                    <a href="/Post" class="nav-link">
+                        <span class="nav-icon">✏️</span>
+                        <span class="nav-text">Create Post</span>
+                    </a>
+                </li>
+                <li class="nav-item" data-auth-required>
+                    <a href="/Notifications" class="nav-link">
+                        <span class="nav-icon">🔔</span>
+                        <span class="nav-text">Notifications</span>
+                        <span class="notification-badge" style="display: none;"></span>
+                    </a>
+                </li>
+                <li class="nav-item" data-auth-required>
+                    <a href="/SavedArticles" class="nav-link">
+                        <span class="nav-icon">🔖</span>
+                        <span class="nav-text">Saved Articles</span>
+                    </a>
+                </li>
+                <li class="nav-item" data-auth-required data-admin-only style="display: none;">
+                    <a href="/Admin" class="nav-link">
+                        <span class="nav-icon">⚙️</span>
+                        <span class="nav-text">Admin Panel</span>
+                    </a>
+                </li>
+                
+                <!-- Logout Button -->
+                <li class="nav-item" data-auth-required id="logoutNavItem">
+                    <button class="nav-link logout-btn" id="logoutBtn">
+                        <span class="nav-icon">🚪</span>
+                        <span class="nav-text">Logout</span>
+                    </button>
+                </li>
+                
+                <!-- Guest Only Items -->
+                <li class="nav-item" data-guest-only>
+                    <a href="/Login" class="nav-link">
+                        <span class="nav-icon">🔐</span>
+                        <span class="nav-text">Login</span>
+                    </a>
+                </li>
+                <li class="nav-item" data-guest-only>
+                    <a href="/Register" class="nav-link">
+                        <span class="nav-icon">✍️</span>
+                        <span class="nav-text">Register</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Categories Section -->
+        <div class="categories-section">
+            <h5 class="section-title">Categories</h5>
+            <div class="category-list">
+                <a href="#" class="category-item" data-category="Politics">
+                    <span class="category-icon">🏛️</span>
+                    <span>Politics</span>
+                </a>
+                <a href="#" class="category-item" data-category="Technology">
+                    <span class="category-icon">💻</span>
+                    <span>Technology</span>
+                </a>
+                <a href="#" class="category-item" data-category="Sports">
+                    <span class="category-icon">⚽</span>
+                    <span>Sports</span>
+                </a>
+                <a href="#" class="category-item" data-category="Entertainment">
+                    <span class="category-icon">🎬</span>
+                    <span>Entertainment</span>
+                </a>
+                <a href="#" class="category-item" data-category="Health">
+                    <span class="category-icon">🏥</span>
+                    <span>Health</span>
+                </a>
+                <a href="#" class="category-item" data-category="Business">
+                    <span class="category-icon">💼</span>
+                    <span>Business</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

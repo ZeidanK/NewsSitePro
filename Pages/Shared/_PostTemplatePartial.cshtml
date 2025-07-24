@@ -1,0 +1,251 @@
+@{
+    Layout = null;
+}
+
+<!-- Unified Post Template Partial -->
+<!-- This partial can be included in any page that needs to display posts -->
+
+<link rel="stylesheet" href="~/css/shared/postTemplate.css" />
+<script src="~/js/shared/postTemplate.js"></script>
+<script src="~/js/shared/postInteractions.js"></script>
+
+<script>
+    // Post Template Integration Functions
+    window.postTemplateHelpers = {
+        
+        // Initialize post templates for different contexts
+        initializeForContext: function(context, options = {}) {
+            const contextConfigs = {
+                feed: {
+                    showLikeButton: true,
+                    showShareButton: true,
+                    showSaveButton: true,
+                    showReportButton: true,
+                    showCommentButton: false,
+                    enableInteractions: true
+                },
+                
+                profile: {
+                    showLikeButton: false,
+                    showShareButton: false,
+                    showSaveButton: false,
+                    showReportButton: false,
+                    showCommentButton: true,
+                    showEditButton: false,
+                    showDeleteButton: false,
+                    showReadMoreButton: true,
+                    isProfileView: true,
+                    enableInteractions: true
+                },
+                
+                ownProfile: {
+                    showLikeButton: false,
+                    showShareButton: true,
+                    showSaveButton: false,
+                    showReportButton: false,
+                    showCommentButton: true,
+                    showEditButton: true,
+                    showDeleteButton: true,
+                    showReadMoreButton: true,
+                    isProfileView: true,
+                    isOwnPost: true,
+                    enableInteractions: true
+                },
+                
+                liveNews: {
+                    showLikeButton: false,
+                    showShareButton: true,
+                    showSaveButton: true,
+                    showReportButton: false,
+                    showCommentButton: false,
+                    showReadMoreButton: true,
+                    enableInteractions: true
+                }
+            };
+            
+            const config = { ...contextConfigs[context], ...options };
+            return new PostTemplate(config);
+        },
+        
+        // Render posts in a container using unified template
+        renderPosts: function(posts, containerId, context, options = {}) {
+            const container = document.getElementById(containerId);
+            if (!container) {
+                console.error('Container not found:', containerId);
+                return;
+            }
+            
+            const template = this.initializeForContext(context, options);
+            
+            // Clear existing content
+            container.innerHTML = '';
+            
+            // Add loading state
+            container.innerHTML = '<div class="posts-loading">Loading posts...</div>';
+            
+            // Render posts
+            setTimeout(() => {
+                container.innerHTML = '';
+                
+                if (!posts || posts.length === 0) {
+                    container.innerHTML = '<div class="no-posts">No posts to display</div>';
+                    return;
+                }
+                
+                posts.forEach((post, index) => {
+                    // Add small delay for staggered animation
+                    setTimeout(() => {
+                        const postElement = template.createPostElement(post, options);
+                        container.appendChild(postElement);
+                    }, index * 100);
+                });
+            }, 300);
+        },
+        
+        // Add a single post to existing container
+        addPost: function(post, containerId, context, options = {}) {
+            const container = document.getElementById(containerId);
+            if (!container) {
+                console.error('Container not found:', containerId);
+                return;
+            }
+            
+            const template = this.initializeForContext(context, options);
+            const postElement = template.createPostElement(post, options);
+            
+            // Add to top of container
+            container.insertBefore(postElement, container.firstChild);
+        },
+        
+        // Remove a post from container
+        removePost: function(postId, containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const postElement = container.querySelector(`[data-post-id="${postId}"]`);
+            if (postElement) {
+                postElement.style.animation = 'slideOutFadeOut 0.3s ease-out forwards';
+                setTimeout(() => {
+                    if (postElement.parentNode) {
+                        postElement.remove();
+                    }
+                }, 300);
+            }
+        },
+        
+        // Update post data
+        updatePost: function(postId, updatedData, containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const postElement = container.querySelector(`[data-post-id="${postId}"]`);
+            if (postElement) {
+                // Update specific elements based on updatedData
+                if (updatedData.likes !== undefined) {
+                    const likesElement = postElement.querySelector(`#likes-${postId}`);
+                    if (likesElement) {
+                        likesElement.textContent = updatedData.likes;
+                    }
+                }
+                
+                if (updatedData.content !== undefined) {
+                    const contentElement = postElement.querySelector('.post-text');
+                    if (contentElement) {
+                        contentElement.textContent = updatedData.content;
+                    }
+                }
+                
+                // Add more update logic as needed
+            }
+        },
+        
+        // Get current user ID for interactions
+        getCurrentUserId: function() {
+            // Try multiple sources to get user ID
+            if (window.currentUser && window.currentUser.id) {
+                return window.currentUser.id;
+            }
+            
+            if (sessionStorage.getItem('userId')) {
+                return sessionStorage.getItem('userId');
+            }
+            
+            const userElement = document.querySelector('[data-user-id]');
+            if (userElement) {
+                return userElement.getAttribute('data-user-id');
+            }
+            
+            return null;
+        },
+        
+        // Set current user for interactions
+        setCurrentUser: function(userId) {
+            window.currentUser = { id: userId };
+            sessionStorage.setItem('userId', userId);
+            
+            // Update post interactions
+            if (window.postInteractions) {
+                window.postInteractions.currentUserId = userId;
+                window.postInteractions.isLoggedIn = true;
+            }
+        }
+    };
+    
+    // CSS for loading and animations
+    if (!document.getElementById('postTemplateHelpersCSS')) {
+        const style = document.createElement('style');
+        style.id = 'postTemplateHelpersCSS';
+        style.textContent = `
+            .posts-loading {
+                text-align: center;
+                padding: 40px 20px;
+                color: #666;
+                font-size: 16px;
+            }
+            
+            .posts-loading:before {
+                content: "⏳";
+                display: block;
+                font-size: 24px;
+                margin-bottom: 10px;
+                animation: spin 2s linear infinite;
+            }
+            
+            @@keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+            
+            .no-posts {
+                text-align: center;
+                padding: 60px 20px;
+                color: #999;
+                font-size: 16px;
+            }
+            
+            .no-posts:before {
+                content: "📝";
+                display: block;
+                font-size: 48px;
+                margin-bottom: 16px;
+                opacity: 0.5;
+            }
+            
+            @@keyframes slideOutFadeOut {
+                from {
+                    opacity: 1;
+                    transform: translateX(0);
+                    max-height: 500px;
+                }
+                to {
+                    opacity: 0;
+                    transform: translateX(-100%);
+                    max-height: 0;
+                    margin-bottom: 0;
+                    padding: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+</script>

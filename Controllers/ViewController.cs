@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+using NewsSite.BL;
 
 namespace NewsSite.Controllers
 {
@@ -8,36 +7,81 @@ namespace NewsSite.Controllers
     [ApiController]
     public class ViewController : ControllerBase
     {
-        // GET: api/<ViewController>
-        [HttpGet]
-        public IEnumerable<string> Get()
+        private readonly DBservices _dbService;
+
+        public ViewController()
         {
-            return new string[] { "value1", "value2" };
+            _dbService = new DBservices();
         }
 
-        // GET api/<ViewController>/5
-        [HttpGet("{id}")]
-        public string Get(int id)
+        // GET api/View/User/{userId}
+        [HttpGet("User/{userId}")]
+        public IActionResult GetUserProfile(int userId)
         {
-            return "value";
+            try
+            {
+                // Get user basic info
+                var user = _dbService.GetUser(null, userId, null);
+                if (user == null)
+                {
+                    return NotFound(new { message = "User not found" });
+                }
+
+                // Get user statistics
+                var userStats = _dbService.GetUserStats(userId);
+
+                // Get user's recent posts
+                var recentPosts = _dbService.GetArticlesByUser(userId, 1, 10);
+
+                // Combine into UserProfile object
+                var userProfile = new UserProfile
+                {
+                    UserID = user.Id,
+                    Username = user.Name,
+                    Email = user.Email,
+                    Bio = user.Bio ?? "",
+                    JoinDate = user.JoinDate,
+                    IsAdmin = user.IsAdmin,
+                    Activity = userStats,
+                    RecentPosts = recentPosts
+                };
+
+                return Ok(userProfile);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error loading user profile", error = ex.Message });
+            }
         }
 
-        // POST api/<ViewController>
-        [HttpPost]
-        public void Post([FromBody] string value)
+        // GET api/View/User/{userId}/Posts
+        [HttpGet("User/{userId}/Posts")]
+        public IActionResult GetUserPosts(int userId, [FromQuery] int page = 1, [FromQuery] int limit = 10)
         {
-        }
+            try
+            {
+                var articles = _dbService.GetArticlesByUser(userId, page, limit);
+                
+                var response = articles.Select(a => new
+                {
+                    articleID = a.ArticleID,
+                    title = a.Title,
+                    content = a.Content,
+                    imageURL = a.ImageURL,
+                    sourceURL = a.SourceURL,
+                    sourceName = a.SourceName,
+                    publishDate = a.PublishDate,
+                    category = a.Category,
+                    likes = a.LikesCount,
+                    views = a.ViewsCount
+                }).ToList();
 
-        // PUT api/<ViewController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
-        {
-        }
-
-        // DELETE api/<ViewController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
-        {
+                return Ok(new { posts = response });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error loading user posts", error = ex.Message });
+            }
         }
     }
 }

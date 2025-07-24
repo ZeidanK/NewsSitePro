@@ -1,0 +1,155 @@
+@using NewsSitePro.Models
+@{
+    var headerData = (HeaderViewModel)ViewData["HeaderData"];
+}
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="~/css/site.css" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/comments.css" />
+    
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"] - NewsSitePro</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body>
+    <!-- Mobile Menu Toggle -->
+    <button class="mobile-menu-toggle" id="mobileMenuToggle">☰</button>
+    
+    <!-- Header -->
+    @await Html.PartialAsync("_HeaderPartial", headerData)
+    
+    <!-- Twitter-like Layout -->
+    <div class="twitter-layout">
+        <!-- Left Sidebar -->
+        @await Html.PartialAsync("_LeftSidePanelPartial", headerData)
+        
+        <!-- Main Content -->
+        <main role="main" class="main-content">
+            @RenderBody()
+        </main>
+        
+        <!-- Right Sidebar -->
+        @await Html.PartialAsync("_RightSidePanelPartial", headerData)
+    </div>
+    
+@RenderSection("Scripts", required: false)
+    
+    <!-- Auth Service -->
+    <script src="~/js/auth-service.js"></script>
+    <!-- Comments System -->
+    <script src="~/js/comments.js"></script>
+    
+    <script>
+        // Mobile menu toggle
+        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+        const leftSidebar = document.querySelector('.left-sidebar');
+        
+        if (mobileMenuToggle && leftSidebar) {
+            mobileMenuToggle.addEventListener('click', function() {
+                leftSidebar.classList.toggle('open');
+            });
+            
+            // Close menu when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!leftSidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+                    leftSidebar.classList.remove('open');
+                }
+            });
+        }
+
+        // Logout functionality
+        var logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            console.log("Logout button found");
+            logoutBtn.addEventListener('click', function (e) {
+                alert("Logout button clicked!");
+                e.preventDefault();
+                localStorage.removeItem('jwtToken');
+                document.cookie = 'jwtToken=; Max-Age=0; path=/;';
+                window.location.href = '/Login';
+            });
+        } else {
+            console.log("Logout button not found");
+        }
+
+        // Post button functionality
+        const postButton = document.getElementById('postButton');
+        if (postButton) {
+            postButton.addEventListener('click', async function (e) {
+                e.preventDefault();
+                const jwt = localStorage.getItem('jwtToken');
+                if (jwt) {
+                    try {
+                        const response = await fetch('/api/Auth/validate', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${jwt}`
+                            }
+                        });
+
+                        if (response.ok) {
+                            window.location.href = `/Post`;
+                        } else {
+                            alert('Your session has expired. Please log in again.');
+                            localStorage.removeItem('jwtToken');
+                            window.location.href = '/Login';
+                        }
+                    } catch (error) {
+                        console.error('Error validating token:', error);
+                        alert('An error occurred. Please try again.');
+                    }
+                } else {
+                    alert('You must be logged in to view posts.');
+                    window.location.href = '/Login';
+                }
+            });
+        }
+
+        // Category filtering
+        document.querySelectorAll('.category-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const category = this.dataset.category;
+                if (typeof window.filterPostsByCategory === 'function') {
+                    window.filterPostsByCategory(category);
+                }
+            });
+        });
+
+        // Follow button functionality
+        document.querySelectorAll('.follow-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (this.textContent === 'Follow') {
+                    this.textContent = 'Following';
+                    this.style.background = '#657786';
+                } else {
+                    this.textContent = 'Follow';
+                    this.style.background = '#1da1f2';
+                }
+            });
+        });
+
+        // Trending topics functionality
+        document.querySelectorAll('.trending-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const category = this.dataset.category;
+                const topic = this.dataset.topic;
+                
+                if (category && topic) {
+                    // Navigate to search page with the trending topic
+                    window.location.href = `/Search?q=${encodeURIComponent('#' + topic)}&category=${encodeURIComponent(category)}&type=posts`;
+                } else if (category) {
+                    // Navigate to search page with just the category
+                    window.location.href = `/Search?category=${encodeURIComponent(category)}&type=posts`;
+                }
+            });
+            
+            // Add hover effect
+            item.style.cursor = 'pointer';
+        });
+    </script>
+</body>
+</html>

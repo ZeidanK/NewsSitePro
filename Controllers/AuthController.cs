@@ -1,7 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using NewsSite.BL;
 using NewsSite.Models;
-
 namespace NewsSite.Controllers
 {
     [Route("api/[controller]")]
@@ -30,14 +30,64 @@ namespace NewsSite.Controllers
         [HttpPost("register")]
         public IActionResult Register([FromBody] RegisterRequest request)
         {
-            var user = new User();
-            bool success = user.Register(request.Name, request.Email, request.Password);
-            if (!success)
-                return BadRequest("User already exists.");
+            try
+            {
+                var user = new User();
+                bool success = user.Register(request.Name, request.Email, request.Password);
+                if (!success)
+                    return BadRequest("Registration failed. User may already exist.");
 
-            return Ok("Registration successful.");
+                return Ok("Registration successful.");
+            }
+            catch (System.Data.SqlClient.SqlException ex)
+            {
+                if (ex.Number == 2627) // UNIQUE constraint violation
+                {
+                    return BadRequest("A user with this email already exists.");
+                }
+                return BadRequest("Registration failed due to a database error.");
+            }
+            catch (Exception)
+            {
+                return BadRequest("Registration failed. Please try again.");
+            }
         }
 
+        
+        [HttpPost("validate")]
+        public IActionResult Validate([FromHeader(Name = "Authorization")] string authHeader)
+        {
+            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
+                return Unauthorized("Missing or invalid Authorization header.");
+        
+            var jwt = authHeader.Substring("Bearer ".Length);
+        
+            try
+            {
+                var user = new User().ExtractUserFromJWT(jwt); // Extract user details from the JWT token
+                if (user == null)
+                    return Unauthorized("Invalid token.");
+
+                // Get full user data from database including profile picture
+                var dbService = new DBservices();
+                var fullUser = dbService.GetUserById(user.Id);
+                if (fullUser == null)
+                    return Unauthorized("User not found.");
+        
+                return Ok(new { 
+                    message = "Token is valid.", 
+                    userId = fullUser.Id, 
+                    username = fullUser.Name,
+                    email = fullUser.Email,
+                    isAdmin = fullUser.IsAdmin,
+                    profilePicture = fullUser.ProfilePicture
+                });
+            }
+            catch (Exception ex)
+            {
+                return Unauthorized($"Token validation failed: {ex.Message}");
+            }
+        }
         [HttpPut("update")]
         public IActionResult Update([FromHeader(Name = "Authorization")] string authHeader, [FromBody] UpdateUserRequest request)
         {

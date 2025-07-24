@@ -4,7 +4,8 @@ using System.Text;
 using Microsoft.IdentityModel.Tokens; // namespace for SymmetricSecurityKey
 using System.IdentityModel.Tokens.Jwt; //  namespace for JwtSecurityToken and JwtSecurityTokenHandler
 using Microsoft.AspNetCore.Authorization; //  namespace for Claim
-
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
 
 namespace NewsSite.BL
 {
@@ -12,22 +13,30 @@ namespace NewsSite.BL
     {
         
         private int id;
-        private string name;
-        private string email; 
-        private string passwordHash;
+        private string? name;
+        private string? email; 
+        private string? passwordHash;
         private bool isAdmin;
         private bool isLocked;
-        private readonly object _config;
+        private string? bio;
+        private DateTime joinDate;
+        private string? profilePicture;
+        private readonly object? _config;
+        
         public User(IConfiguration config)
         {
             _config = config;
         }
+        
         public int Id { get => id; set => id = value; }
-        public string Name { get => name; set => name = value; }
-        public string Email { get => email; set => email = value; }
-        public string PasswordHash { get => passwordHash; set => passwordHash = value; }
+        public string? Name { get => name; set => name = value; }
+        public string? Email { get => email; set => email = value; }
+        public string? PasswordHash { get => passwordHash; set => passwordHash = value; }
         public bool IsAdmin { get => isAdmin; set => isAdmin = value; }
         public bool IsLocked { get => isLocked; set => isLocked = value; }
+        public string? Bio { get => bio; set => bio = value; }
+        public DateTime JoinDate { get => joinDate; set => joinDate = value; }
+        public string? ProfilePicture { get => profilePicture; set => profilePicture = value; }
 
 
 
@@ -35,7 +44,7 @@ namespace NewsSite.BL
 
         public User() { }
 
-        public User(int id, string name, string email, string passwordHash, bool isAdmin, bool isLocked)
+        public User(int id, string? name, string? email, string? passwordHash, bool isAdmin, bool isLocked, string? bio = null, DateTime? joinDate = null)
         {
             this.id = id;
             this.name = name;
@@ -43,6 +52,8 @@ namespace NewsSite.BL
             this.passwordHash = passwordHash;
             this.isAdmin = isAdmin;
             this.isLocked = isLocked;
+            this.bio = bio;
+            this.joinDate = joinDate ?? DateTime.Now;
         }
 
 
@@ -180,6 +191,128 @@ namespace NewsSite.BL
             }
         }
 
+        // Proper JWT authentication method - can be used across all controllers
+        public static int? GetCurrentUserId(Microsoft.AspNetCore.Http.HttpRequest request, ClaimsPrincipal? user = null)
+        {
+            try
+            {
+                // Try to get from JWT claims first (if user context is available)
+                if (user != null)
+                {
+                    var userIdClaim = user.FindFirst("id");
+                    if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
+                    {
+                        return userId;
+                    }
+                }
 
+                // Try to get from Authorization header
+                var authHeader = request.Headers["Authorization"].FirstOrDefault();
+                if (authHeader != null && authHeader.StartsWith("Bearer "))
+                {
+                    var token = authHeader.Substring("Bearer ".Length).Trim();
+                    var handler = new JwtSecurityTokenHandler();
+                    
+                    if (handler.CanReadToken(token))
+                    {
+                        var jsonToken = handler.ReadJwtToken(token);
+                        var idClaim = jsonToken.Claims.FirstOrDefault(x => x.Type == "id");
+                        
+                        if (idClaim != null && int.TryParse(idClaim.Value, out int tokenUserId))
+                        {
+                            return tokenUserId;
+                        }
+                    }
+                }
+
+                // Fallback: check for JWT token in cookies
+                var jwtCookie = request.Cookies["jwtToken"];
+                if (!string.IsNullOrEmpty(jwtCookie))
+                {
+                    var handler = new JwtSecurityTokenHandler();
+                    if (handler.CanReadToken(jwtCookie))
+                    {
+                        var jsonToken = handler.ReadJwtToken(jwtCookie);
+                        var idClaim = jsonToken.Claims.FirstOrDefault(x => x.Type == "id");
+                        
+                        if (idClaim != null && int.TryParse(idClaim.Value, out int cookieUserId))
+                        {
+                            return cookieUserId;
+                        }
+                    }
+                }
+
+                return null;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+    }
+
+    // Admin-specific user view models
+    public class AdminUserView
+    {
+        public int Id { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string? FullName { get; set; }
+        public string? ProfilePicture { get; set; }
+        public DateTime JoinDate { get; set; }
+        public DateTime? LastActivity { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public int PostCount { get; set; }
+        public int LikesReceived { get; set; }
+        public bool IsAdmin { get; set; }
+    }
+
+    public class AdminUserDetails : AdminUserView
+    {
+        public string? Bio { get; set; }
+        public DateTime? BannedUntil { get; set; }
+        public string? BanReason { get; set; }
+        public List<ActivityLog> RecentActivity { get; set; } = new List<ActivityLog>();
+        public List<Report> Reports { get; set; } = new List<Report>();
+    }
+
+    public class ActivityLog
+    {
+        public int Id { get; set; }
+        public int UserId { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string Action { get; set; } = string.Empty;
+        public string Details { get; set; } = string.Empty;
+        public DateTime Timestamp { get; set; }
+        public string IpAddress { get; set; } = string.Empty;
+        public string UserAgent { get; set; } = string.Empty;
+    }
+
+    public class UserReport
+    {
+        public int Id { get; set; }
+        public int ReporterId { get; set; }
+        public string ReporterUsername { get; set; } = string.Empty;
+        public int ReportedUserId { get; set; }
+        public string ReportedUsername { get; set; } = string.Empty;
+        public string Reason { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+        public string Status { get; set; } = "Pending"; // Pending, Resolved, Dismissed
+        public int? ResolvedBy { get; set; }
+        public DateTime? ResolvedAt { get; set; }
+        public string? ResolutionNotes { get; set; }
+    }
+
+    public class AdminDashboardStats
+    {
+        public int TotalUsers { get; set; }
+        public int ActiveUsers { get; set; }
+        public int BannedUsers { get; set; }
+        public int TotalPosts { get; set; }
+        public int TotalReports { get; set; }
+        public int PendingReports { get; set; }
+        public int TodayRegistrations { get; set; }
+        public int TodayPosts { get; set; }
     }
 }
