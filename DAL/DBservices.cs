@@ -366,7 +366,9 @@ public class DBservices
             {
                 { "@PageNumber", pageNumber },
                 { "@PageSize", pageSize },
-                { "@Category", (object?)category ?? DBNull.Value }
+                { "@Category", (object?)category ?? DBNull.Value },
+                {"@CurrentUserID",currentUserId }
+
             };
 
             cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_NewsArticles_GetAll", con, paramDic);
@@ -387,7 +389,8 @@ public class DBservices
                     UserID = Convert.ToInt32(reader["UserID"]),
                     Username = reader["Username"]?.ToString(),
                     LikesCount = Convert.ToInt32(reader["LikesCount"]),
-                    ViewsCount = Convert.ToInt32(reader["ViewsCount"])
+                    ViewsCount = Convert.ToInt32(reader["ViewsCount"]),
+                    UserProfilePicture = reader["ProfilePicture"]?.ToString()
                 };
 
                 // Check if current user liked/saved this article

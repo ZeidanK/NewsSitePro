@@ -120,7 +120,7 @@ namespace NewsSite.Controllers
             try
             {
                 // Get current user ID using the centralized method
-                int? currentUserId = NewsSite.BL.User.GetCurrentUserId(Request, User);
+                int? currentUserId = 1;//NewsSite.BL.User.GetCurrentUserId(Request, User);
 
                 var articles = _dbServices.GetAllNewsArticles(page, limit, category, currentUserId);
                 
