@@ -80,3 +80,6 @@ packages-microsoft-prod.deb
 # appsetting
 appsettings.json
 appsettings.Development.json
+/ADMIN_API_DOCUMENTATION.md
+/ADMIN_API_TROUBLESHOOTING.md
+/ADMIN_CONTROLLER_SUMMARY.md
