@@ -1,8 +1,14 @@
 @page
 @model NewsSite.Pages.AdminModel
 @{
+    
+    Layout = "~/Pages/Shared/_Layout.cshtml";
+    ViewData["HeaderData"] = Model.HeaderData;
     ViewData["Title"] = "Admin Panel - User Management";
 }
+
+
+<link rel="stylesheet" href="~/css/post-card.css" />
 
 <div class="admin-container">
     <div class="admin-header">

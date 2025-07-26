@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Test with JWT</title>
+</head>
+<body>
+    <h1>Admin Test</h1>
+    <button onclick="setJWTAndRedirect()">Set JWT Token and Go to Admin</button>
+    <div id="result"></div>
+
+    <script>
+        function setJWTAndRedirect() {
+            // Set the JWT token from the login response
+            const jwtToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJBZG1pbkBBZG1pbi5jb20iLCJpZCI6IjIzIiwibmFtZSI6IkFkbWluIiwiaXNBZG1pbiI6IlRydWUiLCJqdGkiOiI1YjZkYjA2Yy1lYTdkLTQ1MDUtOWE4Ni1lZmRhZWQwNTkzMTIiLCJleHAiOjE3NTM1MjcyNjksImlzcyI6Ik15QXBwIiwiYXVkIjoiTXlBcHBVc2VycyJ9.-oL1ABHNY0Kr4UDZF5SXlnma_Am5X7joSGAbeDrwaeY";
+            
+            document.cookie = `jwtToken=${jwtToken}; path=/; secure; samesite=strict`;
+            document.getElementById('result').innerHTML = 'JWT token set! Redirecting to admin page...';
+            
+            setTimeout(() => {
+                window.location.href = '/Admin';
+            }, 1000);
+        }
+    </script>
+</body>
+</html>

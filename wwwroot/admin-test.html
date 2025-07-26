@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Test Login</title>
+</head>
+<body>
+    <h1>Admin Test Login</h1>
+    <button onclick="loginAsAdmin()">Login as Admin</button>
+    <button onclick="accessAdminPage()">Access Admin Page</button>
+    <div id="result"></div>
+
+    <script>
+        function loginAsAdmin() {
+            fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    email: 'Admin@Admin.com',
+                    password: 'admin123'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('result').innerHTML = 'Login result: ' + JSON.stringify(data);
+                if (data.token) {
+                    // Set the JWT token as a cookie
+                    document.cookie = `jwtToken=${data.token}; path=/; secure; samesite=strict`;
+                    console.log('JWT token set in cookie');
+                }
+            })
+            .catch(error => {
+                document.getElementById('result').innerHTML = 'Login error: ' + error;
+            });
+        }
+
+        function accessAdminPage() {
+            window.location.href = '/Admin';
+        }
+    </script>
+</body>
+</html>
