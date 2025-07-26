@@ -793,56 +793,56 @@ public class DBservices
                 await con.OpenAsync();
                 
                 // Get total users
-                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM Users_News", con))
+                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_Users", con))
                 {
                     var result = await cmd.ExecuteScalarAsync();
                     stats.TotalUsers = result != null ? (int)result : 0;
                 }
                 
                 // Get active users (not banned and active)
-                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM Users_News WHERE IsActive = 1 AND (IsBanned = 0 OR BannedUntil < GETDATE())", con))
+                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_Users WHERE IsActive = 1 AND (IsBanned = 0 OR BannedUntil < GETDATE())", con))
                 {
                     var result = await cmd.ExecuteScalarAsync();
                     stats.ActiveUsers = result != null ? (int)result : 0;
                 }
                 
                 // Get banned users
-                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM Users_News WHERE IsBanned = 1 AND (BannedUntil IS NULL OR BannedUntil > GETDATE())", con))
+                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_Users WHERE IsBanned = 1 AND (BannedUntil IS NULL OR BannedUntil > GETDATE())", con))
                 {
                     var result = await cmd.ExecuteScalarAsync();
                     stats.BannedUsers = result != null ? (int)result : 0;
                 }
                 
                 // Get total posts
-                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM NewsArticles", con))
+                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_NewsArticles", con))
                 {
                     var result = await cmd.ExecuteScalarAsync();
                     stats.TotalPosts = result != null ? (int)result : 0;
                 }
                 
                 // Get total reports
-                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM Reports", con))
+                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_Reports", con))
                 {
                     var result = await cmd.ExecuteScalarAsync();
                     stats.TotalReports = result != null ? (int)result : 0;
                 }
                 
                 // Get pending reports
-                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM Reports WHERE Status = 'Pending'", con))
+                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_Reports WHERE Status = 'Pending'", con))
                 {
                     var result = await cmd.ExecuteScalarAsync();
                     stats.PendingReports = result != null ? (int)result : 0;
                 }
                 
                 // Get today's registrations
-                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM Users_News WHERE CAST(JoinDate AS DATE) = CAST(GETDATE() AS DATE)", con))
+                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_Users WHERE CAST(JoinDate AS DATE) = CAST(GETDATE() AS DATE)", con))
                 {
                     var result = await cmd.ExecuteScalarAsync();
                     stats.TodayRegistrations = result != null ? (int)result : 0;
                 }
                 
                 // Get today's posts
-                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM NewsArticles WHERE CAST(CreatedAt AS DATE) = CAST(GETDATE() AS DATE)", con))
+                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_NewsArticles WHERE CAST(PublishDate AS DATE) = CAST(GETDATE() AS DATE)", con))
                 {
                     var result = await cmd.ExecuteScalarAsync();
                     stats.TodayPosts = result != null ? (int)result : 0;
@@ -873,22 +873,22 @@ public class DBservices
                 
                 var offset = (page - 1) * pageSize;
                 var query = @"
-                    SELECT u.ID, u.Name AS Username, u.Email, u.Bio, u.JoinDate, u.LastActivity, 
+                    SELECT u.UserID AS ID, u.Username, u.Email, u.Bio, u.JoinDate, u.LastUpdated AS LastActivity, 
                            u.IsAdmin, u.IsActive, u.IsBanned, u.BannedUntil,
                            COALESCE(pc.PostCount, 0) AS PostCount,
                            COALESCE(lc.LikesReceived, 0) AS LikesReceived
-                    FROM Users_News u
+                    FROM NewsSitePro2025_Users u
                     LEFT JOIN (
                         SELECT UserID, COUNT(*) AS PostCount 
-                        FROM NewsArticles 
+                        FROM NewsSitePro2025_NewsArticles 
                         GROUP BY UserID
-                    ) pc ON u.ID = pc.UserID
+                    ) pc ON u.UserID = pc.UserID
                     LEFT JOIN (
                         SELECT na.UserID, COUNT(*) AS LikesReceived
-                        FROM NewsArticles na
-                        INNER JOIN ArticleLikes al ON na.ID = al.ArticleID
+                        FROM NewsSitePro2025_NewsArticles na
+                        INNER JOIN NewsSitePro2025_ArticleLikes al ON na.ArticleID = al.ArticleID
                         GROUP BY na.UserID
-                    ) lc ON u.ID = lc.UserID
+                    ) lc ON u.UserID = lc.UserID
                     ORDER BY u.JoinDate DESC
                     OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
                 
@@ -1010,15 +1010,15 @@ public class DBservices
                            u.IsAdmin, u.IsActive, u.IsBanned, u.BannedUntil,
                            COALESCE(pc.PostCount, 0) AS PostCount,
                            COALESCE(lc.LikesReceived, 0) AS LikesReceived
-                    FROM Users_News u
+                    FROM NewsSitePro2025_Users u
                     LEFT JOIN (
                         SELECT UserID, COUNT(*) AS PostCount 
-                        FROM NewsArticles 
+                        FROM NewsSitePro2025_NewsArticles 
                         GROUP BY UserID
                     ) pc ON u.ID = pc.UserID
                     LEFT JOIN (
                         SELECT na.UserID, COUNT(*) AS LikesReceived
-                        FROM NewsArticles na
+                        FROM NewsSitePro2025_NewsArticles na
                         INNER JOIN ArticleLikes al ON na.ID = al.ArticleID
                         GROUP BY na.UserID
                     ) lc ON u.ID = lc.UserID
@@ -1140,7 +1140,7 @@ public class DBservices
                 }
                 
                 var whereClause = whereConditions.Count > 0 ? "WHERE " + string.Join(" AND ", whereConditions) : "";
-                var query = $"SELECT COUNT(*) FROM Users_News {whereClause}";
+                var query = $"SELECT COUNT(*) FROM NewsSitePro2025_Users {whereClause}";
                 
                 using (var cmd = new SqlCommand(query, con))
                 {
@@ -1172,16 +1172,16 @@ public class DBservices
                            u.IsAdmin, u.IsActive, u.IsBanned, u.BannedUntil, u.BanReason,
                            COALESCE(pc.PostCount, 0) AS PostCount,
                            COALESCE(lc.LikesReceived, 0) AS LikesReceived
-                    FROM Users_News u
+                    FROM NewsSitePro2025_Users u
                     LEFT JOIN (
                         SELECT UserID, COUNT(*) AS PostCount 
-                        FROM NewsArticles 
+                        FROM NewsSitePro2025_NewsArticles 
                         WHERE UserID = @UserId
                         GROUP BY UserID
                     ) pc ON u.ID = pc.UserID
                     LEFT JOIN (
                         SELECT na.UserID, COUNT(*) AS LikesReceived
-                        FROM NewsArticles na
+                        FROM NewsSitePro2025_NewsArticles na
                         INNER JOIN ArticleLikes al ON na.ID = al.ArticleID
                         WHERE na.UserID = @UserId
                         GROUP BY na.UserID
@@ -1254,7 +1254,7 @@ public class DBservices
                 var bannedUntil = durationDays == -1 ? (DateTime?)null : DateTime.Now.AddDays(durationDays);
                 
                 var query = @"
-                    UPDATE Users_News 
+                    UPDATE NewsSitePro2025_Users 
                     SET IsBanned = 1, BannedUntil = @BannedUntil, BanReason = @Reason
                     WHERE ID = @UserId";
                 
@@ -1284,7 +1284,7 @@ public class DBservices
                 await con.OpenAsync();
                 
                 var query = @"
-                    UPDATE Users_News 
+                    UPDATE NewsSitePro2025_Users 
                     SET IsBanned = 0, BannedUntil = NULL, BanReason = NULL
                     WHERE ID = @UserId";
                 
@@ -1311,7 +1311,7 @@ public class DBservices
             {
                 await con.OpenAsync();
                 
-                var query = "UPDATE Users_News SET IsActive = 0 WHERE ID = @UserId";
+                var query = "UPDATE NewsSitePro2025_Users SET IsActive = 0 WHERE ID = @UserId";
                 
                 using (var cmd = new SqlCommand(query, con))
                 {

@@ -149,7 +149,7 @@ namespace NewsSite.Pages
                 return null;
             }
         }
-
+ 
         // AJAX endpoints for admin actions
         public async Task<IActionResult> OnPostBanUserAsync([FromBody] BanUserRequest request)
         {

@@ -101,7 +101,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<bool> DeactivateUserAsync(int userId)
-        {
+        { 
             if (userId <= 0)
             {
                 throw new ArgumentException("Valid User ID is required");
