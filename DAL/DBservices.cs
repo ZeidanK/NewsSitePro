@@ -481,7 +481,7 @@ public class DBservices
                 string sql = @"
                     SELECT ArticleID, Title, Content, ImageURL, SourceURL, SourceName, Category, PublishDate,
                            ISNULL(LikesCount, 0) as LikesCount, ISNULL(ViewsCount, 0) as ViewsCount
-                    FROM NewsArticles 
+                    FROM NewsSitePro2025_NewsArticles 
                     WHERE UserID = @UserID 
                     ORDER BY PublishDate DESC
                     OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
@@ -735,7 +735,7 @@ public class DBservices
         try
         {
             con = connect("myProjDB");
-            cmd = new SqlCommand("SELECT COUNT(*) FROM ArticleLikes WHERE ArticleID = @ArticleID AND UserID = @UserID", con);
+            cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_ArticleLikes WHERE ArticleID = @ArticleID AND UserID = @UserID", con);
             cmd.Parameters.AddWithValue("@ArticleID", articleId);
             cmd.Parameters.AddWithValue("@UserID", userId);
             
@@ -760,7 +760,7 @@ public class DBservices
         try
         {
             con = connect("myProjDB");
-            cmd = new SqlCommand("SELECT COUNT(*) FROM SavedArticles WHERE ArticleID = @ArticleID AND UserID = @UserID", con);
+            cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_SavedArticles WHERE ArticleID = @ArticleID AND UserID = @UserID", con);
             cmd.Parameters.AddWithValue("@ArticleID", articleId);
             cmd.Parameters.AddWithValue("@UserID", userId);
             
@@ -962,7 +962,7 @@ public class DBservices
                 // Search filter
                 if (!string.IsNullOrEmpty(search))
                 {
-                    whereConditions.Add("(u.Name LIKE @Search OR u.Email LIKE @Search)");
+                    whereConditions.Add("(u.Username LIKE @Search OR u.Email LIKE @Search)");
                     parameters.Add(new SqlParameter("@Search", $"%{search}%"));
                 }
                 
@@ -1006,7 +1006,7 @@ public class DBservices
                 var whereClause = whereConditions.Count > 0 ? "WHERE " + string.Join(" AND ", whereConditions) : "";
                 
                 var query = $@"
-                    SELECT u.ID, u.Name AS Username, u.Email, u.Bio, u.JoinDate, u.LastActivity, 
+                    SELECT u.UserID, u.Username AS Username, u.Email, u.Bio, u.JoinDate, u.LastActivity, 
                            u.IsAdmin, u.IsActive, u.IsBanned, u.BannedUntil,
                            COALESCE(pc.PostCount, 0) AS PostCount,
                            COALESCE(lc.LikesReceived, 0) AS LikesReceived
@@ -1015,13 +1015,13 @@ public class DBservices
                         SELECT UserID, COUNT(*) AS PostCount 
                         FROM NewsSitePro2025_NewsArticles 
                         GROUP BY UserID
-                    ) pc ON u.ID = pc.UserID
+                    ) pc ON u.UserID = pc.UserID
                     LEFT JOIN (
                         SELECT na.UserID, COUNT(*) AS LikesReceived
                         FROM NewsSitePro2025_NewsArticles na
-                        INNER JOIN ArticleLikes al ON na.ID = al.ArticleID
+                        INNER JOIN NewsSitePro2025_ArticleLikes al ON na.ArticleID = al.ArticleID
                         GROUP BY na.UserID
-                    ) lc ON u.ID = lc.UserID
+                    ) lc ON u.UserID = lc.UserID
                     {whereClause}
                     ORDER BY u.JoinDate DESC
                     OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
@@ -1042,7 +1042,7 @@ public class DBservices
                         {
                             var user = new AdminUserView
                             {
-                                Id = reader.GetInt32("ID"),
+                                Id = reader.GetInt32("UserID"),
                                 Username = reader.GetString("Username"),
                                 Email = reader.GetString("Email"),
                                 JoinDate = reader.GetDateTime("JoinDate"),
@@ -1098,7 +1098,7 @@ public class DBservices
                 // Search filter
                 if (!string.IsNullOrEmpty(search))
                 {
-                    whereConditions.Add("(Name LIKE @Search OR Email LIKE @Search)");
+                    whereConditions.Add("(Username LIKE @Search OR Email LIKE @Search)");
                     parameters.Add(new SqlParameter("@Search", $"%{search}%"));
                 }
                 
@@ -1168,7 +1168,7 @@ public class DBservices
                 await con.OpenAsync();
                 
                 var query = @"
-                    SELECT u.ID, u.Name AS Username, u.Email, u.Bio, u.JoinDate, u.LastActivity, 
+                    SELECT u.UserID, u.Username AS Username, u.Email, u.Bio, u.JoinDate, u.LastActivity, 
                            u.IsAdmin, u.IsActive, u.IsBanned, u.BannedUntil, u.BanReason,
                            COALESCE(pc.PostCount, 0) AS PostCount,
                            COALESCE(lc.LikesReceived, 0) AS LikesReceived
@@ -1178,16 +1178,16 @@ public class DBservices
                         FROM NewsSitePro2025_NewsArticles 
                         WHERE UserID = @UserId
                         GROUP BY UserID
-                    ) pc ON u.ID = pc.UserID
+                    ) pc ON u.UserID = pc.UserID
                     LEFT JOIN (
                         SELECT na.UserID, COUNT(*) AS LikesReceived
                         FROM NewsSitePro2025_NewsArticles na
-                        INNER JOIN ArticleLikes al ON na.ID = al.ArticleID
+                        INNER JOIN NewsSitePro2025_ArticleLikes al ON na.ArticleID = al.ArticleID
                         WHERE na.UserID = @UserId
                         GROUP BY na.UserID
-                    ) lc ON u.ID = lc.UserID
-                    WHERE u.ID = @UserId";
-                
+                    ) lc ON u.UserID = lc.UserID
+                    WHERE u.UserID = @UserId";
+
                 using (var cmd = new SqlCommand(query, con))
                 {
                     cmd.Parameters.AddWithValue("@UserId", userId);
@@ -1198,7 +1198,7 @@ public class DBservices
                         {
                             var user = new AdminUserDetails
                             {
-                                Id = reader.GetInt32("ID"),
+                                Id = reader.GetInt32("UserID"),
                                 Username = reader.GetString("Username"),
                                 Email = reader.GetString("Email"),
                                 Bio = reader.IsDBNull("Bio") ? null : reader.GetString("Bio"),
@@ -1389,10 +1389,10 @@ public class DBservices
                 
                 var offset = (page - 1) * pageSize;
                 var query = @"
-                    SELECT al.ID, al.UserID, u.Name AS Username, al.Action, 
+                    SELECT al.ID, al.UserID, u.Username AS Username, al.Action, 
                            al.Details, al.Timestamp, al.IpAddress, al.UserAgent
-                    FROM ActivityLogs al
-                    INNER JOIN Users_News u ON al.UserID = u.ID
+                    FROM NewsSitePro2025_ActivityLogs al
+                    INNER JOIN NewsSitePro2025_Users u ON al.UserID = u.UserID
                     ORDER BY al.Timestamp DESC
                     OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
                 
@@ -1443,9 +1443,9 @@ public class DBservices
                     SELECT r.ID, r.ReporterID, ru.Name AS ReporterUsername, 
                            r.ReportedUserID, rpu.Name AS ReportedUsername,
                            r.Reason, r.Description, r.CreatedAt, r.Status
-                    FROM Reports r
-                    INNER JOIN Users_News ru ON r.ReporterID = ru.ID
-                    INNER JOIN Users_News rpu ON r.ReportedUserID = rpu.ID
+                    FROM NewsSitePro2025_Reports r
+                    INNER JOIN NewsSitePro2025_Users ru ON r.ReporterID = ru.UserID
+                    INNER JOIN NewsSitePro2025_Users rpu ON r.ReportedUserID = rpu.UserID
                     WHERE r.Status = 'Pending'
                     ORDER BY r.CreatedAt DESC";
                 
@@ -1495,9 +1495,9 @@ public class DBservices
                            r.ReportedUserID, rpu.Name AS ReportedUsername,
                            r.Reason, r.Description, r.CreatedAt, r.Status,
                            r.ResolvedBy, r.ResolvedAt, r.ResolutionNotes
-                    FROM Reports r
-                    INNER JOIN Users_News ru ON r.ReporterID = ru.ID
-                    INNER JOIN Users_News rpu ON r.ReportedUserID = rpu.ID
+                    FROM NewsSitePro2025_Reports r
+                    INNER JOIN NewsSitePro2025_Users ru ON r.ReporterID = ru.UserID
+                    INNER JOIN NewsSitePro2025_Users rpu ON r.ReportedUserID = rpu.UserID
                     ORDER BY r.CreatedAt DESC";
                 
                 using (var cmd = new SqlCommand(query, con))
@@ -1543,7 +1543,7 @@ public class DBservices
                 await con.OpenAsync();
                 
                 var query = @"
-                    UPDATE Reports 
+                    UPDATE NewsSitePro2025_Reports 
                     SET Status = @Status, ResolvedBy = @AdminId, ResolvedAt = GETDATE(), ResolutionNotes = @Notes
                     WHERE ID = @ReportId";
                 
@@ -1574,7 +1574,7 @@ public class DBservices
                 await con.OpenAsync();
                 
                 var query = @"
-                    INSERT INTO ActivityLogs (UserID, Action, Details, Timestamp, IpAddress, UserAgent)
+                    INSERT INTO NewsSitePro2025_ActivityLogs (UserID, Action, Details, Timestamp, IpAddress, UserAgent)
                     VALUES (@AdminId, @Action, @Details, GETDATE(), 'Admin Panel', 'Admin Action')";
                 
                 using (var cmd = new SqlCommand(query, con))
@@ -1613,9 +1613,9 @@ public class DBservices
                 var query = @"
                     SELECT n.ID, n.UserID, n.Type, n.Title, n.Message, n.RelatedEntityType, 
                            n.RelatedEntityID, n.IsRead, n.CreatedAt, n.FromUserID, n.ActionUrl,
-                           u.Name AS FromUserName
-                    FROM Notifications n
-                    LEFT JOIN Users_News u ON n.FromUserID = u.ID
+                           u.Username AS FromUserName
+                    FROM NewsSitePro2025_Notifications n
+                    LEFT JOIN NewsSitePro2025_Users u ON n.FromUserID = u.UserID
                     WHERE n.UserID = @UserID
                     ORDER BY n.CreatedAt DESC
                     OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
@@ -1673,7 +1673,7 @@ public class DBservices
                 await con.OpenAsync();
                 
                 // Get total unread count
-                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM Notifications WHERE UserID = @UserID AND IsRead = 0", con))
+                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_Notifications WHERE UserID = @UserID AND IsRead = 0", con))
                 {
                     cmd.Parameters.AddWithValue("@UserID", userId);
                     var result = await cmd.ExecuteScalarAsync();
@@ -1683,7 +1683,7 @@ public class DBservices
                 // Get unread count by type
                 var typeQuery = @"
                     SELECT Type, COUNT(*) AS Count
-                    FROM Notifications 
+                    FROM NewsSitePro2025_Notifications
                     WHERE UserID = @UserID AND IsRead = 0
                     GROUP BY Type";
                 
@@ -1723,8 +1723,8 @@ public class DBservices
             using (var con = new SqlConnection(cStr))
             {
                 await con.OpenAsync();
-                
-                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM Notifications WHERE UserID = @UserID AND IsRead = 0", con))
+
+                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_Notifications WHERE UserID = @UserID AND IsRead = 0", con))
                 {
                     cmd.Parameters.AddWithValue("@UserID", userId);
                     var result = await cmd.ExecuteScalarAsync();
@@ -1751,7 +1751,7 @@ public class DBservices
                 await con.OpenAsync();
                 
                 var query = @"
-                    INSERT INTO Notifications (UserID, Type, Title, Message, RelatedEntityType, RelatedEntityID, FromUserID, ActionUrl, CreatedAt)
+                    INSERT INTO NewsSitePro2025_Notifications (UserID, Type, Title, Message, RelatedEntityType, RelatedEntityID, FromUserID, ActionUrl, CreatedAt)
                     VALUES (@UserID, @Type, @Title, @Message, @RelatedEntityType, @RelatedEntityID, @FromUserID, @ActionUrl, GETDATE())";
                 
                 using (var cmd = new SqlCommand(query, con))
@@ -1787,9 +1787,9 @@ public class DBservices
             using (var con = new SqlConnection(cStr))
             {
                 await con.OpenAsync();
-                
-                var query = "UPDATE Notifications SET IsRead = 1 WHERE ID = @ID AND UserID = @UserID";
-                
+
+                var query = "UPDATE NewsSitePro2025_Notifications SET IsRead = 1 WHERE ID = @ID AND UserID = @UserID";
+
                 using (var cmd = new SqlCommand(query, con))
                 {
                     cmd.Parameters.AddWithValue("@ID", notificationId);
@@ -1817,9 +1817,9 @@ public class DBservices
             using (var con = new SqlConnection(cStr))
             {
                 await con.OpenAsync();
-                
-                var query = "UPDATE Notifications SET IsRead = 1 WHERE UserID = @UserID AND IsRead = 0";
-                
+
+                var query = "UPDATE NewsSitePro2025_Notifications SET IsRead = 1 WHERE UserID = @UserID AND IsRead = 0";
+
                 using (var cmd = new SqlCommand(query, con))
                 {
                     cmd.Parameters.AddWithValue("@UserID", userId);
@@ -1846,9 +1846,9 @@ public class DBservices
             using (var con = new SqlConnection(cStr))
             {
                 await con.OpenAsync();
-                
-                var query = "UPDATE Notifications SET IsRead = 1 WHERE UserID = @UserID AND IsRead = 0";
-                
+
+                var query = "UPDATE NewsSitePro2025_Notifications SET IsRead = 1 WHERE UserID = @UserID AND IsRead = 0";
+
                 using (var cmd = new SqlCommand(query, con))
                 {
                     cmd.Parameters.AddWithValue("@UserID", userId);
@@ -1880,7 +1880,7 @@ public class DBservices
                 
                 var query = @"
                     SELECT NotificationType, IsEnabled, EmailNotification, PushNotification
-                    FROM NotificationPreferences 
+                    FROM NewsSitePro2025_NotificationPreferences
                     WHERE UserID = @UserID";
                 
                 using (var cmd = new SqlCommand(query, con))
@@ -2011,8 +2011,8 @@ public class DBservices
                     SELECT c.CommentID, c.PostID, c.UserID, c.Content, c.CreatedAt, c.UpdatedAt, 
                            c.IsDeleted, c.ParentCommentID, u.Name as UserName,
                            (SELECT COUNT(*) FROM CommentLikes cl WHERE cl.CommentID = c.CommentID) as LikesCount
-                    FROM Comments c
-                    INNER JOIN Users u ON c.UserID = u.UserID
+                    FROM NewsSitePro2025_Comments c
+                    INNER JOIN NewsSitePro2025_Users u ON c.UserID = u.UserID
                     WHERE c.PostID = @PostID AND c.IsDeleted = 0
                     ORDER BY c.CreatedAt ASC";
                 
@@ -2087,7 +2087,7 @@ public class DBservices
                 cmd?.Dispose();
                 
                 string sql = @"
-                    INSERT INTO Comments (PostID, UserID, Content, ParentCommentID, CreatedAt)
+                    INSERT INTO NewsSitePro2025_Comments (PostID, UserID, Content, ParentCommentID, CreatedAt)
                     VALUES (@PostID, @UserID, @Content, @ParentCommentID, GETDATE())";
                 
                 cmd = new SqlCommand(sql, con);

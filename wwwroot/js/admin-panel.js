@@ -43,6 +43,7 @@ class AdminPanel {
     }
 
     async loadUsers(page = 1) {
+        console.log('Loading users for page:', page);
         try {
             this.showLoading('usersTable');
             
@@ -57,7 +58,9 @@ class AdminPanel {
             }
 
             const data = await response.json();
-            
+            //console.log('Users loaded:', data);
+            //alert('Users loaded successfully');
+            //alert(JSON.stringify(data));
             if (data.success) {
                 this.renderUsers(data.users);
                 this.renderPagination(data.currentPage, data.totalPages);
