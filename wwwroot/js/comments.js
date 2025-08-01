@@ -419,12 +419,48 @@ class CommentsManager {
     }
 
     async handleLike(button) {
-        // This would connect to your existing like system
-        // For now, just toggle the visual state
-        button.classList.toggle('liked');
-        const countSpan = button.querySelector('span');
-        let count = parseInt(countSpan.textContent) || 0;
-        countSpan.textContent = button.classList.contains('liked') ? count + 1 : count - 1;
+        const targetType = button.dataset.targetType;
+        
+        if (targetType === 'comment') {
+            // Handle comment like
+            const commentId = button.dataset.commentId;
+            if (!commentId) return;
+            
+            try {
+                const response = await fetch(`/api/Comments/like/${commentId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    // Toggle visual state
+                    const icon = button.querySelector('i');
+                    const countSpan = button.querySelector('span');
+                    let count = parseInt(countSpan.textContent) || 0;
+                    
+                    if (result.action === 'liked') {
+                        icon.classList.add('liked');
+                        countSpan.textContent = count + 1;
+                    } else {
+                        icon.classList.remove('liked');
+                        countSpan.textContent = Math.max(0, count - 1);
+                    }
+                } else {
+                    console.error('Failed to toggle comment like');
+                }
+            } catch (error) {
+                console.error('Error toggling comment like:', error);
+            }
+        } else {
+            // Handle post like (existing logic)
+            button.classList.toggle('liked');
+            const countSpan = button.querySelector('span');
+            let count = parseInt(countSpan.textContent) || 0;
+            countSpan.textContent = button.classList.contains('liked') ? count + 1 : count - 1;
+        }
     }
 
     updateCommentCount(postId, count) {

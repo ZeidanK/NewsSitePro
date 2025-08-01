@@ -147,5 +147,41 @@ namespace NewsSite.BL.Services
             // Simple implementation - assumes this functionality exists in DBservice
             return true; // Placeholder implementation
         }
+
+        public async Task<FollowResult> ToggleUserFollowAsync(int currentUserId, int targetUserId)
+        {
+            if (currentUserId <= 0 || targetUserId <= 0)
+            {
+                throw new ArgumentException("Valid user IDs are required");
+            }
+
+            if (currentUserId == targetUserId)
+            {
+                throw new InvalidOperationException("Cannot follow yourself");
+            }
+
+            return await _dbService.ToggleUserFollow(currentUserId, targetUserId);
+        }
+
+        public async Task<bool> IsUserFollowingAsync(int currentUserId, int targetUserId)
+        {
+            if (currentUserId <= 0 || targetUserId <= 0)
+            {
+                return false;
+            }
+
+            var result = await _dbService.IsUserFollowing(currentUserId, targetUserId);
+            return result;
+        }
+
+        public async Task<List<UserInterest>> GetUserInterestsAsync(int userId)
+        {
+            if (userId <= 0)
+            {
+                throw new ArgumentException("Valid User ID is required");
+            }
+
+            return await _dbService.GetUserInterestsAsync(userId);
+        }
     }
 }

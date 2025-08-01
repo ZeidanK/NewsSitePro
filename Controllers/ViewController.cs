@@ -1,5 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿/**
+ * ViewController.cs
+ * Purpose: Handles view-related operations, view component rendering, and UI data preparation
+ * Responsibilities: View component management, UI data formatting, view state management, client-side data preparation
+ * Architecture: Uses PostService from BL layer for view data preparation and rendering support
+ */
+
+using Microsoft.AspNetCore.Mvc;
 using NewsSite.BL;
+using NewsSite.BL.Services;
 
 namespace NewsSite.Controllers
 {
@@ -7,31 +15,33 @@ namespace NewsSite.Controllers
     [ApiController]
     public class ViewController : ControllerBase
     {
-        private readonly DBservices _dbService;
+        private readonly IUserService _userService;
+        private readonly INewsService _newsService;
 
-        public ViewController()
+        public ViewController(IUserService userService, INewsService newsService)
         {
-            _dbService = new DBservices();
+            _userService = userService;
+            _newsService = newsService;
         }
 
         // GET api/View/User/{userId}
         [HttpGet("User/{userId}")]
-        public IActionResult GetUserProfile(int userId)
+        public async Task<IActionResult> GetUserProfile(int userId)
         {
             try
             {
                 // Get user basic info
-                var user = _dbService.GetUser(null, userId, null);
+                var user = await _userService.GetUserByIdAsync(userId);
                 if (user == null)
                 {
                     return NotFound(new { message = "User not found" });
                 }
 
                 // Get user statistics
-                var userStats = _dbService.GetUserStats(userId);
+                var userStats = await _userService.GetUserStatsAsync(userId);
 
                 // Get user's recent posts
-                var recentPosts = _dbService.GetArticlesByUser(userId, 1, 10);
+                var recentPosts = await _newsService.GetArticlesByUserAsync(userId, 1, 10);
 
                 // Combine into UserProfile object
                 var userProfile = new UserProfile
@@ -56,11 +66,11 @@ namespace NewsSite.Controllers
 
         // GET api/View/User/{userId}/Posts
         [HttpGet("User/{userId}/Posts")]
-        public IActionResult GetUserPosts(int userId, [FromQuery] int page = 1, [FromQuery] int limit = 10)
+        public async Task<IActionResult> GetUserPosts(int userId, [FromQuery] int page = 1, [FromQuery] int limit = 10)
         {
             try
             {
-                var articles = _dbService.GetArticlesByUser(userId, page, limit);
+                var articles = await _newsService.GetArticlesByUserAsync(userId, page, limit);
                 
                 var response = articles.Select(a => new
                 {

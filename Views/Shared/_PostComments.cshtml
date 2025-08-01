@@ -1,3 +1,4 @@
+@using System.Linq
 @model dynamic
 @{
     var post = Model.Post;
@@ -51,7 +52,7 @@
 
     <!-- Comments List -->
     <div class="comments-list" id="commentsList">
-        @if (commentsList.Any())
+        @if (commentsList != null && commentsList.Count > 0)
         {
             @foreach (var comment in topLevelComments)
             {
@@ -81,19 +82,22 @@
                             @Html.Raw(Html.Encode(comment.Content).Replace("\n", "<br />"))
                         </div>
                         <div class="comment-actions">
-                            <button class="comment-action-btn like-comment-btn" onclick="toggleCommentLike(@comment.ID, this)">
+                            <button class="comment-action-btn like-btn" data-comment-id="@comment.ID" data-target-type="comment">
                                 <i class="fas fa-heart @(comment.IsLikedByCurrentUser ? "liked" : "")"></i>
                                 <span>@comment.LikesCount</span>
                             </button>
-                            <button class="comment-action-btn reply-btn" onclick="toggleReply(@comment.ID)">
+                            <button class="comment-action-btn reply-btn" data-comment-id="@comment.ID">
                                 <i class="fas fa-reply"></i>
                                 Reply
                             </button>
                         </div>
+                        
+                        <!-- Reply form container -->
+                        <div class="reply-form-container"></div>
                     </div>
 
                     <!-- Replies -->
-                    @if (comment.Replies.Any())
+                    @if (comment.Replies != null && comment.Replies.Count > 0)
                     {
                         <div class="replies">
                             @foreach (var reply in comment.Replies)
@@ -124,7 +128,7 @@
                                             @Html.Raw(Html.Encode(reply.Content).Replace("\n", "<br />"))
                                         </div>
                                         <div class="comment-actions">
-                                            <button class="comment-action-btn like-comment-btn" onclick="toggleCommentLike(@reply.ID, this)">
+                                            <button class="comment-action-btn like-btn" data-comment-id="@reply.ID" data-target-type="comment">
                                                 <i class="fas fa-heart @(reply.IsLikedByCurrentUser ? "liked" : "")"></i>
                                                 <span>@reply.LikesCount</span>
                                             </button>

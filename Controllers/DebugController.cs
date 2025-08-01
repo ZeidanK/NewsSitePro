@@ -1,8 +1,16 @@
+/**
+ * DebugController.cs
+ * Purpose: Handles debugging operations, system diagnostics, and development testing utilities
+ * Responsibilities: Debug endpoints, system status checks, view component testing, JWT diagnostics
+ * Architecture: Uses PostService and UserService from BL layer for testing and debugging data operations
+ */
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewComponents;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using NewsSite.BL;
+using NewsSite.BL.Services;
 using NewsSitePro.Models;
 using System.Text;
 using System.IdentityModel.Tokens.Jwt;
@@ -12,19 +20,21 @@ namespace NewsSitePro.Controllers
     [Route("api/[controller]")]
     public class DebugController : Controller
     {
-        private readonly DBservices _dbService;
+        private readonly INewsService _newsService;
+        private readonly IUserService _userService;
 
-        public DebugController()
+        public DebugController(INewsService newsService, IUserService userService)
         {
-            _dbService = new DBservices();
+            _newsService = newsService;
+            _userService = userService;
         }
 
         [HttpGet("posts")]
-        public IActionResult GetPosts()
+        public async Task<IActionResult> GetPosts()
         {
             try
             {
-                var posts = _dbService.GetAllNewsArticles(1, 3, null, null);
+                var posts = await _newsService.GetAllNewsArticlesAsync(1, 3, null, null);
                 
                 var debugInfo = posts.Select(post => new
                 {
@@ -51,7 +61,7 @@ namespace NewsSitePro.Controllers
             try
             {
                 // Get the post data
-                var post = await _dbService.GetNewsArticleById(request.PostId);
+                var post = await _newsService.GetNewsArticleByIdAsync(request.PostId);
                 if (post == null)
                 {
                     return NotFound("Post not found");
@@ -67,7 +77,7 @@ namespace NewsSitePro.Controllers
                     try
                     {
                         var user = new User().ExtractUserFromJWT(jwt);
-                        currentUser = _dbService.GetUserById(user.Id);
+                        currentUser = await _userService.GetUserByIdAsync(user.Id);
                         currentUserId = user.Id;
                     }
                     catch

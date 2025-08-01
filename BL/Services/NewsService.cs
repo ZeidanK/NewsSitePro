@@ -181,5 +181,47 @@ namespace NewsSite.BL.Services
 
             return await _dbService.GetSavedArticlesByUser(userId, pageNumber, pageSize);
         }
+
+        // Feed algorithm methods
+        public async Task<List<NewsArticle>> GetPopularArticlesAsync(int pageSize = 10)
+        {
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+            return await _dbService.GetPopularArticlesAsync(pageSize);
+        }
+
+        public async Task<List<NewsArticle>> GetTrendingArticlesAsync(int pageSize = 10)
+        {
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+            return await _dbService.GetTrendingArticlesAsync(pageSize);
+        }
+
+        public async Task<List<NewsArticle>> GetMostLikedArticlesAsync(int pageSize = 10)
+        {
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+            return await _dbService.GetMostLikedArticlesAsync(pageSize);
+        }
+
+        public async Task<List<NewsArticle>> GetMostViewedArticlesAsync(int pageSize = 10)
+        {
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+            return await _dbService.GetMostViewedArticlesAsync(pageSize);
+        }
+
+        public async Task<List<NewsArticle>> GetRecentArticlesAsync(int pageSize = 10)
+        {
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+            return await _dbService.GetRecentArticlesAsync(pageSize);
+        }
+
+        public async Task<List<NewsArticle>> GetArticlesByInterestAsync(int userId, string category, int pageSize = 10)
+        {
+            if (userId <= 0)
+            {
+                throw new ArgumentException("Valid User ID is required");
+            }
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+            
+            return await _dbService.GetArticlesByInterestAsync(userId, category, pageSize);
+        }
     }
 }

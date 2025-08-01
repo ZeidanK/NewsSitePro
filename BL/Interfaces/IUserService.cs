@@ -16,5 +16,8 @@ namespace NewsSite.BL.Services
         Task<bool> DeactivateUserAsync(int userId);
         Task<bool> BanUserAsync(int userId, string reason, int durationDays, int adminId);
         Task<bool> UnbanUserAsync(int userId);
+        Task<FollowResult> ToggleUserFollowAsync(int currentUserId, int targetUserId);
+        Task<bool> IsUserFollowingAsync(int currentUserId, int targetUserId);
+        Task<List<UserInterest>> GetUserInterestsAsync(int userId);
     }
 }

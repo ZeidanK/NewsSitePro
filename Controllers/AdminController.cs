@@ -1,4 +1,11 @@
-﻿using Microsoft.AspNetCore.Authorization;
+/**
+ * AdminController.cs
+ * Purpose: Handles administrative operations, user management, and system monitoring
+ * Responsibilities: User moderation, content management, system statistics, admin-only operations
+ * Architecture: Uses AdminService and UserService from BL layer for business logic and data operations
+ */
+
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NewsSite.BL;
 using NewsSite.BL.Services;
@@ -12,12 +19,12 @@ namespace NewsSite.Controllers
     public class AdminController : ControllerBase
     {
         private readonly IAdminService _adminService;
-        private readonly DBservices _dbService;
+        private readonly IUserService _userService;
 
-        public AdminController(IAdminService adminService, DBservices dbService)
+        public AdminController(IAdminService adminService, IUserService userService)
         {
             _adminService = adminService;
-            _dbService = dbService;
+            _userService = userService;
         }
 
         // Use the centralized User class method for getting current user ID
@@ -27,14 +34,14 @@ namespace NewsSite.Controllers
         }
 
         // Helper method to get current user from JWT
-        private User? GetCurrentUserFromJwt()
+        private async Task<User?> GetCurrentUserFromJwt()
         {
             try
             {
                 var userId = GetCurrentUserId();
                 if (userId == null) return null;
 
-                var currentUser = _dbService.GetUserById(userId.Value);
+                var currentUser = await _userService.GetUserByIdAsync(userId.Value);
                 return currentUser;
             }
             catch
@@ -44,19 +51,19 @@ namespace NewsSite.Controllers
         }
 
         // Helper method to check if current user is admin
-        private bool IsCurrentUserAdmin()
+        private async Task<bool> IsCurrentUserAdminAsync()
         {
-            var user = GetCurrentUserFromJwt();
+            var user = await GetCurrentUserFromJwt();
             return user?.IsAdmin ?? false;
         }
 
         // GET: api/admin/test - Test endpoint to verify API connectivity
         [HttpGet("test")]
-        public IActionResult TestConnection()
+        public async Task<IActionResult> TestConnection()
         {
             try
             {
-                var user = GetCurrentUserFromJwt();
+                var user = await GetCurrentUserFromJwt();
                 if (user == null)
                 {
                     return StatusCode(403, new { 
@@ -93,14 +100,14 @@ namespace NewsSite.Controllers
         }
 
         // Test endpoint to check authentication and API access
-        [HttpGet("test")]
-        public IActionResult Test()
+        [HttpGet("test2")]
+        public async Task<IActionResult> Test()
         {
             try
             {
                 var userId = GetCurrentUserId();
-                var user = GetCurrentUserFromJwt();
-                var isAdmin = IsCurrentUserAdmin();
+                var user = await GetCurrentUserFromJwt();
+                var isAdmin = await IsCurrentUserAdminAsync();
 
                 return Ok(new
                 {
@@ -130,7 +137,7 @@ namespace NewsSite.Controllers
         {
             try
             {
-                if (!IsCurrentUserAdmin())
+                if (!(await IsCurrentUserAdminAsync()))
                 {
                     return StatusCode(403, new { success = false, message = "Admin access required" });
                 }
@@ -151,7 +158,7 @@ namespace NewsSite.Controllers
         {
             try
             {
-                if (!IsCurrentUserAdmin())
+                if (!(await IsCurrentUserAdminAsync()))
                 {
                     return StatusCode(403, new { success = false, message = "Admin access required" });
                 }
@@ -181,7 +188,7 @@ namespace NewsSite.Controllers
         {
             try
             {
-                if (!IsCurrentUserAdmin())
+                if (!(await IsCurrentUserAdminAsync()))
                 {
                     return StatusCode(403, new { success = false, message = "Admin access required" });
                 }
@@ -201,7 +208,7 @@ namespace NewsSite.Controllers
         {
             try
             {
-                if (!IsCurrentUserAdmin())
+                if (!(await IsCurrentUserAdminAsync()))
                 {
                     return StatusCode(403, new { success = false, message = "Admin access required" });
                 }
@@ -235,7 +242,7 @@ namespace NewsSite.Controllers
         {
             try
             {
-                if (!IsCurrentUserAdmin())
+                if (!(await IsCurrentUserAdminAsync()))
                 {
                     return StatusCode(403, new { success = false, message = "Admin access required" });
                 }
@@ -263,7 +270,7 @@ namespace NewsSite.Controllers
         {
             try
             {
-                if (!IsCurrentUserAdmin())
+                if (!(await IsCurrentUserAdminAsync()))
                 {
                     return StatusCode(403, new { success = false, message = "Admin access required" });
                 }
@@ -291,7 +298,7 @@ namespace NewsSite.Controllers
         {
             try
             {
-                if (!IsCurrentUserAdmin())
+                if (!(await IsCurrentUserAdminAsync()))
                 {
                     return StatusCode(403, new { success = false, message = "Admin access required" });
                 }
@@ -311,7 +318,7 @@ namespace NewsSite.Controllers
         {
             try
             {
-                if (!IsCurrentUserAdmin())
+                if (!(await IsCurrentUserAdminAsync()))
                 {
                     return StatusCode(403, new { success = false, message = "Admin access required" });
                 }
@@ -331,7 +338,7 @@ namespace NewsSite.Controllers
         {
             try
             {
-                if (!IsCurrentUserAdmin())
+                if (!(await IsCurrentUserAdminAsync()))
                 {
                     return StatusCode(403, new { success = false, message = "Admin access required" });
                 }
@@ -354,7 +361,7 @@ namespace NewsSite.Controllers
         {
             try
             {
-                if (!IsCurrentUserAdmin())
+                if (!(await IsCurrentUserAdminAsync()))
                 {
                     return StatusCode(403, new { success = false, message = "Admin access required" });
                 }
@@ -388,7 +395,7 @@ namespace NewsSite.Controllers
         {
             try
             {
-                if (!IsCurrentUserAdmin())
+                if (!(await IsCurrentUserAdminAsync()))
                 {
                     return StatusCode(403, new { success = false, message = "Admin access required" });
                 }
@@ -422,7 +429,7 @@ namespace NewsSite.Controllers
         {
             try
             {
-                if (!IsCurrentUserAdmin())
+                if (!(await IsCurrentUserAdminAsync()))
                 {
                     return StatusCode(403, new { success = false, message = "Admin access required" });
                 }

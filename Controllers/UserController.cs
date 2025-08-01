@@ -1,4 +1,11 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿/**
+ * UserController.cs
+ * Purpose: Handles user profile management, user interactions, and user-related operations
+ * Responsibilities: User profile CRUD, follow/unfollow functionality, user statistics, user content management
+ * Architecture: Uses UserService and NewsService from BL layer for user data and content operations
+ */
+
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NewsSite.BL;
 using NewsSite.BL.Services;
@@ -366,9 +373,8 @@ namespace NewsSite.Controllers
                     return BadRequest(new { message = "Cannot follow yourself" });
                 }
 
-                // Use actual database implementation
-                var dbService = new DBservices();
-                var result = await dbService.ToggleUserFollow(currentUserId.Value, id);
+                // Use actual database implementation through UserService
+                var result = await _userService.ToggleUserFollowAsync(currentUserId.Value, id);
 
                 return Ok(new { 
                     action = result.Action,
@@ -393,8 +399,7 @@ namespace NewsSite.Controllers
                     return Ok(new { isFollowing = false });
                 }
 
-                var dbService = new DBservices();
-                var isFollowing = await dbService.IsUserFollowing(currentUserId.Value, id);
+                var isFollowing = await _userService.IsUserFollowingAsync(currentUserId.Value, id);
 
                 return Ok(new { isFollowing = isFollowing });
             }

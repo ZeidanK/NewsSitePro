@@ -1,7 +1,13 @@
+/**
+ * CommentsController.cs
+ * Purpose: Handles comment operations, comment management, and comment-related functionality
+ * Responsibilities: Comment CRUD operations, comment moderation, nested commenting, comment interactions
+ * Architecture: Uses CommentService from BL layer for comment business logic and data operations
+ */
+
 using Microsoft.AspNetCore.Mvc;
 using NewsSite.BL;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
+using NewsSite.BL.Services;
 
 namespace NewsSite.Controllers
 {
@@ -9,11 +15,11 @@ namespace NewsSite.Controllers
     [Route("api/[controller]")]
     public class CommentsController : ControllerBase
     {
-        private readonly DBservices dbService;
+        private readonly ICommentService _commentService;
 
-        public CommentsController(DBservices dbService)
+        public CommentsController(ICommentService commentService)
         {
-            this.dbService = dbService;
+            _commentService = commentService;
         }
 
         [HttpGet("post/{postId}")]
@@ -21,7 +27,7 @@ namespace NewsSite.Controllers
         {
             try
             {
-                var comments = await dbService.GetCommentsByPostId(postId);
+                var comments = await _commentService.GetCommentsByPostIdAsync(postId);
                 return Ok(new { success = true, comments = comments });
             }
             catch (Exception ex)
@@ -49,7 +55,7 @@ namespace NewsSite.Controllers
                     ParentCommentID = request.ParentCommentID
                 };
 
-                bool success = await dbService.CreateComment(comment);
+                bool success = await _commentService.CreateCommentAsync(comment);
                 if (success)
                 {
                     return Ok(new { success = true, message = "Comment posted successfully" });
@@ -76,7 +82,7 @@ namespace NewsSite.Controllers
 
             try
             {
-                bool success = await dbService.UpdateComment(commentId, userId.Value, request.Content);
+                bool success = await _commentService.UpdateCommentAsync(commentId, userId.Value, request.Content);
                 if (success)
                 {
                     return Ok(new { success = true, message = "Comment updated successfully" });
@@ -103,7 +109,7 @@ namespace NewsSite.Controllers
 
             try
             {
-                bool success = await dbService.DeleteComment(commentId, userId.Value);
+                bool success = await _commentService.DeleteCommentAsync(commentId, userId.Value);
                 if (success)
                 {
                     return Ok(new { success = true, message = "Comment deleted successfully" });
@@ -124,7 +130,7 @@ namespace NewsSite.Controllers
         {
             try
             {
-                int count = await dbService.GetCommentsCount(postId);
+                int count = await _commentService.GetCommentsCountAsync(postId);
                 return Ok(new { success = true, count = count });
             }
             catch (Exception ex)
@@ -157,40 +163,7 @@ namespace NewsSite.Controllers
 
         private int? GetCurrentUserId()
         {
-            try
-            {
-                // Try to get from JWT token in Authorization header first
-                var authHeader = Request.Headers["Authorization"].FirstOrDefault();
-                if (authHeader != null && authHeader.StartsWith("Bearer "))
-                {
-                    var token = authHeader.Substring("Bearer ".Length).Trim();
-                    var handler = new JwtSecurityTokenHandler();
-                    var jsonToken = handler.ReadJwtToken(token);
-                    var userIdClaim = jsonToken.Claims.FirstOrDefault(c => c.Type == "userId" || c.Type == ClaimTypes.NameIdentifier);
-                    if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int jwtUserId))
-                    {
-                        return jwtUserId;
-                    }
-                }
-
-                // Fallback to cookie
-                if (Request.Cookies.TryGetValue("jwtToken", out string? cookieToken) && !string.IsNullOrEmpty(cookieToken))
-                {
-                    var handler = new JwtSecurityTokenHandler();
-                    var jsonToken = handler.ReadJwtToken(cookieToken);
-                    var userIdClaim = jsonToken.Claims.FirstOrDefault(c => c.Type == "userId" || c.Type == ClaimTypes.NameIdentifier);
-                    if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int cookieUserId))
-                    {
-                        return cookieUserId;
-                    }
-                }
-
-                return null;
-            }
-            catch
-            {
-                return null;
-            }
+            return NewsSite.BL.User.GetCurrentUserId(Request, User);
         }
     }
 }

@@ -1,5 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
+/**
+ * NewsController.cs
+ * Purpose: Handles news article operations, API integrations, and news-related functionality
+ * Responsibilities: News article CRUD, external API integration, news categorization, article management
+ * Architecture: Uses NewsService and UserService from BL layer for business logic and data operations
+ */
+
+using Microsoft.AspNetCore.Mvc;
 using NewsSite.BL;
+using NewsSite.BL.Services;
 using NewsSite.Services;
 using NewsSitePro.Models;
 using NewsSitePro.Services;
@@ -13,13 +21,15 @@ namespace NewsSite.Controllers
     public class NewsController : Controller
     {
         private readonly INewsApiService _newsApiService;
-        private readonly DBservices _dbServices;
+        private readonly INewsService _newsService;
+        private readonly IUserService _userService;
         private readonly ILogger<NewsController> _logger;
 
-        public NewsController(INewsApiService newsApiService, DBservices dbServices, ILogger<NewsController> logger)
+        public NewsController(INewsApiService newsApiService, INewsService newsService, IUserService userService, ILogger<NewsController> logger)
         {
             _newsApiService = newsApiService;
-            _dbServices = dbServices;
+            _newsService = newsService;
+            _userService = userService;
             _logger = logger;
         }
 
@@ -93,7 +103,7 @@ namespace NewsSite.Controllers
 
         // GET: api/News/database
         [HttpGet("database")]
-        public ActionResult<List<NewsArticle>> GetNewsFromDatabase(
+        public async Task<ActionResult<List<NewsArticle>>> GetNewsFromDatabase(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10,
             [FromQuery] string? category = null,
@@ -101,7 +111,7 @@ namespace NewsSite.Controllers
         {
             try
             {
-                var articles = _dbServices.GetAllNewsArticles(pageNumber, pageSize, category, currentUserId);
+                var articles = await _newsService.GetAllNewsArticlesAsync(pageNumber, pageSize, category, currentUserId);
                 return Ok(articles);
             }
             catch (Exception ex)
@@ -113,8 +123,12 @@ namespace NewsSite.Controllers
 
         // GET: api/News/posts/rendered - Returns server-rendered HTML for ViewComponents
         // Enhanced to support context-driven rendering with user relationships and permissions
+        /// <summary>
+        /// Renders posts as HTML using ViewComponents with enhanced context awareness
+        /// Includes user relationship data (follow status) for personalized rendering
+        /// </summary>
         [HttpGet("posts/rendered")]
-        public IActionResult GetPostsRendered(
+        public async Task<IActionResult> GetPostsRendered(
             [FromQuery] int page = 1, 
             [FromQuery] int limit = 10,
             [FromQuery] string? feed = null,
@@ -131,7 +145,7 @@ namespace NewsSite.Controllers
                 {
                     try
                     {
-                        currentUser = _dbServices.GetUserById(currentUserId.Value);
+                        currentUser = await _userService.GetUserByIdAsync(currentUserId.Value);
                     }
                     catch
                     {
@@ -139,7 +153,7 @@ namespace NewsSite.Controllers
                     }
                 }
 
-                var articles = _dbServices.GetAllNewsArticles(page, limit, category, currentUserId);
+                var articles = await _newsService.GetAllNewsArticlesAsync(page, limit, category, currentUserId);
                 
                 // Load follow status for all post authors if user is logged in
                 Dictionary<int, bool> followStatusMap = new Dictionary<int, bool>();
@@ -150,7 +164,7 @@ namespace NewsSite.Controllers
                     {
                         try
                         {
-                            var isFollowing = _dbServices.IsUserFollowing(currentUserId.Value, userId).Result;
+                            var isFollowing = await _userService.IsUserFollowingAsync(currentUserId.Value, userId);
                             ViewData["IsFollowing_" + userId] = isFollowing;
                             followStatusMap[userId] = isFollowing;
                         }
@@ -184,7 +198,7 @@ namespace NewsSite.Controllers
         // GET: api/News/posts/enhanced - Returns server-rendered HTML with enhanced context
         // Uses real relationship data for more accurate context-aware rendering
         [HttpGet("posts/enhanced")]
-        public IActionResult GetPostsEnhancedRendered(
+        public async Task<IActionResult> GetPostsEnhancedRendered(
             [FromQuery] int page = 1, 
             [FromQuery] int limit = 10,
             [FromQuery] string? feed = null,
@@ -202,7 +216,7 @@ namespace NewsSite.Controllers
                 {
                     try
                     {
-                        currentUser = _dbServices.GetUserById(currentUserId.Value);
+                        currentUser = await _userService.GetUserByIdAsync(currentUserId.Value);
                     }
                     catch
                     {
@@ -210,7 +224,7 @@ namespace NewsSite.Controllers
                     }
                 }
 
-                var articles = _dbServices.GetAllNewsArticles(page, limit, category, currentUserId);
+                var articles = await _newsService.GetAllNewsArticlesAsync(page, limit, category, currentUserId);
                 
                 // Create enhanced view model with context-aware rendering
                 var viewModel = new EnhancedPostsListViewModel
@@ -233,7 +247,7 @@ namespace NewsSite.Controllers
 
         // GET: api/News/posts/context/{contextType} - Returns posts for specific context
         [HttpGet("posts/context/{contextType}")]
-        public IActionResult GetPostsByContext(
+        public async Task<IActionResult> GetPostsByContext(
             string contextType,
             [FromQuery] int page = 1,
             [FromQuery] int limit = 10,
@@ -250,7 +264,7 @@ namespace NewsSite.Controllers
                 {
                     try
                     {
-                        currentUser = _dbServices.GetUserById(currentUserId.Value);
+                        currentUser = await _userService.GetUserByIdAsync(currentUserId.Value);
                     }
                     catch
                     {
@@ -268,16 +282,16 @@ namespace NewsSite.Controllers
                         if (!userId.HasValue)
                             return BadRequest("userId is required for profile context");
                         // TODO: Implement GetUserPosts in DBservices
-                        articles = _dbServices.GetAllNewsArticles(page, limit, null, currentUserId)
-                            .Where(p => p.UserID == userId.Value).ToList();
+                        var allArticlesForProfile = await _newsService.GetAllNewsArticlesAsync(page, limit, null, currentUserId);
+                        articles = allArticlesForProfile.Where(p => p.UserID == userId.Value).ToList();
                         break;
                     case "saved":
                         // Get saved posts for current user
                         if (!currentUserId.HasValue)
                             return Unauthorized("User must be logged in to view saved posts");
                         // TODO: Implement GetSavedPosts in DBservices
-                        articles = _dbServices.GetAllNewsArticles(page, limit, null, currentUserId)
-                            .Where(p => p.IsSaved).ToList();
+                        var allArticlesForSaved = await _newsService.GetAllNewsArticlesAsync(page, limit, null, currentUserId);
+                        articles = allArticlesForSaved.Where(p => p.IsSaved).ToList();
                         break;
                     case "following":
                         // Get posts from followed users
@@ -288,7 +302,7 @@ namespace NewsSite.Controllers
                         break;
                     default:
                         // Default to all posts
-                        articles = _dbServices.GetAllNewsArticles(page, limit, null, currentUserId);
+                        articles = await _newsService.GetAllNewsArticlesAsync(page, limit, null, currentUserId);
                         break;
                 }
                 
@@ -394,7 +408,7 @@ namespace NewsSite.Controllers
         /// Converts external articles to internal NewsArticle format
         /// </summary>
         [HttpPost("publish-article")]
-        public ActionResult PublishArticle([FromBody] PublishArticleRequest request)
+        public async Task<IActionResult> PublishArticle([FromBody] PublishArticleRequest request)
         {
             try
             {
@@ -414,13 +428,13 @@ namespace NewsSite.Controllers
                     SourceName = request.SourceName,
                     Category = request.Category,
                     PublishDate = DateTime.Parse(request.PublishDate),
-                    UserID = (int)GetSystemUserId(), // Use system/admin user ID
+                    UserID = GetSystemUserId(), // Use system/admin user ID
                     LikesCount = 0,
                     ViewsCount = 0
                 };
 
                 // Save to database using existing method
-                int articleId = _dbServices.CreateNewsArticle(newsArticle);
+                int articleId = await _newsService.CreateNewsArticleAsync(newsArticle);
 
                 if (articleId > 0)
                 {
@@ -454,7 +468,7 @@ namespace NewsSite.Controllers
         /// Returns articles with admin-specific metadata
         /// </summary>
         [HttpGet("admin/published")]
-        public ActionResult GetPublishedArticlesForAdmin([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> GetPublishedArticlesForAdmin([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
             try
             {
@@ -465,7 +479,7 @@ namespace NewsSite.Controllers
                 }
 
                 // Get published articles with pagination
-                var articles = _dbServices.GetAllNewsArticles(page, pageSize);
+                var articles = await _newsService.GetAllNewsArticlesAsync(page, pageSize);
                 
                 // Add admin-specific metadata
                 var adminArticles = articles.Select(article => new
@@ -559,15 +573,11 @@ namespace NewsSite.Controllers
         /// Get system user ID for publishing admin-sourced articles
         /// Could be enhanced to use actual admin user ID
         /// </summary>
-        private int? GetSystemUserId()
+        private int GetSystemUserId()
         {
-            return BL.User.GetCurrentUserId(Request, User);
-            // For now, return a default system user ID
-            // This could be enhanced to:
-            // 1. Use the actual admin user's ID
-            // 2. Create a dedicated "System" or "NewsBot" user
-            // 3. Get from configuration
-            return 1; // Assuming user ID 1 exists as admin/system user
+            var currentUserId = BL.User.GetCurrentUserId(Request, User);
+            // If admin user is logged in, use their ID, otherwise use default system user
+            return currentUserId ?? 1; // Assuming user ID 1 exists as admin/system user
         }
 
         /// <summary>
