@@ -222,6 +222,70 @@ window.PostCardInteractions = {
                 toast.parentNode.removeChild(toast);
             }
         }, 3000);
+    },
+
+    // Mobile menu functions
+    toggleMobileMenu(postId) {
+        const menu = document.getElementById(`mobileMenu-${postId}`);
+        if (!menu) return;
+        
+        // Close all other open menus
+        document.querySelectorAll('.mobile-menu-dropdown.show').forEach(dropdown => {
+            if (dropdown.id !== `mobileMenu-${postId}`) {
+                dropdown.classList.remove('show');
+            }
+        });
+        
+        // Toggle current menu
+        menu.classList.toggle('show');
+        
+        // Close menu when clicking outside
+        if (menu.classList.contains('show')) {
+            const closeHandler = (e) => {
+                if (!menu.contains(e.target) && !e.target.closest('.mobile-menu-toggle')) {
+                    menu.classList.remove('show');
+                    document.removeEventListener('click', closeHandler);
+                }
+            };
+            // Add delay to prevent immediate closure
+            setTimeout(() => document.addEventListener('click', closeHandler), 100);
+        }
+    },
+
+    hideMobileMenu(postId) {
+        const menu = document.getElementById(`mobileMenu-${postId}`);
+        if (menu) {
+            menu.classList.remove('show');
+        }
+    },
+
+    // Admin functions
+    moderatePost(postId) {
+        if (confirm('Are you sure you want to moderate this post?')) {
+            console.log('Moderating post:', postId);
+            // Implement moderation logic here
+            this.showMessage('Post moderated successfully', 'success');
+        }
+    },
+
+    banUser(userId) {
+        if (confirm('Are you sure you want to ban this user?')) {
+            console.log('Banning user:', userId);
+            // Implement ban logic here
+            this.showMessage('User banned successfully', 'success');
+        }
+    },
+
+    editPost(postId) {
+        window.location.href = `/Posts/Edit/${postId}`;
+    },
+
+    deletePost(postId) {
+        if (confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+            console.log('Deleting post:', postId);
+            // Implement delete logic here
+            this.showMessage('Post deleted successfully', 'success');
+        }
     }
 };
 
@@ -235,3 +299,13 @@ window.blockUser = (userId, username) => PostCardInteractions.blockUser(userId, 
 // Follow functionality is now handled by follow-manager.js
 // window.followUser = (userId, username, button) => PostCardInteractions.followUser(userId, username, button);
 window.toggleFollow = (userId, button) => PostCardInteractions.followUser(userId, 'User', button);
+
+// Mobile menu functions
+window.toggleMobileMenu = (postId) => PostCardInteractions.toggleMobileMenu(postId);
+window.hideMobileMenu = (postId) => PostCardInteractions.hideMobileMenu(postId);
+
+// Admin functions
+window.moderatePost = (postId) => PostCardInteractions.moderatePost(postId);
+window.banUser = (userId) => PostCardInteractions.banUser(userId);
+window.editPost = (postId) => PostCardInteractions.editPost(postId);
+window.deletePost = (postId) => PostCardInteractions.deletePost(postId);

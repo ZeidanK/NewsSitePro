@@ -282,7 +282,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.7);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -290,6 +290,7 @@
     opacity: 0;
     visibility: hidden;
     transition: all 0.3s ease;
+    backdrop-filter: blur(2px);
 }
 
 .login-prompt-overlay.show {
@@ -298,15 +299,16 @@
 }
 
 .login-prompt-modal {
-    background: var(--bg-primary);
+    background: var(--bg-primary, #ffffff);
     border-radius: 12px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
     max-width: 400px;
     width: 90%;
     max-height: 90vh;
     overflow: hidden;
     transform: scale(0.9);
     transition: transform 0.3s ease;
+    border: 1px solid var(--border-color, #dee2e6);
 }
 
 .login-prompt-overlay.show .login-prompt-modal {
@@ -318,13 +320,13 @@
     align-items: center;
     justify-content: space-between;
     padding: 1.5rem;
-    border-bottom: 1px solid var(--border-color);
-    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color, #dee2e6);
+    background: var(--bg-secondary, #f8f9fa);
 }
 
 .login-prompt-header h3 {
     margin: 0;
-    color: var(--text-primary);
+    color: var(--text-primary, #333333);
     font-size: 1.3rem;
     font-weight: 600;
 }
@@ -332,7 +334,7 @@
 .close-login-prompt {
     background: none;
     border: none;
-    color: var(--text-tertiary);
+    color: var(--text-tertiary, #999999);
     font-size: 1.5rem;
     cursor: pointer;
     padding: 0;
@@ -346,8 +348,8 @@
 }
 
 .close-login-prompt:hover {
-    color: var(--text-primary);
-    background: var(--bg-tertiary);
+    color: var(--text-primary, #333333);
+    background: var(--bg-tertiary, #e9ecef);
 }
 
 .login-prompt-content {
@@ -356,7 +358,7 @@
 
 .login-prompt-content p {
     margin: 0 0 1.5rem 0;
-    color: var(--text-secondary);
+    color: var(--text-secondary, #666666);
     line-height: 1.5;
 }
 
@@ -367,48 +369,52 @@
 }
 
 .login-prompt-actions .btn {
-    padding: 10px 20px;
+    padding: 12px 24px;
     border-radius: 6px;
     text-decoration: none;
     font-weight: 500;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     cursor: pointer;
     border: none;
     transition: all 0.3s ease;
     text-align: center;
     flex: 1;
-    min-width: 80px;
+    min-width: 100px;
+    box-sizing: border-box;
 }
 
 .login-prompt-actions .btn-primary {
-    background: var(--primary-color);
+    background: var(--primary-color, #007bff);
     color: white;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
 }
 
 .login-prompt-actions .btn-primary:hover {
-    background: var(--primary-hover);
+    background: var(--primary-hover, #0056b3);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
 }
 
 .login-prompt-actions .btn-secondary {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary, #e9ecef);
+    color: var(--text-primary, #333333);
+    border: 1px solid var(--border-color, #dee2e6);
 }
 
 .login-prompt-actions .btn-secondary:hover {
-    background: var(--bg-secondary);
-    border-color: var(--border-hover);
+    background: var(--bg-secondary, #f8f9fa);
+    border-color: var(--border-hover, #c6cbcf);
 }
 
 .login-prompt-actions .btn-cancel {
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary, #e9ecef);
+    color: var(--text-secondary, #666666);
+    border: 1px solid var(--border-color, #dee2e6);
 }
 
 .login-prompt-actions .btn-cancel:hover {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
+    background: var(--bg-secondary, #f8f9fa);
+    color: var(--text-primary, #333333);
 }
 
 /* Toast Notifications */

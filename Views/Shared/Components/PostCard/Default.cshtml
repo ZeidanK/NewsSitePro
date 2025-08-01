@@ -157,49 +157,74 @@
                         </button>
                     }
                     
-                    <!-- Mobile Menu for Additional Actions -->
-                    <div class="mobile-post-menu">
-                        <button class="mobile-menu-toggle" onclick="toggleMobileMenu(@post.ArticleID)">
-                            <i class="fas fa-ellipsis-h"></i>
-                        </button>
-                        <div class="mobile-menu-dropdown" id="mobileMenu-@post.ArticleID">
-                            @if (context.ShowShareButton)
-                            {
-                                <button class="action-btn share-btn" onclick="sharePost(@post.ArticleID); hideMobileMenu(@post.ArticleID)">
-                                    <i class="fas fa-share"></i>
-                                    <span>Share</span>
-                                </button>
-                            }
-                            @if (context.CanEdit)
-                            {
-                                <button class="action-btn edit-btn" onclick="editPost(@post.ArticleID); hideMobileMenu(@post.ArticleID)">
-                                    <i class="fas fa-edit"></i>
-                                    <span>Edit</span>
-                                </button>
-                            }
-                            @if (context.CanDelete)
-                            {
-                                <button class="action-btn delete-btn" onclick="deletePost(@post.ArticleID); hideMobileMenu(@post.ArticleID)">
-                                    <i class="fas fa-trash"></i>
-                                    <span>Delete</span>
-                                </button>
-                            }
-                            @if (context.CanReport && currentUser != null && !context.IsOwnPost)
-                            {
-                                <button class="action-btn report-btn" onclick="reportPost(@post.ArticleID); hideMobileMenu(@post.ArticleID)">
-                                    <i class="fas fa-flag"></i>
-                                    <span>Report</span>
-                                </button>
-                            }
-                            @if (context.CanBlock && currentUser != null && !context.IsOwnPost)
-                            {
-                                <button class="action-btn block-btn" onclick="blockUser(@post.UserID, '@post.Username'); hideMobileMenu(@post.ArticleID)">
-                                    <i class="fas fa-user-slash"></i>
-                                    <span>Block User</span>
-                                </button>
-                            }
+                    <!-- Mobile Menu for Additional Actions (only show if there are additional actions) -->
+                    @{
+                        var hasAdditionalActions = context.CanEdit || context.CanDelete || 
+                                                 (context.CanReport && currentUser != null && !context.IsOwnPost) ||
+                                                 (context.CanBlock && currentUser != null && !context.IsOwnPost) ||
+                                                 (context.ShowAdminActions && currentUser?.IsAdmin == true && (context.CanModerate || context.CanBanAuthor));
+                    }
+                    
+                    @if (hasAdditionalActions)
+                    {
+                        <div class="mobile-post-menu">
+                            <button class="mobile-menu-toggle" onclick="toggleMobileMenu(@post.ArticleID)">
+                                <i class="fas fa-ellipsis-h"></i>
+                            </button>
+                            <div class="mobile-menu-dropdown" id="mobileMenu-@post.ArticleID">
+                                @if (context.CanEdit)
+                                {
+                                    <button class="action-btn edit-btn" onclick="editPost(@post.ArticleID); hideMobileMenu(@post.ArticleID)">
+                                        <i class="fas fa-edit"></i>
+                                        <span>Edit</span>
+                                    </button>
+                                }
+                                @if (context.CanDelete)
+                                {
+                                    <button class="action-btn delete-btn" onclick="deletePost(@post.ArticleID); hideMobileMenu(@post.ArticleID)">
+                                        <i class="fas fa-trash"></i>
+                                        <span>Delete</span>
+                                    </button>
+                                }
+                                @if (context.CanReport && currentUser != null && !context.IsOwnPost)
+                                {
+                                    <button class="action-btn report-btn" onclick="reportPost(@post.ArticleID); hideMobileMenu(@post.ArticleID)">
+                                        <i class="fas fa-flag"></i>
+                                        <span>Report</span>
+                                    </button>
+                                }
+                                @if (context.CanBlock && currentUser != null && !context.IsOwnPost)
+                                {
+                                    <button class="action-btn block-btn" onclick="blockUser(@post.UserID, '@post.Username'); hideMobileMenu(@post.ArticleID)">
+                                        <i class="fas fa-user-slash"></i>
+                                        <span>Block User</span>
+                                    </button>
+                                }
+                                
+                                <!-- Admin Actions in Mobile Menu -->
+                                @if (context.ShowAdminActions && currentUser?.IsAdmin == true)
+                                {
+                                    <div class="admin-actions">
+                                        @if (context.CanModerate)
+                                        {
+                                            <button class="action-btn moderate-btn" onclick="moderatePost(@post.ArticleID); hideMobileMenu(@post.ArticleID)">
+                                                <i class="fas fa-gavel"></i>
+                                                <span>Moderate</span>
+                                            </button>
+                                        }
+                                        
+                                        @if (context.CanBanAuthor)
+                                        {
+                                            <button class="action-btn ban-btn" onclick="banUser(@post.UserID); hideMobileMenu(@post.ArticleID)">
+                                                <i class="fas fa-ban"></i>
+                                                <span>Ban User</span>
+                                            </button>
+                                        }
+                                    </div>
+                                }
+                            </div>
                         </div>
-                    </div>
+                    }
                 </div>
             }
             
