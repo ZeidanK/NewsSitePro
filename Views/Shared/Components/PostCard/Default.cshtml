@@ -1,12 +1,14 @@
 @model NewsSitePro.Models.PostCardViewModel
 @{
     var post = Model.Post;
-    var config = Model.Config;
+    var context = Model.EffectiveContext; // Use new context system
     var publishDate = post.PublishDate.ToString("MMM dd, yyyy");
+    var currentUser = Model.CurrentUser;
 }
 
-<div class="@config.ContainerClass @config.CssClass" data-post-id="@post.ArticleID">
-    @if (config.ShowAuthorInfo)
+<!-- Enhanced PostCard with context-driven rendering for scalable post display -->
+<div class="@context.ContainerClass @context.CssClass" data-post-id="@post.ArticleID">
+    @if (context.ShowAuthorInfo)
     {
         <div class="post-header">
             <div class="post-user-info">
@@ -42,19 +44,32 @@
                     </div>
                 </a>
             </div>
-            @if (config.ShowCategory)
-            {
-                <div class="post-category">
-                    <span class="category-badge">@post.Category</span>
-                </div>
-            }
+            
+            <!-- Dynamic header actions based on context -->
+            <div class="post-header-actions">
+                @if (context.ShowCategory)
+                {
+                    <div class="post-category">
+                        <span class="category-badge">@post.Category</span>
+                    </div>
+                }
+                
+                @if (context.ShowFollowButton && currentUser != null)
+                {
+                    <button class="btn btn-sm btn-outline-primary follow-btn" 
+                            data-user-id="@post.UserID" 
+                            onclick="followUser(@post.UserID, '@post.Username', this)">
+                        <i class="fas fa-user-plus"></i> Follow
+                    </button>
+                }
+            </div>
         </div>
     }
 
     <div class="post-content" onclick="openPost(@post.ArticleID)">
         <h3 class="post-title">@post.Title</h3>
         
-        @if (config.ShowImage && !string.IsNullOrEmpty(post.ImageURL))
+        @if (context.ShowImage && !string.IsNullOrEmpty(post.ImageURL))
         {
             <div class="post-image">
                 <img src="@post.ImageURL" alt="@post.Title" loading="lazy" />
@@ -62,19 +77,19 @@
         }
         
         <p class="post-text">
-            @if (config.ShowFullContent)
+            @if (context.ShowFullContent)
             {
                 @Html.Raw(Html.Encode(post.Content).Replace("\n", "<br />"))
             }
             else
             {
-                @((post.Content?.Length ?? 0) > config.ContentPreviewLength ? 
-                  post.Content?.Substring(0, config.ContentPreviewLength) + "..." : 
+                @((post.Content?.Length ?? 0) > context.ContentPreviewLength ? 
+                  post.Content?.Substring(0, context.ContentPreviewLength) + "..." : 
                   post.Content)
             }
         </p>
         
-        @if (config.ShowSource && !string.IsNullOrEmpty(post.SourceURL))
+        @if (context.ShowSource && !string.IsNullOrEmpty(post.SourceURL))
         {
             <div class="post-source">
                 <i class="fas fa-external-link-alt"></i>
@@ -85,14 +100,14 @@
         }
     </div>
 
-    @if (config.ShowStats || config.EnableInteractions)
+    @if (context.ShowStats || context.EnableInteractions || context.CanEdit || context.ShowAdminActions)
     {
         <div class="post-actions">
-            @if (config.ShowStats)
+            @if (context.ShowStats)
             {
                 <div class="post-stats">
                     <span class="stat">
-                        <i class="fas fa-heart @(post.IsLiked ? "liked" : "")"></i>
+                        <i class="fas fa-heart @(context.IsLiked ? "liked" : "")"></i>
                         <span class="likes-count">@(post.LikesCount)</span>
                     </span>
                     <span class="stat">
@@ -102,29 +117,176 @@
                 </div>
             }
             
-            @if (config.EnableInteractions)
+            @if (context.EnableInteractions)
             {
                 <div class="post-buttons">
-                    <button class="action-btn like-btn @(post.IsLiked ? "active" : "")" 
-                            onclick="toggleLike(@post.ArticleID, this)" data-post-id="@post.ArticleID">
-                        <i class="fas fa-heart"></i>
-                        <span>@(post.IsLiked ? "Liked" : "Like")</span>
-                    </button>
-                    <button class="action-btn comment-btn" onclick="openPost(@post.ArticleID)">
-                        <i class="fas fa-comment"></i>
-                        <span>Comment</span>
-                    </button>
-                    <button class="action-btn save-btn @(post.IsSaved ? "active" : "")" 
-                            onclick="toggleSave(@post.ArticleID, this)">
-                        <i class="fas fa-bookmark"></i>
-                        <span>@(post.IsSaved ? "Saved" : "Save")</span>
-                    </button>
-                    <button class="action-btn share-btn" onclick="sharePost(@post.ArticleID)">
-                        <i class="fas fa-share"></i>
-                        <span>Share</span>
-                    </button>
+                    @if (context.ShowLikeButton)
+                    {
+                        <button class="action-btn like-btn @(context.IsLiked ? "active" : "")" 
+                                onclick="toggleLike(@post.ArticleID, this)" data-post-id="@post.ArticleID">
+                            <i class="fas fa-heart"></i>
+                            <span>@(context.IsLiked ? "Liked" : "Like")</span>
+                        </button>
+                    }
+                    
+                    @if (context.ShowCommentButton)
+                    {
+                        <button class="action-btn comment-btn" onclick="openPost(@post.ArticleID)">
+                            <i class="fas fa-comment"></i>
+                            <span>Comment</span>
+                        </button>
+                    }
+                    
+                    @if (context.ShowSaveButton)
+                    {
+                        <button class="action-btn save-btn @(context.IsSaved ? "active" : "")" 
+                                onclick="toggleSave(@post.ArticleID, this)">
+                            <i class="fas fa-bookmark"></i>
+                            <span>@(context.IsSaved ? "Saved" : "Save")</span>
+                        </button>
+                    }
+                    
+                    @if (context.ShowShareButton)
+                    {
+                        <button class="action-btn share-btn" onclick="sharePost(@post.ArticleID)">
+                            <i class="fas fa-share"></i>
+                            <span>Share</span>
+                        </button>
+                    }
+                    
+                    <!-- Mobile Menu for Additional Actions -->
+                    <div class="mobile-post-menu">
+                        <button class="mobile-menu-toggle" onclick="toggleMobileMenu(@post.ArticleID)">
+                            <i class="fas fa-ellipsis-h"></i>
+                        </button>
+                        <div class="mobile-menu-dropdown" id="mobileMenu-@post.ArticleID">
+                            @if (context.ShowShareButton)
+                            {
+                                <button class="action-btn share-btn" onclick="sharePost(@post.ArticleID); hideMobileMenu(@post.ArticleID)">
+                                    <i class="fas fa-share"></i>
+                                    <span>Share</span>
+                                </button>
+                            }
+                            @if (context.CanEdit)
+                            {
+                                <button class="action-btn edit-btn" onclick="editPost(@post.ArticleID); hideMobileMenu(@post.ArticleID)">
+                                    <i class="fas fa-edit"></i>
+                                    <span>Edit</span>
+                                </button>
+                            }
+                            @if (context.CanDelete)
+                            {
+                                <button class="action-btn delete-btn" onclick="deletePost(@post.ArticleID); hideMobileMenu(@post.ArticleID)">
+                                    <i class="fas fa-trash"></i>
+                                    <span>Delete</span>
+                                </button>
+                            }
+                            @if (context.CanReport && currentUser != null && !context.IsOwnPost)
+                            {
+                                <button class="action-btn report-btn" onclick="reportPost(@post.ArticleID); hideMobileMenu(@post.ArticleID)">
+                                    <i class="fas fa-flag"></i>
+                                    <span>Report</span>
+                                </button>
+                            }
+                            @if (context.CanBlock && currentUser != null && !context.IsOwnPost)
+                            {
+                                <button class="action-btn block-btn" onclick="blockUser(@post.UserID, '@post.Username'); hideMobileMenu(@post.ArticleID)">
+                                    <i class="fas fa-user-slash"></i>
+                                    <span>Block User</span>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+            
+            <!-- Owner/Admin actions -->
+            @if (context.CanEdit || context.CanDelete || context.ShowAdminActions)
+            {
+                <div class="post-admin-actions">
+                    @if (context.CanEdit)
+                    {
+                        <button class="action-btn edit-btn" onclick="editPost(@post.ArticleID)">
+                            <i class="fas fa-edit"></i>
+                            <span>Edit</span>
+                        </button>
+                    }
+                    
+                    @if (context.CanDelete)
+                    {
+                        <button class="action-btn delete-btn" onclick="deletePost(@post.ArticleID)">
+                            <i class="fas fa-trash"></i>
+                            <span>Delete</span>
+                        </button>
+                    }
+                    
+                    @if (context.ShowAdminActions && currentUser?.IsAdmin == true)
+                    {
+                        <div class="admin-actions">
+                            @if (context.CanModerate)
+                            {
+                                <button class="action-btn moderate-btn" onclick="moderatePost(@post.ArticleID)">
+                                    <i class="fas fa-gavel"></i>
+                                    <span>Moderate</span>
+                                </button>
+                            }
+                            
+                            @if (context.CanBanAuthor)
+                            {
+                                <button class="action-btn ban-btn" onclick="banUser(@post.UserID)">
+                                    <i class="fas fa-ban"></i>
+                                    <span>Ban User</span>
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            
+            <!-- Report/Block actions for non-owners -->
+            @if (currentUser != null && !context.IsOwnPost)
+            {
+                <div class="post-user-actions">
+                    @if (context.CanReport)
+                    {
+                        <button class="action-btn report-btn" onclick="reportPost(@post.ArticleID)">
+                            <i class="fas fa-flag"></i>
+                            <span>Report</span>
+                        </button>
+                    }
+                    
+                    @if (context.CanBlock)
+                    {
+                        <button class="action-btn block-btn" onclick="blockUser(@post.UserID, '@post.Username')">
+                            <i class="fas fa-user-slash"></i>
+                            <span>Block User</span>
+                        </button>
+                    }
                 </div>
             }
         </div>
+    }
+    
+    <!-- Dynamic messages -->
+    @if (!string.IsNullOrEmpty(context.ErrorMessage))
+    {
+        <div class="post-message error-message">
+            <i class="fas fa-exclamation-triangle"></i>
+            @context.ErrorMessage
+        </div>
+    }
+    
+    @if (!string.IsNullOrEmpty(context.SuccessMessage))
+    {
+        <div class="post-message success-message">
+            <i class="fas fa-check-circle"></i>
+            @context.SuccessMessage
+        </div>
+    }
+    
+    <!-- Comments Section (only shown when context.ShowComments is true) -->
+    @if (context.ShowComments)
+    {
+        @await Html.PartialAsync("_PostComments", new { Post = post, Comments = ViewData["Comments"] ?? new List<dynamic>(), CurrentUser = currentUser })
     }
 </div>

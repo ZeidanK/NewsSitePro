@@ -9,7 +9,7 @@ public class IndexModel : PageModel
     private readonly DBservices _dbService;
 
     public IndexModel()
-    {
+    { 
         _dbService = new DBservices();
     }
 

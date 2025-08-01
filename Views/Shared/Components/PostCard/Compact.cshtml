@@ -1,0 +1,60 @@
+@model NewsSitePro.Models.PostCardViewModel
+@{
+    var post = Model.Post;
+    var context = Model.EffectiveContext;
+    var publishDate = post.PublishDate.ToString("MMM dd");
+    var currentUser = Model.CurrentUser;
+}
+
+<!-- Compact PostCard layout for sidebars, mobile views, or dense displays -->
+<div class="@context.ContainerClass @context.CssClass post-compact" data-post-id="@post.ArticleID">
+    <div class="compact-content">
+        <div class="compact-header">
+            @if (context.ShowCategory)
+            {
+                <span class="compact-category">@post.Category</span>
+            }
+            @if (context.ShowAuthorInfo)
+            {
+                <span class="compact-date">@publishDate</span>
+            }
+        </div>
+        
+        <div class="compact-body" onclick="openPost(@post.ArticleID)">
+            <h4 class="compact-title">@post.Title</h4>
+            
+            @if (context.ShowImage && !string.IsNullOrEmpty(post.ImageURL))
+            {
+                <div class="compact-image">
+                    <img src="@post.ImageURL" alt="@post.Title" loading="lazy" />
+                </div>
+            }
+            
+            @if (!context.ShowFullContent)
+            {
+                <p class="compact-text">
+                    @((post.Content?.Length ?? 0) > 60 ? 
+                      post.Content?.Substring(0, 60) + "..." : 
+                      post.Content)
+                </p>
+            }
+        </div>
+        
+        @if (context.ShowStats)
+        {
+            <div class="compact-stats">
+                @if (context.ShowStats)
+                {
+                    <span class="compact-stat">
+                        <i class="fas fa-heart @(context.IsLiked ? "liked" : "")"></i>
+                        @post.LikesCount
+                    </span>
+                    <span class="compact-stat">
+                        <i class="fas fa-eye"></i>
+                        @post.ViewsCount
+                    </span>
+                }
+            </div>
+        }
+    </div>
+</div>

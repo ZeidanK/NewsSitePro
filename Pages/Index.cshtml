@@ -9,7 +9,7 @@
 
 <link rel="stylesheet" href="~/css/post-card.css" />
 
-<div class="home-container">
+<div class="home-container"> 
     <!-- Feed Container -->
     <div class="feed-container">
         <div class="feed-header">
@@ -36,18 +36,7 @@
                     @await Component.InvokeAsync("PostCard", new PostCardViewModel 
                     { 
                         Post = post, 
-                        Config = new PostDisplayConfig 
-                        { 
-                            ShowAuthorInfo = true,
-                            ShowCategory = true,
-                            ShowImage = true,
-                            ShowSource = true,
-                            ShowStats = true,
-                            EnableInteractions = true,
-                            ShowFullContent = false,
-                            ContentPreviewLength = 200,
-                            ContainerClass = "post-card"
-                        },
+                        Context = PostContextFactory.CreateFeedContext(Model.HeaderData?.user, post, "all"),
                         CurrentUser = Model.HeaderData?.user
                     })
                 }

@@ -2560,7 +2560,7 @@ public class DBservices
                 ["@ArticleID"] = articleId
             };
 
-            SqlCommand cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_NewsArticle_GetById", con, paramDic);
+            SqlCommand cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_NewsArticles_Get", con, paramDic);
             SqlDataReader reader = await cmd.ExecuteReaderAsync();
 
             if (reader.Read())
@@ -2595,19 +2595,19 @@ public class DBservices
                 
                 string sql = @"
                     SELECT na.ArticleID, na.Title, na.Content, na.ImageURL, na.SourceURL, na.SourceName, 
-                           na.Category, na.PublishDate, na.UserID, u.Name as Username,
+                           na.Category, na.PublishDate, na.UserID, u.Username as Username,
                            COALESCE(lc.LikesCount, 0) as LikesCount,
                            COALESCE(vc.ViewsCount, 0) as ViewsCount
-                    FROM NewsArticles na
-                    INNER JOIN Users_News u ON na.UserID = u.ID
+                    FROM NewsSitePro2025_NewsArticles na
+                    INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
                     LEFT JOIN (
                         SELECT ArticleID, COUNT(*) as LikesCount
-                        FROM ArticleLikes
+                        FROM NewsSitePro2025_ArticleLikes
                         GROUP BY ArticleID
                     ) lc ON na.ArticleID = lc.ArticleID
                     LEFT JOIN (
                         SELECT ArticleID, COUNT(*) as ViewsCount
-                        FROM ArticleViews
+                        FROM NewsSitePro2025_ArticleViews
                         GROUP BY ArticleID
                     ) vc ON na.ArticleID = vc.ArticleID
                     WHERE na.ArticleID = @ArticleID";
@@ -3266,7 +3266,7 @@ public class DBservices
         try
         {
             con = connect("myProjDB");
-            var cmd = new SqlCommand("SELECT COUNT(*) FROM ArticleLikes WHERE ArticleID = @ArticleID AND UserID = @UserID", con);
+            var cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_ArticleLikes WHERE ArticleID = @ArticleID AND UserID = @UserID", con);
             cmd.Parameters.AddWithValue("@ArticleID", articleId);
             cmd.Parameters.AddWithValue("@UserID", userId);
             
@@ -3290,7 +3290,7 @@ public class DBservices
         try
         {
             con = connect("myProjDB");
-            var cmd = new SqlCommand("SELECT COUNT(*) FROM SavedArticles WHERE ArticleID = @ArticleID AND UserID = @UserID", con);
+            var cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_SavedArticles WHERE ArticleID = @ArticleID AND UserID = @UserID", con);
             cmd.Parameters.AddWithValue("@ArticleID", articleId);
             cmd.Parameters.AddWithValue("@UserID", userId);
             

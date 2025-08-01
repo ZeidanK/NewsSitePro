@@ -79,6 +79,121 @@ window.PostCardInteractions = {
         window.location.href = `/Post/${postId}`;
     },
 
+    async reportPost(postId) {
+        try {
+            // Show confirmation dialog
+            const reason = prompt('Please specify the reason for reporting this post:');
+            if (!reason || reason.trim() === '') {
+                return;
+            }
+
+            const response = await fetch(`/api/posts/Report/${postId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ reason: reason.trim() })
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                this.showMessage('Post reported successfully. Thank you for helping keep our community safe.', 'success');
+            } else {
+                this.showMessage(result.message || 'Failed to report post', 'error');
+            }
+        } catch (error) {
+            console.error('Error reporting post:', error);
+            this.showMessage('Failed to report post', 'error');
+        }
+    },
+
+    async blockUser(userId, username) {
+        try {
+            // Show confirmation dialog
+            const confirmed = confirm(`Are you sure you want to block ${username}? You will no longer see their posts.`);
+            if (!confirmed) {
+                return;
+            }
+
+            const response = await fetch(`/api/users/Block/${userId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                this.showMessage(`${username} has been blocked`, 'success');
+                // Hide all posts from this user
+                document.querySelectorAll(`[data-user-id="${userId}"]`).forEach(post => {
+                    post.style.display = 'none';
+                });
+            } else {
+                this.showMessage(result.message || 'Failed to block user', 'error');
+            }
+        } catch (error) {
+            console.error('Error blocking user:', error);
+            this.showMessage('Failed to block user', 'error');
+        }
+    },
+
+    async followUser(userId, username, button) {
+        try {
+            const response = await fetch(`/api/users/Follow/${userId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                const buttonText = button.querySelector('span') || button;
+                const icon = button.querySelector('i');
+                
+                if (result.action === 'followed') {
+                    button.classList.remove('btn-outline-primary');
+                    button.classList.add('btn-primary');
+                    buttonText.textContent = 'Following';
+                    if (icon) icon.className = 'fas fa-user-check';
+                    this.showMessage(`You are now following ${username}`, 'success');
+                } else {
+                    button.classList.remove('btn-primary');
+                    button.classList.add('btn-outline-primary');
+                    buttonText.textContent = 'Follow';
+                    if (icon) icon.className = 'fas fa-user-plus';
+                    this.showMessage(`You unfollowed ${username}`, 'info');
+                }
+
+                // Update all follow buttons for this user
+                document.querySelectorAll(`[data-follow-user-id="${userId}"]`).forEach(btn => {
+                    if (btn !== button) {
+                        const btnText = btn.querySelector('span') || btn;
+                        const btnIcon = btn.querySelector('i');
+                        
+                        if (result.action === 'followed') {
+                            btn.classList.remove('btn-outline-primary');
+                            btn.classList.add('btn-primary');
+                            btnText.textContent = 'Following';
+                            if (btnIcon) btnIcon.className = 'fas fa-user-check';
+                        } else {
+                            btn.classList.remove('btn-primary');
+                            btn.classList.add('btn-outline-primary');
+                            btnText.textContent = 'Follow';
+                            if (btnIcon) btnIcon.className = 'fas fa-user-plus';
+                        }
+                    }
+                });
+            } else {
+                this.showMessage(result.message || 'Failed to update follow status', 'error');
+            }
+        } catch (error) {
+            console.error('Error following user:', error);
+            this.showMessage('Failed to update follow status', 'error');
+        }
+    },
+
     showMessage(message, type = 'info') {
         const toast = document.createElement('div');
         toast.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show position-fixed`;
@@ -87,7 +202,7 @@ window.PostCardInteractions = {
         toast.style.zIndex = '9999';
         toast.innerHTML = `
             ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button> 
         `;
         
         document.body.appendChild(toast);
@@ -105,3 +220,7 @@ window.toggleLike = (postId, button) => PostCardInteractions.toggleLike(postId, 
 window.toggleSave = (postId, button) => PostCardInteractions.toggleSave(postId, button);
 window.sharePost = (postId) => PostCardInteractions.sharePost(postId);
 window.openPost = (postId) => PostCardInteractions.openPost(postId);
+window.reportPost = (postId) => PostCardInteractions.reportPost(postId);
+window.blockUser = (userId, username) => PostCardInteractions.blockUser(userId, username);
+window.followUser = (userId, username, button) => PostCardInteractions.followUser(userId, username, button);
+window.toggleFollow = (userId, button) => PostCardInteractions.followUser(userId, 'User', button);

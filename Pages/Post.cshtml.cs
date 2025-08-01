@@ -150,7 +150,7 @@ namespace NewsSite.Pages
                 {
                     return new JsonResult(new { success = true, message = "Comment added successfully" });
                 }
-                else
+                else 
                 {
                     return BadRequest(new { success = false, message = "Failed to add comment" });
                 }

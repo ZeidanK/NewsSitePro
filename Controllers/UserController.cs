@@ -356,6 +356,72 @@ namespace NewsSite.Controllers
                 return StatusCode(500, new { success = false, message = "Upload failed", error = ex.Message });
             }
         }
+
+        [HttpPost("Follow/{id}")]
+        public IActionResult FollowUser(int id)
+        {
+            try
+            {
+                var currentUserId = GetCurrentUserId();
+                if (!currentUserId.HasValue)
+                {
+                    return Unauthorized(new { message = "User not authenticated" });
+                }
+
+                if (currentUserId.Value == id)
+                {
+                    return BadRequest(new { message = "Cannot follow yourself" });
+                }
+
+                // For now, return a mock response since we don't have the follow system implemented yet
+                // In a real implementation, you would check if already following and toggle the state
+                var isFollowing = false; // Placeholder - would check database
+                var action = isFollowing ? "unfollowed" : "followed";
+
+                return Ok(new { 
+                    action = action,
+                    message = $"User {action} successfully",
+                    isFollowing = !isFollowing
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error updating follow status", error = ex.Message });
+            }
+        }
+
+        [HttpPost("Block/{id}")]
+        public IActionResult BlockUser(int id)
+        {
+            try
+            {
+                var currentUserId = GetCurrentUserId();
+                if (!currentUserId.HasValue)
+                {
+                    return Unauthorized(new { message = "User not authenticated" });
+                }
+
+                if (currentUserId.Value == id)
+                {
+                    return BadRequest(new { message = "Cannot block yourself" });
+                }
+
+                // For now, return a mock response since we don't have the block system implemented yet
+                // In a real implementation, you would add the user to a blocked users table
+                var isBlocked = false; // Placeholder - would check database
+                var action = isBlocked ? "unblocked" : "blocked";
+
+                return Ok(new { 
+                    action = action,
+                    message = $"User {action} successfully",
+                    isBlocked = !isBlocked
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error updating block status", error = ex.Message });
+            }
+        }
     }
 
     // Request models

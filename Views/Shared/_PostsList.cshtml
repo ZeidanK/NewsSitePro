@@ -1,22 +1,18 @@
-@model List<NewsSite.BL.NewsArticle>
+@model NewsSitePro.Models.PostsListViewModel
 @using NewsSitePro.Models
 
-@foreach (var post in Model)
+<!--
+    Enhanced PostsList view that renders posts using the new context-driven system.
+    This view is used by AJAX endpoints to return server-rendered HTML for dynamic loading.
+    It automatically determines the appropriate context based on the current user and post data.
+-->
+
+@foreach (var post in Model.Posts)
 {
     @await Component.InvokeAsync("PostCard", new PostCardViewModel 
     { 
         Post = post, 
-        Config = new PostDisplayConfig 
-        { 
-            ShowAuthorInfo = true,
-            ShowCategory = true,
-            ShowImage = true,
-            ShowSource = true,
-            ShowStats = true,
-            EnableInteractions = true,
-            ShowFullContent = false,
-            ContentPreviewLength = 200,
-            ContainerClass = "post-card"
-        }
+        Context = PostContextFactory.CreateFeedContext(Model.CurrentUser, post, Model.FeedType),
+        CurrentUser = Model.CurrentUser
     })
 }
