@@ -27,52 +27,32 @@ namespace NewsSite.Pages
         {
             try
             {
-                var isAuthenticated = User?.Identity?.IsAuthenticated ?? false;
+                var jwtToken = Request.Cookies["jwtToken"];
+                User? currentUser = null;
                 int? currentUserId = null;
                 
-                // Try to get user ID from JWT token first
-                var jwtToken = Request.Cookies["jwtToken"] ?? Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
+                // Get current user from JWT token (same pattern as other working pages)
                 if (!string.IsNullOrEmpty(jwtToken))
                 {
                     try
                     {
-                        var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-                        var jsonToken = handler.ReadJwtToken(jwtToken);
-                        var userIdClaim = jsonToken.Claims.FirstOrDefault(c => c.Type == "userId" || c.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
-                        if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
-                        {
-                            currentUserId = userId;
-                            isAuthenticated = true;
-                        }
+                        currentUser = new User().ExtractUserFromJWT(jwtToken);
+                        currentUserId = currentUser?.Id;
                     }
-                    catch (Exception)
+                    catch
                     {
-                        // Token might be invalid, continue without authentication
-                    }
-                }
-
-                // Fallback to claims if available
-                if (!currentUserId.HasValue && isAuthenticated)
-                {
-                    var userIdClaim = User?.Claims?.FirstOrDefault(c => c.Type == "userId")?.Value;
-                    if (int.TryParse(userIdClaim, out int userId))
-                    {
-                        currentUserId = userId;
+                        // Invalid token, treat as not authenticated
+                        currentUser = null;
+                        currentUserId = null;
                     }
                 }
                 
                 HeaderData = new HeaderViewModel
                 {
-                    UserName = isAuthenticated ? User?.Identity?.Name ?? "Guest" : "Guest",
-                    NotificationCount = isAuthenticated ? 3 : 0,
+                    UserName = currentUser?.Name ?? "Guest",
+                    NotificationCount = currentUser != null ? 3 : 0,
                     CurrentPage = id.HasValue ? "Post" : "NewsFeed",
-                    user = isAuthenticated ? new User 
-                    { 
-                        Id = currentUserId ?? 0,
-                        Name = User?.Identity?.Name ?? "Guest",
-                        Email = User?.Claims?.FirstOrDefault(c => c.Type == "email")?.Value ?? "",
-                        IsAdmin = User?.IsInRole("Admin") == true || User?.Claims?.Any(c => c.Type == "isAdmin" && c.Value == "True") == true
-                    } : null
+                    user = currentUser
                 };
                 
                 ViewData["HeaderData"] = HeaderData;
@@ -93,6 +73,13 @@ namespace NewsSite.Pages
 
                         // Get comments for this post
                         Comments = await _dbService.GetCommentsByPostId(id.Value) ?? new List<Comment>();
+
+                        // Check follow status for the post author if user is logged in
+                        if (currentUserId.HasValue && PostData.UserID != currentUserId.Value)
+                        {
+                            var isFollowing = await _dbService.IsUserFollowing(currentUserId.Value, PostData.UserID);
+                            ViewData["IsFollowing_" + PostData.UserID] = isFollowing;
+                        }
 
                         // Increment view count
                         _dbService.RecordArticleView(id.Value, currentUserId);
@@ -124,22 +111,31 @@ namespace NewsSite.Pages
         {
             try
             {
-                var isAuthenticated = User?.Identity?.IsAuthenticated ?? false;
-                if (!isAuthenticated)
+                var jwtToken = Request.Cookies["jwtToken"];
+                User? currentUser = null;
+                
+                // Get current user from JWT token (same pattern as OnGet)
+                if (!string.IsNullOrEmpty(jwtToken))
                 {
-                    return new JsonResult(new { success = false, message = "Please log in to comment" });
+                    try
+                    {
+                        currentUser = new User().ExtractUserFromJWT(jwtToken);
+                    }
+                    catch
+                    {
+                        return new JsonResult(new { success = false, message = "Please log in to comment" });
+                    }
                 }
 
-                var userId = int.Parse(User?.Claims?.FirstOrDefault(c => c.Type == "userId")?.Value ?? "0");
-                if (userId == 0)
+                if (currentUser == null || currentUser.Id == 0)
                 {
-                    return new JsonResult(new { success = false, message = "Invalid user" });
+                    return new JsonResult(new { success = false, message = "Please log in to comment" });
                 }
 
                 var comment = new Comment
                 {
                     PostID = request.PostId,
-                    UserID = userId,
+                    UserID = currentUser.Id,
                     Content = request.Content,
                     CreatedAt = DateTime.Now
                 };

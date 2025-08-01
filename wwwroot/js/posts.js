@@ -3,12 +3,12 @@
 // Toggle like on a post
 async function toggleLike(postId) {
     try {
-        const response = await fetch(`/api/posts/${postId}/like`, {
+        const response = await fetch(`/api/posts/Like/${postId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-            },
-            credentials: 'include'
+            }
+            
         });
 
         if (response.ok) {

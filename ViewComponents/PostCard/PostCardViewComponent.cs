@@ -32,6 +32,12 @@ namespace NewsSitePro.ViewComponents.PostCard
                 ViewData["Comments"] = model.Comments;
             }
             
+            // Pass follow status to ViewData if context has follow information
+            if (model.Post != null)
+            {
+                ViewData["IsFollowing_" + model.Post.UserID] = context.IsFollowingAuthor;
+            }
+            
             // Choose the appropriate view based on layout
             var viewName = context.Layout switch
             {

@@ -181,25 +181,18 @@ namespace NewsSite.Controllers
         {
             try
             {
-                // Try to get user ID from JWT token first
-                var jwtToken = Request.Cookies["jwtToken"] ?? Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
+                var jwtToken = Request.Cookies["jwtToken"];
                 if (!string.IsNullOrEmpty(jwtToken))
                 {
-                    var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-                    var jsonToken = handler.ReadJwtToken(jwtToken);
-                    // Look for "id" claim type which is what the JWT actually contains
-                    var userIdClaim = jsonToken.Claims.FirstOrDefault(c => c.Type == "id" || c.Type == "userId" || c.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
-                    if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
+                    try
                     {
-                        return userId;
+                        var currentUser = new User().ExtractUserFromJWT(jwtToken);
+                        return currentUser?.Id;
                     }
-                }
-
-                // Fallback to claims if available
-                var userIdFromClaims = User?.Claims?.FirstOrDefault(c => c.Type == "id" || c.Type == "userId")?.Value;
-                if (int.TryParse(userIdFromClaims, out int userIdFromClaimsInt))
-                {
-                    return userIdFromClaimsInt;
+                    catch
+                    {
+                        return null;
+                    }
                 }
 
                 return null;
@@ -358,7 +351,7 @@ namespace NewsSite.Controllers
         }
 
         [HttpPost("Follow/{id}")]
-        public IActionResult FollowUser(int id)
+        public async Task<IActionResult> FollowUser(int id)
         {
             try
             {
@@ -373,20 +366,41 @@ namespace NewsSite.Controllers
                     return BadRequest(new { message = "Cannot follow yourself" });
                 }
 
-                // For now, return a mock response since we don't have the follow system implemented yet
-                // In a real implementation, you would check if already following and toggle the state
-                var isFollowing = false; // Placeholder - would check database
-                var action = isFollowing ? "unfollowed" : "followed";
+                // Use actual database implementation
+                var dbService = new DBservices();
+                var result = await dbService.ToggleUserFollow(currentUserId.Value, id);
 
                 return Ok(new { 
-                    action = action,
-                    message = $"User {action} successfully",
-                    isFollowing = !isFollowing
+                    action = result.Action,
+                    message = $"User {result.Action} successfully",
+                    isFollowing = result.IsFollowing
                 });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "Error updating follow status", error = ex.Message });
+            }
+        }
+
+        [HttpGet("Follow/Status/{id}")]
+        public async Task<IActionResult> GetFollowStatus(int id)
+        {
+            try
+            {
+                var currentUserId = GetCurrentUserId();
+                if (!currentUserId.HasValue)
+                {
+                    return Ok(new { isFollowing = false });
+                }
+
+                var dbService = new DBservices();
+                var isFollowing = await dbService.IsUserFollowing(currentUserId.Value, id);
+
+                return Ok(new { isFollowing = isFollowing });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error checking follow status", error = ex.Message });
             }
         }
 

@@ -45,7 +45,7 @@ class LiveNewsFeed {
         } catch (error) {
             console.error("SignalR connection failed:", error);
             this.fallbackToPolling();
-        }
+        } 
     }
 
     fallbackToPolling() {

@@ -12,7 +12,7 @@ namespace NewsSitePro.Models
         /// <summary>
         /// Creates a context for feed view (main homepage feed)
         /// </summary>
-        public static PostDisplayContext CreateFeedContext(User? currentUser, NewsArticle post, string feedType = "all")
+        public static PostDisplayContext CreateFeedContext(User? currentUser, NewsArticle post, string feedType = "all", Dictionary<int, bool>? followStatusMap = null)
         {
             var context = new PostDisplayContext
             {
@@ -29,7 +29,7 @@ namespace NewsSitePro.Models
                 ContainerClass = "post-card"
             };
 
-            ApplyUserContext(context, currentUser, post);
+            ApplyUserContext(context, currentUser, post, followStatusMap);
             ApplyInteractionContext(context, currentUser, post);
 
             // Feed-specific logic
@@ -44,7 +44,7 @@ namespace NewsSitePro.Models
         /// <summary>
         /// Creates a context for individual post view (full post with comments)
         /// </summary>
-        public static PostDisplayContext CreateIndividualContext(User? currentUser, NewsArticle post)
+        public static PostDisplayContext CreateIndividualContext(User? currentUser, NewsArticle post, Dictionary<int, bool>? followStatusMap = null)
         {
             var context = new PostDisplayContext
             {
@@ -61,7 +61,7 @@ namespace NewsSitePro.Models
                 ContainerClass = "post-card post-individual"
             };
 
-            ApplyUserContext(context, currentUser, post);
+            ApplyUserContext(context, currentUser, post, followStatusMap);
             ApplyInteractionContext(context, currentUser, post);
 
             return context;
@@ -163,7 +163,7 @@ namespace NewsSitePro.Models
         /// <summary>
         /// Applies user-specific context (ownership, following, blocking)
         /// </summary>
-        public static void ApplyUserContext(PostDisplayContext context, User? currentUser, NewsArticle post)
+        public static void ApplyUserContext(PostDisplayContext context, User? currentUser, NewsArticle post, Dictionary<int, bool>? followStatusMap = null)
         {
             if (currentUser == null)
             {
@@ -189,12 +189,17 @@ namespace NewsSitePro.Models
             }
             else
             {
-                // TODO: Implement actual relationship checks with database
-                // For now, these are placeholders that should be replaced with real DB queries
-                context.IsFollowingAuthor = false; // DBservices.IsFollowing(currentUser.Id, post.UserID);
-                context.IsAuthorBlocked = false;   // DBservices.IsBlocked(currentUser.Id, post.UserID);
+                // Use follow status from map if available
+                bool isFollowing = false;
+                if (followStatusMap != null && followStatusMap.ContainsKey(post.UserID))
+                {
+                    isFollowing = followStatusMap[post.UserID];
+                }
                 
-                context.ShowFollowButton = !context.IsFollowingAuthor && !context.IsAuthorBlocked;
+                context.IsFollowingAuthor = isFollowing;
+                context.IsAuthorBlocked = false;   // TODO: Implement blocking system
+                
+                context.ShowFollowButton = !context.IsAuthorBlocked; // Show follow button unless blocked
                 context.CanReport = true;
                 context.CanBlock = true;
             }

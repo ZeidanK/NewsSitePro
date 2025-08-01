@@ -54,12 +54,15 @@
                     </div>
                 }
                 
-                @if (context.ShowFollowButton && currentUser != null)
+                @if (context.ShowFollowButton && currentUser != null && post.UserID != currentUser.Id)
                 {
-                    <button class="btn btn-sm btn-outline-primary follow-btn" 
+                    var isFollowing = ViewData["IsFollowing_" + post.UserID] as bool? ?? false;
+                    <button class="btn btn-sm @(isFollowing ? "btn-secondary" : "btn-outline-primary") follow-btn" 
                             data-user-id="@post.UserID" 
-                            onclick="followUser(@post.UserID, '@post.Username', this)">
-                        <i class="fas fa-user-plus"></i> Follow
+                            data-following="@isFollowing.ToString().ToLower()"
+                            data-username="@post.Username">
+                        <i class="fas @(isFollowing ? "fa-user-check" : "fa-user-plus")"></i> 
+                        @(isFollowing ? "Following" : "Follow")
                     </button>
                 }
             </div>

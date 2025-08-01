@@ -12,7 +12,7 @@
     @await Component.InvokeAsync("PostCard", new PostCardViewModel 
     { 
         Post = post, 
-        Context = PostContextFactory.CreateFeedContext(Model.CurrentUser, post, Model.FeedType),
+        Context = PostContextFactory.CreateFeedContext(Model.CurrentUser, post, Model.FeedType, Model.FollowStatusMap),
         CurrentUser = Model.CurrentUser
     })
 }

@@ -348,6 +348,72 @@ public class DBservices
         }
     }
 
+    // Toggle user follow/unfollow
+    public async Task<FollowResult> ToggleUserFollow(int followerId, int followedId)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@FollowerUserID", followerId },
+                { "@FollowedUserID", followedId }
+            };
+            
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UserFollows_Toggle", con, paramDic);
+            reader = await cmd.ExecuteReaderAsync();
+            
+            if (reader.Read())
+            {
+                return new FollowResult
+                {
+                    Action = reader["Action"]?.ToString() ?? "unknown",
+                    IsFollowing = reader["Action"]?.ToString() == "followed"
+                };
+            }
+            
+            return new FollowResult { Action = "unknown", IsFollowing = false };
+        }
+        catch (Exception)
+        {
+            return new FollowResult { Action = "error", IsFollowing = false };
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    // Check if user is following another user
+    public async Task<bool> IsUserFollowing(int followerId, int followedId)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        try
+        {
+            con = connect("myProjDB");
+            string sql = "SELECT COUNT(*) FROM NewsSitePro2025_UserFollows WHERE FollowerUserID = @FollowerUserID AND FollowedUserID = @FollowedUserID";
+            cmd = new SqlCommand(sql, con);
+            cmd.Parameters.AddWithValue("@FollowerUserID", followerId);
+            cmd.Parameters.AddWithValue("@FollowedUserID", followedId);
+            
+            int count = (int)(await cmd.ExecuteScalarAsync() ?? 0);
+            return count > 0;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
+
     //--------------------------------------------------------------------------------------------------
     // News Articles Database Methods
     //--------------------------------------------------------------------------------------------------
@@ -2560,30 +2626,28 @@ public class DBservices
                 ["@ArticleID"] = articleId
             };
 
-            SqlCommand cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_NewsArticles_Get", con, paramDic);
-            SqlDataReader reader = await cmd.ExecuteReaderAsync();
+            SqlCommand cmd1 = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_NewsArticles_Get", con, paramDic);
+            SqlDataReader reader1 = await cmd1.ExecuteReaderAsync();
 
-            if (reader.Read())
+            if (false)//reader.Read())
             {
                 article = new NewsArticle
                 {
-                    ArticleID = reader.GetInt32("ArticleID"),
-                    Title = reader["Title"]?.ToString(),
-                    Content = reader["Content"]?.ToString(),
-                    ImageURL = reader["ImageURL"]?.ToString(),
-                    SourceURL = reader["SourceURL"]?.ToString(),
-                    SourceName = reader["SourceName"]?.ToString(),
-                    Category = reader["Category"]?.ToString(),
-                    PublishDate = reader.GetDateTime("PublishDate"),
-                    UserID = reader.GetInt32("UserID"),
-                    Username = reader["Username"]?.ToString(),
-                    LikesCount = reader.GetInt32("LikesCount"),
-                    ViewsCount = reader.GetInt32("ViewsCount")
+                    //ArticleID = reader.GetInt32("ArticleID"),
+                    //Title = reader["Title"]?.ToString(),
+                    //Content = reader["Content"]?.ToString(),
+                    //ImageURL = reader["ImageURL"]?.ToString(),
+                    //SourceURL = reader["SourceURL"]?.ToString(),
+                    //SourceName = reader["SourceName"]?.ToString(),
+                    //Category = reader["Category"]?.ToString(),
+                    //PublishDate = reader.GetDateTime("PublishDate"),
+                    //UserID = reader.GetInt32("UserID"),
+                    //Username = reader["Username"]?.ToString(),
+                    //LikesCount = reader.GetInt32("LikesCount"),
+                    //ViewsCount = reader.GetInt32("ViewsCount")
                 };
             }
-        }
-        catch (Exception)
-        {
+
             // If stored procedure doesn't exist, use direct SQL query
             try
             {
@@ -2592,7 +2656,7 @@ public class DBservices
                     con.Close();
                     con = connect("myProjDB");
                 }
-                
+
                 string sql = @"
                     SELECT na.ArticleID, na.Title, na.Content, na.ImageURL, na.SourceURL, na.SourceName, 
                            na.Category, na.PublishDate, na.UserID, u.Username as Username,
@@ -2635,6 +2699,8 @@ public class DBservices
                         ViewsCount = reader.GetInt32("ViewsCount")
                     };
                 }
+            
+                
             }
             catch (Exception)
             {

@@ -43,15 +43,12 @@ class PostInteractions {
         }
 
         try {
-            const response = await fetch('/api/posts/like', {
+            const response = await fetch(`/api/posts/Like/${postId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    postId: postId,
-                    userId: this.currentUserId
-                })
+                }
+             
             });
 
             if (response.ok) {

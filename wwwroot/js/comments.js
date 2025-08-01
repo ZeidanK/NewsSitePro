@@ -1,4 +1,13 @@
 // Enhanced Comments System with Guest User Restrictions
+
+// Helper function to get cookie value
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+}
+
 class CommentsManager {
     constructor() {
         this.currentPostId = null;
@@ -13,7 +22,7 @@ class CommentsManager {
     }
 
     async checkAuthStatus() {
-        const token = localStorage.getItem('jwtToken');
+        const token = getCookie('jwtToken');
         if (token) {
             try {
                 const response = await fetch('/api/Auth/validate', {
@@ -233,7 +242,7 @@ class CommentsManager {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                    'Authorization': `Bearer ${getCookie('jwtToken')}`
                 },
                 body: JSON.stringify({
                     postID: postId,
@@ -362,7 +371,7 @@ class CommentsManager {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                    'Authorization': `Bearer ${getCookie('jwtToken')}`
                 },
                 body: JSON.stringify({
                     commentID: parseInt(commentId),
@@ -392,7 +401,7 @@ class CommentsManager {
             const response = await fetch(`/api/Comments/${commentId}`, {
                 method: 'DELETE',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                    'Authorization': `Bearer ${getCookie('jwtToken')}`
                 }
             });
 
@@ -436,7 +445,7 @@ class CommentsManager {
     }
 
     getCurrentUserId() {
-        const token = localStorage.getItem('jwtToken');
+        const token = getCookie('jwtToken');
         if (!token) return null;
 
         try {
@@ -486,6 +495,76 @@ class CommentsManager {
         container.className = 'toast-container';
         document.body.appendChild(container);
         return container;
+    }
+}
+
+// Global function for backward compatibility with onclick handlers
+async function addComment(postId) {
+    const commentInput = document.getElementById('commentContent');
+    const content = commentInput?.value?.trim();
+    
+    if (!content) {
+        alert('Please enter a comment');
+        return;
+    }
+
+    // Get JWT token from cookie instead of localStorage
+    const token = getCookie('jwtToken');
+    if (!token) {
+        alert('Please log in to comment');
+        window.location.href = '/Login';
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/Comments', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                postID: postId,
+                content: content,
+                parentCommentID: null
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            // Clear the input
+            commentInput.value = '';
+            
+            // Show success message
+            const toast = document.createElement('div');
+            toast.className = 'alert alert-success alert-dismissible fade show position-fixed';
+            toast.style.top = '20px';
+            toast.style.right = '20px';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `
+                <span>Comment posted successfully!</span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(toast);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+            
+            // Reload comments if CommentsManager is available
+            if (window.commentsManager) {
+                await window.commentsManager.loadComments(postId);
+            } else {
+                // Fallback: reload the page to show new comment
+                window.location.reload();
+            }
+        } else {
+            alert(result.message || 'Failed to post comment');
+        }
+    } catch (error) {
+        console.error('Error posting comment:', error);
+        alert('Failed to post comment. Please try again.');
     }
 }
 

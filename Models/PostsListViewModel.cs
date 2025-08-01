@@ -13,5 +13,6 @@ namespace NewsSitePro.Models
         public User? CurrentUser { get; set; }
         public string FeedType { get; set; } = "all";
         public PostViewMode ViewMode { get; set; } = PostViewMode.Feed;
+        public Dictionary<int, bool> FollowStatusMap { get; set; } = new Dictionary<int, bool>();
     }
 }

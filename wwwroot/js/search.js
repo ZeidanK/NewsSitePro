@@ -54,12 +54,14 @@ class SearchManager {
             });
         }
         
-        // Follow buttons
-        document.querySelectorAll('.follow-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                this.handleFollowClick(e);
+        // Follow buttons - only handle if follow manager isn't available
+        if (!window.followStatusManager) {
+            document.querySelectorAll('.follow-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    this.handleFollowClick(e);
+                });
             });
-        });
+        }
         
         // Close suggestions when clicking outside
         document.addEventListener('click', (e) => {

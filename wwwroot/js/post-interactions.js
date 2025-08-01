@@ -115,7 +115,7 @@ window.PostCardInteractions = {
                 return;
             }
 
-            const response = await fetch(`/api/users/Block/${userId}`, {
+            const response = await fetch(`/api/User/Block/${userId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -139,8 +139,18 @@ window.PostCardInteractions = {
     },
 
     async followUser(userId, username, button) {
+        // Delegate to the follow status manager for consistency
+        if (window.followStatusManager) {
+            if (!button.dataset.username) {
+                button.dataset.username = username;
+            }
+            window.followStatusManager.handleFollowClick(button);
+            return;
+        }
+
+        // Fallback implementation if follow manager isn't available
         try {
-            const response = await fetch(`/api/users/Follow/${userId}`, {
+            const response = await fetch(`/api/User/Follow/${userId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -222,5 +232,6 @@ window.sharePost = (postId) => PostCardInteractions.sharePost(postId);
 window.openPost = (postId) => PostCardInteractions.openPost(postId);
 window.reportPost = (postId) => PostCardInteractions.reportPost(postId);
 window.blockUser = (userId, username) => PostCardInteractions.blockUser(userId, username);
-window.followUser = (userId, username, button) => PostCardInteractions.followUser(userId, username, button);
+// Follow functionality is now handled by follow-manager.js
+// window.followUser = (userId, username, button) => PostCardInteractions.followUser(userId, username, button);
 window.toggleFollow = (userId, button) => PostCardInteractions.followUser(userId, 'User', button);

@@ -1,0 +1,248 @@
+@*
+    AdminNews.cshtml - Admin-only news management page for fetching, reviewing, and publishing news articles
+    Integrates with live news feed system and external news APIs for comprehensive news content management
+*@
+@page "/AdminNews"
+@model NewsSite.Pages.AdminNewsModel
+@using NewsSite.BL
+@{
+    ViewData["Title"] = "News Management - Admin";
+    Layout = "~/Pages/Shared/_Layout.cshtml";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/admin-news.css" />
+    <link rel="stylesheet" href="~/css/post-card.css" />
+}
+
+<!-- Page Header -->
+<div class="admin-news-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1><i class="fas fa-newspaper"></i> News Management</h1>
+                <p class="text-muted">Fetch, review, and publish news articles from external sources</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="header-stats">
+                    <div class="stat-item">
+                        <span class="stat-number" id="pendingCount">@Model.PendingNewsCount</span>
+                        <span class="stat-label">Pending</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="publishedCount">@Model.PublishedTodayCount</span>
+                        <span class="stat-label">Published Today</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Content -->
+<div class="container-fluid mt-4">
+    <div class="row">
+        <!-- Left Sidebar - News Sources & Controls -->
+        <div class="col-md-3">
+            <div class="admin-sidebar">
+                <!-- News Fetching Controls -->
+                <div class="sidebar-section">
+                    <h5><i class="fas fa-download"></i> Fetch News</h5>
+                    
+                    <!-- Category Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Category</label>
+                        <select id="categorySelect" class="form-select">
+                            <option value="general">General</option>
+                            <option value="business">Business</option>
+                            <option value="technology">Technology</option>
+                            <option value="health">Health</option>
+                            <option value="science">Science</option>
+                            <option value="sports">Sports</option>
+                            <option value="entertainment">Entertainment</option>
+                        </select>
+                    </div>
+
+                    <!-- Country Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Country</label>
+                        <select id="countrySelect" class="form-select">
+                            <option value="us">United States</option>
+                            <option value="gb">United Kingdom</option>
+                            <option value="ca">Canada</option>
+                            <option value="au">Australia</option>
+                            <option value="de">Germany</option>
+                            <option value="fr">France</option>
+                        </select>
+                    </div>
+
+                    <!-- Fetch Buttons -->
+                    <div class="d-grid gap-2">
+                        <button id="fetchLatestBtn" class="btn btn-primary">
+                            <i class="fas fa-sync"></i> Fetch Latest
+                        </button>
+                        <button id="fetchTopBtn" class="btn btn-outline-primary">
+                            <i class="fas fa-star"></i> Fetch Top Stories
+                        </button>
+                        <button id="fetchBreakingBtn" class="btn btn-warning">
+                            <i class="fas fa-bolt"></i> Fetch Breaking News
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Source Management -->
+                <div class="sidebar-section">
+                    <h5><i class="fas fa-globe"></i> News Sources</h5>
+                    <div class="source-list" id="sourcesList">
+                        <!-- Dynamic source list will be populated here -->
+                    </div>
+                    <button id="manageSourcesBtn" class="btn btn-sm btn-outline-secondary w-100 mt-2">
+                        <i class="fas fa-cog"></i> Manage Sources
+                    </button>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="sidebar-section">
+                    <h5><i class="fas fa-bolt"></i> Quick Actions</h5>
+                    <div class="d-grid gap-2">
+                        <button id="publishAllBtn" class="btn btn-success btn-sm">
+                            <i class="fas fa-check-double"></i> Publish All Approved
+                        </button>
+                        <button id="rejectAllBtn" class="btn btn-danger btn-sm">
+                            <i class="fas fa-times-circle"></i> Reject All Pending
+                        </button>
+                        <button id="autoModeBtn" class="btn btn-info btn-sm">
+                            <i class="fas fa-robot"></i> Enable Auto-Publish
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="col-md-9">
+            <!-- Filter Tabs -->
+            <div class="news-filter-tabs">
+                <ul class="nav nav-pills mb-3" id="newsFilterTabs">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-filter="pending">
+                            <i class="fas fa-clock"></i> Pending Review <span class="badge bg-warning ms-1" id="pendingBadge">@Model.PendingNewsCount</span>
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-filter="approved">
+                            <i class="fas fa-check"></i> Approved <span class="badge bg-success ms-1" id="approvedBadge">0</span>
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-filter="published">
+                            <i class="fas fa-newspaper"></i> Published <span class="badge bg-primary ms-1" id="publishedBadge">@Model.PublishedTodayCount</span>
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-filter="rejected">
+                            <i class="fas fa-times"></i> Rejected <span class="badge bg-danger ms-1" id="rejectedBadge">0</span>
+                        </button>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Loading Indicator -->
+            <div id="loadingIndicator" class="text-center py-4" style="display: none;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Fetching news articles...</p>
+            </div>
+
+            <!-- News Articles Container -->
+            <div id="newsArticlesContainer" class="news-articles-container">
+                <!-- Dynamic news articles will be populated here -->
+            </div>
+
+            <!-- Load More Button -->
+            <div class="text-center mt-4">
+                <button id="loadMoreBtn" class="btn btn-outline-primary" style="display: none;">
+                    <i class="fas fa-chevron-down"></i> Load More Articles
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- News Article Preview Modal -->
+<div class="modal fade" id="articlePreviewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Article Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="articlePreviewContent">
+                <!-- Article preview content will be populated here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" id="rejectArticleBtn">
+                    <i class="fas fa-times"></i> Reject
+                </button>
+                <button type="button" class="btn btn-warning" id="editArticleBtn">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button type="button" class="btn btn-success" id="approveArticleBtn">
+                    <i class="fas fa-check"></i> Approve
+                </button>
+                <button type="button" class="btn btn-primary" id="publishNowBtn">
+                    <i class="fas fa-rocket"></i> Publish Now
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Source Management Modal -->
+<div class="modal fade" id="sourceManagementModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Manage News Sources</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">API Key</label>
+                    <input type="password" id="apiKeyInput" class="form-control" placeholder="Enter News API key">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Preferred Sources</label>
+                    <div id="preferredSources" class="source-checkboxes">
+                        <!-- Dynamic source checkboxes will be populated here -->
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Auto-Publish Settings</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="autoPublishEnabled">
+                        <label class="form-check-label" for="autoPublishEnabled">
+                            Enable automatic publishing for trusted sources
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveSourcesBtn">Save Settings</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/admin-news-feed.js"></script>
+    <script>
+        // Initialize admin news management system
+        document.addEventListener('DOMContentLoaded', function() {
+            const adminNewsFeed = new AdminNewsFeed();
+            adminNewsFeed.init();
+        });
+    </script>
+}

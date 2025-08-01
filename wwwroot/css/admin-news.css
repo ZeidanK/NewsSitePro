@@ -1,0 +1,566 @@
+/*
+    admin-news.css - Styling for admin news management interface
+    Provides modern, responsive design for news fetching, review, and publishing workflows
+*/
+
+/* Main admin news layout */
+.admin-news-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.admin-news-header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.admin-news-header i {
+    margin-right: 0.5rem;
+    color: #ffd700;
+}
+
+/* Header statistics */
+.header-stats {
+    display: flex;
+    gap: 2rem;
+    justify-content: flex-end;
+}
+
+.stat-item {
+    text-align: center;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 1rem;
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+}
+
+.stat-number {
+    display: block;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #ffd700;
+}
+
+.stat-label {
+    display: block;
+    font-size: 0.875rem;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Sidebar styles */
+.admin-sidebar {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    position: sticky;
+    top: 2rem;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+}
+
+.sidebar-section {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.sidebar-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.sidebar-section h5 {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+}
+
+.sidebar-section h5 i {
+    margin-right: 0.5rem;
+    color: #667eea;
+}
+
+/* Form controls in sidebar */
+.sidebar-section .form-select,
+.sidebar-section .form-control {
+    border: 1px solid #ced4da;
+    border-radius: 8px;
+    padding: 0.625rem 0.75rem;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+}
+
+.sidebar-section .form-select:focus,
+.sidebar-section .form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+/* Source management */
+.source-list {
+    max-height: 200px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 0.5rem;
+}
+
+.source-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    border-bottom: 1px solid #f1f3f4;
+    font-size: 0.875rem;
+}
+
+.source-item:last-child {
+    border-bottom: none;
+}
+
+.source-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #28a745;
+}
+
+.source-status.inactive {
+    background: #dc3545;
+}
+
+/* Filter tabs */
+.news-filter-tabs {
+    background: white;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+
+.news-filter-tabs .nav-pills {
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 1rem;
+}
+
+.news-filter-tabs .nav-link {
+    color: #6c757d;
+    border-radius: 25px;
+    padding: 0.75rem 1.5rem;
+    margin-right: 0.5rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.news-filter-tabs .nav-link:hover {
+    color: #667eea;
+    background: rgba(102, 126, 234, 0.1);
+}
+
+.news-filter-tabs .nav-link.active {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+
+.news-filter-tabs .badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* Article cards */
+.news-articles-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.admin-article-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.admin-article-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Status-based styling */
+.admin-article-card.status-pending {
+    border-left: 4px solid #ffc107;
+}
+
+.admin-article-card.status-approved {
+    border-left: 4px solid #28a745;
+}
+
+.admin-article-card.status-published {
+    border-left: 4px solid #007bff;
+}
+
+.admin-article-card.status-rejected {
+    border-left: 4px solid #dc3545;
+}
+
+/* Article card header */
+.article-card-header {
+    padding: 1.25rem;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.article-meta {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.source-name {
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.875rem;
+}
+
+.article-date {
+    color: #6c757d;
+    font-size: 0.8rem;
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-badge.status-pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-badge.status-approved {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge.status-published {
+    background: #cce5ff;
+    color: #004085;
+}
+
+.status-badge.status-rejected {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Article actions */
+.article-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.article-actions .btn {
+    font-size: 0.8rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+/* Article content */
+.article-card-content {
+    padding: 1.25rem;
+}
+
+.article-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #212529;
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+}
+
+.article-summary {
+    color: #6c757d;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.article-image {
+    margin: 1rem 0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.article-image img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.article-image:hover img {
+    transform: scale(1.05);
+}
+
+/* Article metadata */
+.article-metadata {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+}
+
+.category-tag {
+    background: #667eea;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 15px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.source-link {
+    color: #667eea;
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.source-link:hover {
+    text-decoration: underline;
+}
+
+/* Article card footer */
+.article-card-footer {
+    padding: 1rem 1.25rem;
+    background: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.bulk-select {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.bulk-select input[type="checkbox"] {
+    transform: scale(1.1);
+}
+
+.bulk-select label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin: 0;
+    cursor: pointer;
+}
+
+/* Loading states */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+    border-radius: 12px;
+}
+
+.loading-content {
+    text-align: center;
+    color: #667eea;
+}
+
+.loading-content i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Modal enhancements */
+.modal-content {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    background: #667eea;
+    color: white;
+    border-radius: 12px 12px 0 0;
+}
+
+.modal-header .btn-close {
+    filter: invert(1);
+}
+
+/* Article preview in modal */
+.article-preview {
+    padding: 1rem 0;
+}
+
+.preview-header h3 {
+    color: #212529;
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+
+.preview-meta {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    font-size: 0.875rem;
+}
+
+.preview-meta span {
+    color: #6c757d;
+}
+
+.preview-image {
+    margin: 1.5rem 0;
+    text-align: center;
+}
+
+.preview-content h5 {
+    color: #495057;
+    font-weight: 600;
+    margin: 1.5rem 0 0.75rem 0;
+}
+
+.content-text {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+    line-height: 1.6;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #6c757d;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    color: #dee2e6;
+}
+
+.empty-state h3 {
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .header-stats {
+        flex-direction: column;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .stat-item {
+        padding: 0.75rem;
+    }
+    
+    .admin-sidebar {
+        margin-bottom: 2rem;
+        position: static;
+    }
+    
+    .article-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .article-metadata {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .news-filter-tabs .nav-link {
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+    }
+}
+
+/* Animation for new articles */
+@keyframes slideInFromTop {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.admin-article-card.new-article {
+    animation: slideInFromTop 0.5s ease-out;
+}
+
+/* Notification styles */
+.alert {
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.alert-info {
+    background: linear-gradient(45deg, #17a2b8, #20c997);
+    color: white;
+}
+
+.alert-success {
+    background: linear-gradient(45deg, #28a745, #20c997);
+    color: white;
+}
+
+.alert-warning {
+    background: linear-gradient(45deg, #ffc107, #fd7e14);
+    color: #212529;
+}
+
+.alert-danger {
+    background: linear-gradient(45deg, #dc3545, #e83e8c);
+    color: white;
+}
