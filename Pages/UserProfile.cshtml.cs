@@ -209,6 +209,55 @@ namespace NewsSite.Pages
             }
         }
 
+        // API endpoint for getting user activity (recent liked and commented posts)
+        public async Task<IActionResult> OnGetGetUserActivity()
+        {
+            try
+            {
+                var jwtToken = Request.Cookies["jwtToken"];
+                if (string.IsNullOrEmpty(jwtToken))
+                {
+                    return new JsonResult(new { success = false, message = "Not authenticated" });
+                }
+
+                User? currentUser = null;
+                try
+                {
+                    currentUser = new User().ExtractUserFromJWT(jwtToken);
+                }
+                catch
+                {
+                    return new JsonResult(new { success = false, message = "Invalid authentication" });
+                }
+
+                if (currentUser == null)
+                {
+                    return new JsonResult(new { success = false, message = "User not found" });
+                }
+
+                // Get user activity (liked and commented posts, most recent first)
+                var userActivity = await _dbService.GetUserRecentActivityAsync(currentUser.Id, 1, 20);
+                
+                return new JsonResult(new { 
+                    success = true, 
+                    activities = userActivity.Select(a => new {
+                        activityType = a.ActivityType,
+                        articleID = a.ArticleID,
+                        activityDate = a.ActivityDate,
+                        title = a.Title,
+                        category = a.Category,
+                        imageURL = a.ImageURL,
+                        sourceName = a.SourceName,
+                        username = a.Username
+                    })
+                });
+            }
+            catch (Exception ex)
+            {
+                return new JsonResult(new { success = false, message = "Error loading user activity: " + ex.Message });
+            }
+        }
+
         // API endpoint for getting saved posts
         public async Task<IActionResult> OnGetGetSavedPosts()
         {

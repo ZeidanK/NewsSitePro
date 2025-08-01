@@ -308,8 +308,8 @@ class CommentsManager {
                 <div class="login-prompt-content">
                     <p>You need to be logged in to ${action}.</p>
                     <div class="login-prompt-actions">
-                        <a href="/Login" class="btn btn-primary">Login</a>
-                        <a href="/Register" class="btn btn-secondary">Register</a>
+                        <a href="./Login" class="btn btn-primary">Login</a>
+                        <a href="./Register" class="btn btn-secondary">Register</a>
                         <button class="btn btn-cancel close-login-prompt">Cancel</button>
                     </div>
                 </div>

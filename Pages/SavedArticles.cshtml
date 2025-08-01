@@ -1,0 +1,1518 @@
+@page
+@model NewsSite.Pages.SavedArticlesModel
+@{
+    Layout = "~/Pages/Shared/_Layout.cshtml";
+    ViewData["Title"] = "Saved Articles";
+    ViewData["HeaderData"] = Model.HeaderData;
+}
+
+<link rel="stylesheet" href="~/css/post-card.css" />
+<link rel="stylesheet" href="~/css/mobile-responsive.css" />
+
+<div class="saved-articles-container">
+    <!-- Header Section -->
+    <div class="page-header">
+        <div class="header-content">
+            <h1><i class="fas fa-bookmark"></i> My Saved Articles</h1>
+            <p class="header-description">Your personal collection of bookmarked articles</p>
+            @if (Model.TotalResults > 0)
+            {
+                <div class="results-count">
+                    <span class="count-badge">@Model.TotalResults</span> saved articles
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Filters and Controls -->
+    <div class="controls-section">
+        <div class="search-controls">
+            <!-- Search Bar -->
+            <div class="search-bar">
+                <input type="text" id="searchInput" value="@Model.SearchQuery" placeholder="Search your saved articles..." class="search-input">
+                <button type="button" id="searchBtn" class="search-btn">
+                    <i class="fas fa-search"></i>
+                </button>
+                @if (!string.IsNullOrEmpty(Model.SearchQuery))
+                {
+                    <button type="button" id="clearSearchBtn" class="clear-btn" title="Clear search">
+                        <i class="fas fa-times"></i>
+                    </button>
+                }
+            </div>
+
+            <!-- Category Filter -->
+            <div class="filter-dropdown">
+                <select id="categoryFilter" class="filter-select">
+                    <option value="all" @(string.IsNullOrEmpty(Model.Category) || Model.Category == "all" ? "selected" : "")>All Categories</option>
+                    <option value="Technology" @(Model.Category == "Technology" ? "selected" : "")>Technology</option>
+                    <option value="Sports" @(Model.Category == "Sports" ? "selected" : "")>Sports</option>
+                    <option value="Politics" @(Model.Category == "Politics" ? "selected" : "")>Politics</option>
+                    <option value="Entertainment" @(Model.Category == "Entertainment" ? "selected" : "")>Entertainment</option>
+                    <option value="Health" @(Model.Category == "Health" ? "selected" : "")>Health</option>
+                    <option value="Business" @(Model.Category == "Business" ? "selected" : "")>Business</option>
+                    <option value="Science" @(Model.Category == "Science" ? "selected" : "")>Science</option>
+                </select>
+            </div>
+
+            <!-- Sort Options -->
+            <div class="sort-dropdown">
+                <select id="sortFilter" class="filter-select">
+                    <option value="recent" @(Model.SortBy == "recent" ? "selected" : "")>Most Recent</option>
+                    <option value="oldest" @(Model.SortBy == "oldest" ? "selected" : "")>Oldest First</option>
+                    <option value="title" @(Model.SortBy == "title" ? "selected" : "")>Title A-Z</option>
+                    <option value="category" @(Model.SortBy == "category" ? "selected" : "")>By Category</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Display Type Toggle -->
+        <div class="display-controls">
+            <div class="display-toggle">
+                <button type="button" class="display-btn @(Model.DisplayType == "grid" ? "active" : "")" data-display="grid" title="Grid View">
+                    <i class="fas fa-th"></i>
+                </button>
+                <button type="button" class="display-btn @(Model.DisplayType == "list" ? "active" : "")" data-display="list" title="List View">
+                    <i class="fas fa-list"></i>
+                </button>
+                <button type="button" class="display-btn @(Model.DisplayType == "compact" ? "active" : "")" data-display="compact" title="Compact View">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading" class="loading-state" style="display: none;">
+        <i class="fas fa-spinner fa-spin"></i> Loading articles...
+    </div>
+
+    <!-- Articles Container -->
+    <div id="articlesContainer" class="articles-container @Model.DisplayType-view">
+        @if (Model.SavedArticles.Any())
+        {
+            @foreach (var article in Model.SavedArticles)
+            {
+                <div class="article-card" data-category="@article.Category" data-id="@article.ArticleID">
+                    @if (Model.DisplayType == "grid")
+                    {
+                        <!-- Grid View -->
+                        <div class="article-image">
+                            @if (!string.IsNullOrEmpty(article.ImageURL))
+                            {
+                                <img src="@article.ImageURL" alt="@article.Title" loading="lazy" />
+                            }
+                            else
+                            {
+                                <div class="image-placeholder">
+                                    <i class="fas fa-newspaper"></i>
+                                </div>
+                            }
+                            <div class="category-badge">@article.Category</div>
+                        </div>
+                        <div class="article-content">
+                            <h3 class="article-title">
+                                <a href="~/Post/@article.ArticleID">@article.Title</a>
+                            </h3>
+                            <p class="article-excerpt">
+                                @(article.Content?.Length > 150 ? article.Content.Substring(0, 150) + "..." : article.Content)
+                            </p>
+                            <div class="article-meta">
+                                <span class="author">by @article.Username</span>
+                                <span class="date">@article.PublishDate.ToString("MMM dd, yyyy")</span>
+                            </div>
+                            <div class="article-stats">
+                                <span class="stat"><i class="fas fa-heart"></i> @article.LikesCount</span>
+                                <span class="stat"><i class="fas fa-eye"></i> @article.ViewsCount</span>
+                            </div>
+                        </div>
+                    }
+                    else if (Model.DisplayType == "list")
+                    {
+                        <!-- List View -->
+                        <div class="article-list-content">
+                            <div class="list-main">
+                                @if (!string.IsNullOrEmpty(article.ImageURL))
+                                {
+                                    <div class="list-image">
+                                        <img src="@article.ImageURL" alt="@article.Title" loading="lazy" />
+                                    </div>
+                                }
+                                <div class="list-content">
+                                    <div class="list-header">
+                                        <span class="category-tag">@article.Category</span>
+                                        <span class="author">by @article.Username</span>
+                                        <span class="date">@article.PublishDate.ToString("MMM dd, yyyy")</span>
+                                    </div>
+                                    <h3 class="article-title">
+                                        <a href="~/Post/@article.ArticleID">@article.Title</a>
+                                    </h3>
+                                    <p class="article-excerpt">
+                                        @(article.Content?.Length > 200 ? article.Content.Substring(0, 200) + "..." : article.Content)
+                                    </p>
+                                    <div class="list-stats">
+                                        <span class="stat"><i class="fas fa-heart"></i> @article.LikesCount</span>
+                                        <span class="stat"><i class="fas fa-eye"></i> @article.ViewsCount</span>
+                                        @if (!string.IsNullOrEmpty(article.SourceURL))
+                                        {
+                                            <a href="@article.SourceURL" class="source-link" target="_blank">
+                                                <i class="fas fa-external-link-alt"></i> @article.SourceName
+                                            </a>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <!-- Compact View -->
+                        <div class="compact-content">
+                            <div class="compact-main">
+                                <span class="category-dot" data-category="@article.Category"></span>
+                                <h4 class="compact-title">
+                                    <a href="~/Post/@article.ArticleID">@article.Title</a>
+                                </h4>
+                                <div class="compact-meta">
+                                    <span class="author">@article.Username</span>
+                                    <span class="date">@article.PublishDate.ToString("MMM dd")</span>
+                                    <span class="stats">
+                                        <i class="fas fa-heart"></i> @article.LikesCount
+                                        <i class="fas fa-eye"></i> @article.ViewsCount
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Action Buttons (for all views) -->
+                    <div class="article-actions">
+                        <button class="action-btn like-btn @(article.IsLiked ? "active" : "")" onclick="toggleLike(@article.ArticleID, this)" title="Like">
+                            <i class="fas fa-heart"></i>
+                        </button>
+                        <button class="action-btn save-btn active" onclick="toggleSave(@article.ArticleID, this)" title="Remove from Saved">
+                            <i class="fas fa-bookmark"></i>
+                        </button>
+                        <button class="action-btn share-btn" onclick="shareArticle(@article.ArticleID)" title="Share">
+                            <i class="fas fa-share"></i>
+                        </button>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <!-- Empty State -->
+            <div class="empty-state">
+                @if (!string.IsNullOrEmpty(Model.SearchQuery) || !string.IsNullOrEmpty(Model.Category))
+                {
+                    <i class="fas fa-search"></i>
+                    <h3>No articles found</h3>
+                    <p>No saved articles match your current filters.</p>
+                    <button class="btn btn-primary" onclick="clearFilters()">
+                        <i class="fas fa-times"></i> Clear Filters
+                    </button>
+                }
+                else
+                {
+                    <i class="fas fa-bookmark"></i>
+                    <h3>No saved articles yet</h3>
+                    <p>Start saving articles you want to read later!</p>
+                    <a href="~/" class="btn btn-primary">
+                        <i class="fas fa-newspaper"></i> Browse Articles
+                    </a>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Pagination -->
+    @if (Model.TotalPages > 1)
+    {
+        <div class="pagination-container">
+            <nav class="pagination">
+                @if (Model.CurrentPage > 1)
+                {
+                    <button class="page-btn" onclick="loadPage(@(Model.CurrentPage - 1))">
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </button>
+                }
+
+                @for (int i = Math.Max(1, Model.CurrentPage - 2); i <= Math.Min(Model.TotalPages, Model.CurrentPage + 2); i++)
+                {
+                    <button class="page-btn @(i == Model.CurrentPage ? "active" : "")" onclick="loadPage(@i)">
+                        @i
+                    </button>
+                }
+
+                @if (Model.CurrentPage < Model.TotalPages)
+                {
+                    <button class="page-btn" onclick="loadPage(@(Model.CurrentPage + 1))">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                }
+            </nav>
+        </div>
+    }
+</div>
+
+@section Scripts {
+<script src="~/js/post-interactions.js"></script>
+<script>
+    let currentPage = @Model.CurrentPage;
+    let isLoading = false;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        setupEventListeners();
+        setupDisplayToggle();
+        setupFilterHandlers();
+    });
+
+    function setupEventListeners() {
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const clearSearchBtn = document.getElementById('clearSearchBtn');
+
+        if (searchInput) {
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
+        }
+
+        if (searchBtn) {
+            searchBtn.addEventListener('click', performSearch);
+        }
+
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                performSearch();
+            });
+        }
+
+        // Filter handlers
+        document.getElementById('categoryFilter').addEventListener('change', applyFilters);
+        document.getElementById('sortFilter').addEventListener('change', applyFilters);
+    }
+
+    function setupDisplayToggle() {
+        document.querySelectorAll('.display-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const displayType = this.dataset.display;
+                changeDisplayType(displayType);
+            });
+        });
+    }
+
+    function setupFilterHandlers() {
+        // Real-time search with debounce
+        let searchTimeout;
+        const searchInput = document.getElementById('searchInput');
+        
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(performSearch, 500);
+            });
+        }
+    }
+
+    function performSearch() {
+        applyFilters();
+    }
+
+    function applyFilters() {
+        if (isLoading) return;
+        
+        const searchQuery = document.getElementById('searchInput').value;
+        const category = document.getElementById('categoryFilter').value;
+        const sort = document.getElementById('sortFilter').value;
+        
+        loadFilteredArticles(searchQuery, category, sort, 1);
+    }
+
+    async function loadFilteredArticles(query, category, sort, page) {
+        if (isLoading) return;
+        
+        isLoading = true;
+        document.getElementById('loading').style.display = 'block';
+        
+        try {
+            const params = new URLSearchParams({
+                q: query || '',
+                category: category || 'all',
+                sort: sort || 'recent',
+                page: page || 1
+            });
+
+            const response = await fetch(`/SavedArticles?handler=FilteredArticles&${params}`, {
+                method: 'GET',
+                headers: {
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                }
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                updateArticlesDisplay(result.articles, category, sort);
+                updatePagination(result.currentPage, result.totalPages);
+                updateURL(query, category, sort, page);
+                
+                // Update results count
+                updateResultsCount(result.totalResults);
+            } else {
+                showToast('Error loading articles: ' + result.message, 'error');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showToast('Network error occurred', 'error');
+        } finally {
+            isLoading = false;
+            document.getElementById('loading').style.display = 'none';
+        }
+    }
+
+    function updateArticlesDisplay(articles, category, sort) {
+        const container = document.getElementById('articlesContainer');
+        const currentDisplayType = getCurrentDisplayType();
+        
+        if (!articles || articles.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-search"></i>
+                    <h3>No articles found</h3>
+                    <p>No saved articles match your current filters.</p>
+                    <button class="btn btn-primary" onclick="clearFilters()">
+                        <i class="fas fa-times"></i> Clear Filters
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        const articlesHTML = articles.map(article => generateArticleHTML(article, currentDisplayType)).join('');
+        container.innerHTML = articlesHTML;
+    }
+
+    function generateArticleHTML(article, displayType) {
+        const publishDate = new Date(article.publishDate).toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric', 
+            year: 'numeric' 
+        });
+
+        if (displayType === 'grid') {
+            return `
+                <div class="article-card" data-category="${article.category}" data-id="${article.articleID}">
+                    <div class="article-image">
+                        ${article.imageURL ? 
+                            `<img src="${article.imageURL}" alt="${article.title}" loading="lazy" />` :
+                            `<div class="image-placeholder"><i class="fas fa-newspaper"></i></div>`
+                        }
+                        <div class="category-badge">${article.category}</div>
+                    </div>
+                    <div class="article-content">
+                        <h3 class="article-title">
+                            <a href="/Post/${article.articleID}">${article.title}</a>
+                        </h3>
+                        <p class="article-excerpt">
+                            ${article.content && article.content.length > 150 ? 
+                                article.content.substring(0, 150) + '...' : 
+                                article.content || ''
+                            }
+                        </p>
+                        <div class="article-meta">
+                            <span class="author">by ${article.username}</span>
+                            <span class="date">${publishDate}</span>
+                        </div>
+                        <div class="article-stats">
+                            <span class="stat"><i class="fas fa-heart"></i> ${article.likesCount}</span>
+                            <span class="stat"><i class="fas fa-eye"></i> ${article.viewsCount}</span>
+                        </div>
+                    </div>
+                    <div class="article-actions">
+                        <button class="action-btn like-btn ${article.isLiked ? 'active' : ''}" onclick="toggleLike(${article.articleID}, this)" title="Like">
+                            <i class="fas fa-heart"></i>
+                        </button>
+                        <button class="action-btn save-btn active" onclick="toggleSave(${article.articleID}, this)" title="Remove from Saved">
+                            <i class="fas fa-bookmark"></i>
+                        </button>
+                        <button class="action-btn share-btn" onclick="shareArticle(${article.articleID})" title="Share">
+                            <i class="fas fa-share"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else if (displayType === 'list') {
+            return `
+                <div class="article-card" data-category="${article.category}" data-id="${article.articleID}">
+                    <div class="article-list-content">
+                        <div class="list-main">
+                            ${article.imageURL ? 
+                                `<div class="list-image"><img src="${article.imageURL}" alt="${article.title}" loading="lazy" /></div>` : 
+                                ''
+                            }
+                            <div class="list-content">
+                                <div class="list-header">
+                                    <span class="category-tag">${article.category}</span>
+                                    <span class="author">by ${article.username}</span>
+                                    <span class="date">${publishDate}</span>
+                                </div>
+                                <h3 class="article-title">
+                                    <a href="/Post/${article.articleID}">${article.title}</a>
+                                </h3>
+                                <p class="article-excerpt">
+                                    ${article.content && article.content.length > 200 ? 
+                                        article.content.substring(0, 200) + '...' : 
+                                        article.content || ''
+                                    }
+                                </p>
+                                <div class="list-stats">
+                                    <span class="stat"><i class="fas fa-heart"></i> ${article.likesCount}</span>
+                                    <span class="stat"><i class="fas fa-eye"></i> ${article.viewsCount}</span>
+                                    ${article.sourceURL ? 
+                                        `<a href="${article.sourceURL}" class="source-link" target="_blank">
+                                            <i class="fas fa-external-link-alt"></i> ${article.sourceName || 'Source'}
+                                        </a>` : 
+                                        ''
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="article-actions">
+                        <button class="action-btn like-btn ${article.isLiked ? 'active' : ''}" onclick="toggleLike(${article.articleID}, this)" title="Like">
+                            <i class="fas fa-heart"></i>
+                        </button>
+                        <button class="action-btn save-btn active" onclick="toggleSave(${article.articleID}, this)" title="Remove from Saved">
+                            <i class="fas fa-bookmark"></i>
+                        </button>
+                        <button class="action-btn share-btn" onclick="shareArticle(${article.articleID})" title="Share">
+                            <i class="fas fa-share"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else { // compact
+            return `
+                <div class="article-card" data-category="${article.category}" data-id="${article.articleID}">
+                    <div class="compact-content">
+                        <div class="compact-main">
+                            <span class="category-dot" data-category="${article.category}"></span>
+                            <h4 class="compact-title">
+                                <a href="/Post/${article.articleID}">${article.title}</a>
+                            </h4>
+                            <div class="compact-meta">
+                                <span class="author">${article.username}</span>
+                                <span class="date">${new Date(article.publishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                                <span class="stats">
+                                    <i class="fas fa-heart"></i> ${article.likesCount}
+                                    <i class="fas fa-eye"></i> ${article.viewsCount}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="article-actions">
+                        <button class="action-btn like-btn ${article.isLiked ? 'active' : ''}" onclick="toggleLike(${article.articleID}, this)" title="Like">
+                            <i class="fas fa-heart"></i>
+                        </button>
+                        <button class="action-btn save-btn active" onclick="toggleSave(${article.articleID}, this)" title="Remove from Saved">
+                            <i class="fas fa-bookmark"></i>
+                        </button>
+                        <button class="action-btn share-btn" onclick="shareArticle(${article.articleID})" title="Share">
+                            <i class="fas fa-share"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    function changeDisplayType(displayType) {
+        // Update active button
+        document.querySelectorAll('.display-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.display === displayType);
+        });
+
+        // Update container class
+        const container = document.getElementById('articlesContainer');
+        container.className = `articles-container ${displayType}-view`;
+
+        // Store preference
+        localStorage.setItem('savedArticlesDisplayType', displayType);
+
+        // Re-render current articles with new display type
+        const articles = Array.from(container.querySelectorAll('.article-card')).map(card => {
+            return {
+                articleID: parseInt(card.dataset.id),
+                // We'd need to store more data to fully re-render, so for now just update the view
+                // In a full implementation, you'd want to store the current articles data
+            };
+        });
+
+        // For now, just reload the current page with the new display type
+        const currentParams = new URLSearchParams(window.location.search);
+        currentParams.set('display', displayType);
+        window.location.search = currentParams.toString();
+    }
+
+    function getCurrentDisplayType() {
+        const activeBtn = document.querySelector('.display-btn.active');
+        return activeBtn ? activeBtn.dataset.display : 'grid';
+    }
+
+    function updatePagination(currentPage, totalPages) {
+        // Update pagination if it exists
+        const paginationContainer = document.querySelector('.pagination-container');
+        if (!paginationContainer) return;
+
+        if (totalPages <= 1) {
+            paginationContainer.style.display = 'none';
+            return;
+        }
+
+        paginationContainer.style.display = 'block';
+        
+        let paginationHTML = '<nav class="pagination">';
+        
+        if (currentPage > 1) {
+            paginationHTML += `<button class="page-btn" onclick="loadPage(${currentPage - 1})">
+                <i class="fas fa-chevron-left"></i> Previous
+            </button>`;
+        }
+
+        for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+            paginationHTML += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="loadPage(${i})">
+                ${i}
+            </button>`;
+        }
+
+        if (currentPage < totalPages) {
+            paginationHTML += `<button class="page-btn" onclick="loadPage(${currentPage + 1})">
+                Next <i class="fas fa-chevron-right"></i>
+            </button>`;
+        }
+
+        paginationHTML += '</nav>';
+        paginationContainer.innerHTML = paginationHTML;
+    }
+
+    function loadPage(page) {
+        const searchQuery = document.getElementById('searchInput').value;
+        const category = document.getElementById('categoryFilter').value;
+        const sort = document.getElementById('sortFilter').value;
+        
+        loadFilteredArticles(searchQuery, category, sort, page);
+    }
+
+    function updateURL(query, category, sort, page) {
+        const params = new URLSearchParams();
+        if (query) params.set('q', query);
+        if (category && category !== 'all') params.set('category', category);
+        if (sort && sort !== 'recent') params.set('sort', sort);
+        if (page && page !== 1) params.set('page', page);
+        
+        const newURL = '/SavedArticles' + (params.toString() ? '?' + params.toString() : '');
+        history.replaceState(null, '', newURL);
+    }
+
+    function updateResultsCount(count) {
+        const countElement = document.querySelector('.count-badge');
+        if (countElement) {
+            countElement.textContent = count;
+        }
+        
+        const resultsText = document.querySelector('.results-count');
+        if (resultsText) {
+            resultsText.innerHTML = `<span class="count-badge">${count}</span> saved articles`;
+        }
+    }
+
+    function clearFilters() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('categoryFilter').value = 'all';
+        document.getElementById('sortFilter').value = 'recent';
+        applyFilters();
+    }
+
+    // Article interaction functions
+    async function toggleLike(articleId, button) {
+        try {
+            const response = await fetch(`/api/Posts/Like/${articleId}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + localStorage.getItem('jwtToken'),
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                button.classList.toggle('active');
+                const icon = button.querySelector('i');
+                const countSpan = button.closest('.article-card').querySelector('.stat i.fa-heart').parentNode;
+                const currentCount = parseInt(countSpan.textContent.trim().split(' ')[1]) || 0;
+                
+                if (button.classList.contains('active')) {
+                    countSpan.innerHTML = `<i class="fas fa-heart"></i> ${currentCount + 1}`;
+                    showToast('Article liked!', 'success');
+                } else {
+                    countSpan.innerHTML = `<i class="fas fa-heart"></i> ${Math.max(0, currentCount - 1)}`;
+                    showToast('Like removed', 'info');
+                }
+            } else {
+                showToast('Failed to update like. Please try again.', 'error');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showToast('Network error. Please try again.', 'error');
+        }
+    }
+
+    async function toggleSave(articleId, button) {
+        if (!confirm('Remove this article from your saved articles?')) return;
+
+        try {
+            const response = await fetch(`/api/Posts/Save/${articleId}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + localStorage.getItem('jwtToken'),
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                // Remove the article from the display
+                const articleCard = button.closest('.article-card');
+                articleCard.style.animation = 'fadeOut 0.3s ease-out';
+                setTimeout(() => {
+                    articleCard.remove();
+                    
+                    // Update count
+                    const countElement = document.querySelector('.count-badge');
+                    if (countElement) {
+                        const currentCount = parseInt(countElement.textContent) || 0;
+                        const newCount = Math.max(0, currentCount - 1);
+                        updateResultsCount(newCount);
+                        
+                        // Show empty state if no articles left
+                        if (newCount === 0 && document.querySelectorAll('.article-card').length === 0) {
+                            document.getElementById('articlesContainer').innerHTML = `
+                                <div class="empty-state">
+                                    <i class="fas fa-bookmark"></i>
+                                    <h3>No saved articles yet</h3>
+                                    <p>Start saving articles you want to read later!</p>
+                                    <a href="/" class="btn btn-primary">
+                                        <i class="fas fa-newspaper"></i> Browse Articles
+                                    </a>
+                                </div>
+                            `;
+                        }
+                    }
+                }, 300);
+                
+                showToast('Article removed from saved articles', 'success');
+            } else {
+                showToast('Failed to remove article. Please try again.', 'error');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showToast('Network error. Please try again.', 'error');
+        }
+    }
+
+    async function shareArticle(articleId) {
+        const shareUrl = `${window.location.origin}/Post/${articleId}`;
+        
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: 'Check out this article',
+                    url: shareUrl
+                });
+                showToast('Article shared successfully!', 'success');
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    copyToClipboard(shareUrl);
+                }
+            }
+        } else {
+            copyToClipboard(shareUrl);
+        }
+    }
+
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('Link copied to clipboard!', 'success');
+        }).catch(() => {
+            showToast('Failed to copy link', 'error');
+        });
+    }
+
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.classList.add('show');
+        }, 100);
+        
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 300);
+        }, 3000);
+    }
+
+    // Load saved display preference
+    document.addEventListener('DOMContentLoaded', function() {
+        const savedDisplayType = localStorage.getItem('savedArticlesDisplayType');
+        if (savedDisplayType && savedDisplayType !== '@Model.DisplayType') {
+            changeDisplayType(savedDisplayType);
+        }
+    });
+</script>
+}
+
+<style>
+@@keyframes fadeOut {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.95); }
+}
+
+.saved-articles-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.page-header {
+    text-align: center;
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.header-content h1 {
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+}
+
+.header-content h1 i {
+    color: #007bff;
+    margin-right: 0.5rem;
+}
+
+.header-description {
+    color: #6c757d;
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+}
+
+.results-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #495057;
+    font-weight: 500;
+}
+
+.count-badge {
+    background: #007bff;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.controls-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 12px;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.search-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+    min-width: 300px;
+}
+
+.search-bar {
+    position: relative;
+    flex: 1;
+    max-width: 400px;
+}
+
+.search-input {
+    width: 100%;
+    padding: 0.75rem 3rem 0.75rem 1rem;
+    border: 2px solid #dee2e6;
+    border-radius: 25px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.search-btn {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.search-btn:hover {
+    background: #0056b3;
+}
+
+.clear-btn {
+    position: absolute;
+    right: 2.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 1.5rem;
+    height: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.filter-select {
+    padding: 0.5rem 1rem;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    background: white;
+    font-size: 0.9rem;
+    min-width: 140px;
+    cursor: pointer;
+    transition: border-color 0.3s ease;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: #007bff;
+}
+
+.display-controls {
+    display: flex;
+    align-items: center;
+}
+
+.display-toggle {
+    display: flex;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid #dee2e6;
+}
+
+.display-btn {
+    padding: 0.75rem 1rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #6c757d;
+}
+
+.display-btn:hover {
+    background: #f8f9fa;
+    color: #495057;
+}
+
+.display-btn.active {
+    background: #007bff;
+    color: white;
+}
+
+.loading-state {
+    text-align: center;
+    padding: 3rem;
+    color: #6c757d;
+    font-size: 1.1rem;
+}
+
+.articles-container {
+    margin-bottom: 3rem;
+}
+
+/* Grid View */
+.articles-container.grid-view {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.grid-view .article-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.grid-view .article-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.article-image {
+    position: relative;
+    height: 200px;
+    overflow: hidden;
+}
+
+.article-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.article-card:hover .article-image img {
+    transform: scale(1.05);
+}
+
+.image-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 3rem;
+}
+
+.category-badge {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    background: rgba(0, 123, 255, 0.9);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.article-content {
+    padding: 1.5rem;
+}
+
+.article-title {
+    margin: 0 0 1rem 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.article-title a {
+    color: #2c3e50;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.article-title a:hover {
+    color: #007bff;
+}
+
+.article-excerpt {
+    color: #6c757d;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.article-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.article-stats {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.stat i {
+    margin-right: 0.25rem;
+    color: #007bff;
+}
+
+/* List View */
+.articles-container.list-view {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.list-view .article-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.list-view .article-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.article-list-content {
+    width: 100%;
+}
+
+.list-main {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+}
+
+.list-image {
+    flex-shrink: 0;
+    width: 150px;
+    height: 100px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.list-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.list-content {
+    flex: 1;
+}
+
+.list-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.category-tag {
+    background: #e3f2fd;
+    color: #1976d2;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.list-stats {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.source-link {
+    color: #007bff;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.source-link:hover {
+    color: #0056b3;
+    text-decoration: underline;
+}
+
+/* Compact View */
+.articles-container.compact-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.compact-view .article-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.compact-view .article-card:hover {
+    border-left-color: #007bff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.compact-content {
+    width: 100%;
+}
+
+.compact-main {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.category-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: #007bff;
+}
+
+.category-dot[data-category="Technology"] { background: #007bff; }
+.category-dot[data-category="Sports"] { background: #28a745; }
+.category-dot[data-category="Politics"] { background: #dc3545; }
+.category-dot[data-category="Entertainment"] { background: #ffc107; }
+.category-dot[data-category="Health"] { background: #20c997; }
+.category-dot[data-category="Business"] { background: #6f42c1; }
+.category-dot[data-category="Science"] { background: #fd7e14; }
+
+.compact-title {
+    flex: 1;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.compact-title a {
+    color: #2c3e50;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.compact-title a:hover {
+    color: #007bff;
+}
+
+.compact-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.8rem;
+    color: #6c757d;
+    white-space: nowrap;
+}
+
+.compact-meta .stats {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.compact-meta .stats i {
+    color: #007bff;
+}
+
+/* Article Actions */
+.article-actions {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.article-card:hover .article-actions {
+    opacity: 1;
+}
+
+.list-view .article-actions,
+.compact-view .article-actions {
+    position: static;
+    opacity: 1;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.action-btn {
+    width: 2rem;
+    height: 2rem;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    color: #6c757d;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+}
+
+.action-btn:hover {
+    background: white;
+    color: #495057;
+    transform: scale(1.1);
+}
+
+.action-btn.active {
+    background: #007bff;
+    color: white;
+}
+
+.like-btn.active {
+    background: #dc3545;
+}
+
+.save-btn.active {
+    background: #28a745;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #6c757d;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    color: #dee2e6;
+    margin-bottom: 1.5rem;
+}
+
+.empty-state h3 {
+    margin-bottom: 1rem;
+    color: #495057;
+}
+
+.empty-state p {
+    margin-bottom: 2rem;
+    font-size: 1.1rem;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+    transform: translateY(-1px);
+}
+
+/* Pagination */
+.pagination-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 3rem;
+}
+
+.pagination {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.page-btn {
+    padding: 0.5rem 1rem;
+    border: 2px solid #dee2e6;
+    background: white;
+    color: #495057;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.page-btn:hover {
+    border-color: #007bff;
+    color: #007bff;
+}
+
+.page-btn.active {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+/* Toast Notifications */
+.toast {
+    position: fixed;
+    top: 2rem;
+    right: 2rem;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.toast.show {
+    transform: translateX(0);
+}
+
+.toast-success {
+    background: #28a745;
+}
+
+.toast-error {
+    background: #dc3545;
+}
+
+.toast-info {
+    background: #17a2b8;
+}
+
+/* Responsive Design */
+@@media (max-width: 768px) {
+    .saved-articles-container {
+        padding: 1rem;
+    }
+
+    .page-header {
+        margin-bottom: 2rem;
+    }
+
+    .controls-section {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .search-controls {
+        flex-direction: column;
+        min-width: auto;
+    }
+
+    .search-bar {
+        max-width: none;
+    }
+
+    .filter-select {
+        min-width: auto;
+    }
+
+    .articles-container.grid-view {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .list-main {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .list-image {
+        width: 100%;
+        height: 150px;
+    }
+
+    .list-header {
+        flex-wrap: wrap;
+    }
+
+    .compact-main {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .compact-meta {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .article-actions {
+        position: static;
+        opacity: 1;
+        justify-content: center;
+        margin-top: 1rem;
+    }
+
+    .toast {
+        right: 1rem;
+        left: 1rem;
+        top: 1rem;
+    }
+}
+
+@@media (max-width: 480px) {
+    .page-header h1 {
+        font-size: 1.8rem;
+    }
+
+    .header-description {
+        font-size: 1rem;
+    }
+
+    .controls-section {
+        padding: 1rem;
+    }
+
+    .display-toggle {
+        justify-content: center;
+    }
+
+    .display-btn {
+        flex: 1;
+        text-align: center;
+    }
+}
+</style>

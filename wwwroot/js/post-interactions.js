@@ -277,7 +277,7 @@ window.PostCardInteractions = {
     },
 
     editPost(postId) {
-        window.location.href = `/Posts/Edit/${postId}`;
+        window.location.href = `./Posts/Edit/${postId}`;
     },
 
     deletePost(postId) {

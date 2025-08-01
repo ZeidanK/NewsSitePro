@@ -46,7 +46,7 @@
     else
     {
         <div class="login-prompt">
-            <p>Please <a href="/Login">log in</a> to add a comment.</p>
+            <p>Please <a href="~/Login">log in</a> to add a comment.</p>
         </div>
     }
 
@@ -59,7 +59,7 @@
                 <div class="comment" data-comment-id="@comment.ID">
                     <div class="comment-content">
                         <div class="comment-header">
-                            <a href="/UserProfile/@comment.UserID" class="comment-user-link">
+                            <a href="~/UserProfile/@comment.UserID" class="comment-user-link">
                                 <div class="comment-avatar">
                                     @if (!string.IsNullOrEmpty(comment.UserAvatar))
                                     {
@@ -105,7 +105,7 @@
                                 <div class="comment reply" data-comment-id="@reply.ID">
                                     <div class="comment-content">
                                         <div class="comment-header">
-                                            <a href="/UserProfile/@reply.UserID" class="comment-user-link">
+                                            <a href="~/UserProfile/@reply.UserID" class="comment-user-link">
                                                 <div class="comment-avatar">
                                                     @if (!string.IsNullOrEmpty(reply.UserAvatar))
                                                     {

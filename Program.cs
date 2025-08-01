@@ -80,8 +80,40 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+else
+{
+    // Configure Swagger for production with proper base path
+    app.UseSwagger(c =>
+    {
+        c.RouteTemplate = "swagger/{documentName}/swagger.json";
+        c.PreSerializeFilters.Add((swaggerDoc, httpReq) =>
+        {
+            var pathBase = httpReq.PathBase.ToString();
+            if (!string.IsNullOrEmpty(pathBase))
+            {
+                swaggerDoc.Servers = new List<Microsoft.OpenApi.Models.OpenApiServer>
+                {
+                    new Microsoft.OpenApi.Models.OpenApiServer { Url = pathBase }
+                };
+            }
+        });
+    });
+    
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("./swagger/v1/swagger.json", "NewsSitePro API V1");
+        c.RoutePrefix = "swagger";
+    });
+}
 
 app.UseHttpsRedirection();
+
+// Configure for subdirectory deployment
+var pathBase = builder.Configuration["PathBase"];
+if (!string.IsNullOrEmpty(pathBase))
+{
+    app.UsePathBase(pathBase);
+}
 
 // Enable Cookie Policy middleware
 app.UseCookiePolicy(new CookiePolicyOptions

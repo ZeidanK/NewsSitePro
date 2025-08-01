@@ -29,7 +29,7 @@
             }
             <hr>
             <div class="d-flex gap-2">
-                <a href="/" class="btn btn-primary">
+                <a href="~/" class="btn btn-primary">
                     <i class="fas fa-home"></i> Go Home
                 </a>
                 <button onclick="window.history.back()" class="btn btn-outline-secondary">
@@ -83,7 +83,7 @@ else
             <div class="profile-actions mt-3">
                 @if (Model.IsOwnProfile)
                 {
-                    <a href="/Profile" class="btn btn-primary">
+                    <a href="~/Profile" class="btn btn-primary">
                         <i class="fas fa-edit"></i> Edit Profile
                     </a>
                 }
@@ -198,6 +198,24 @@ else
                     </div>
                 </div>
             </div>
+
+            <!-- Recent Activity Section -->
+            <div class="recent-activity-section">
+                <h3>Recent Activity</h3>
+                <p class="activity-description">Your recent interactions with articles (likes and comments)</p>
+                
+                <div id="recentActivityContainer" class="recent-activity-container">
+                    <div class="loading-placeholder">
+                        <i class="fas fa-spinner fa-spin"></i> Loading recent activity...
+                    </div>
+                </div>
+
+                <div id="noActivityMessage" class="no-activity-message" style="display: none;">
+                    <i class="fas fa-chart-line"></i>
+                    <h4>No Recent Activity</h4>
+                    <p>Start engaging with articles by liking and commenting to see your activity here.</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -229,6 +247,8 @@ else
                     loadSavedPosts();
                 } else if (targetTab === 'posts') {
                     loadUserPosts();
+                } else if (targetTab === 'activity') {
+                    loadUserActivity();
                 }
             });
         });
@@ -533,6 +553,95 @@ else
             `;
         } finally {
             loading.style.display = 'none';
+        }
+    }
+
+    async function loadUserActivity() {
+        const container = document.getElementById('recentActivityContainer');
+        const noActivityMessage = document.getElementById('noActivityMessage');
+        
+        if (!container) return;
+        
+        // Check if already loaded (has content other than loading placeholder)
+        if (!container.querySelector('.loading-placeholder')) return;
+        
+        try {
+            const response = await fetch('/UserProfile?handler=GetUserActivity', {
+                method: 'GET',
+                headers: {
+                    'RequestVerificationToken': getAntiForgeryToken()
+                }
+            });
+            
+            const result = await response.json();
+            if (result.success && result.activities && result.activities.length > 0) {
+                container.innerHTML = renderUserActivity(result.activities);
+                noActivityMessage.style.display = 'none';
+            } else {
+                container.innerHTML = '';
+                noActivityMessage.style.display = 'block';
+            }
+        } catch (error) {
+            container.innerHTML = `
+                <div class="error-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h4>Error loading activity</h4>
+                    <p>Please try again later.</p>
+                </div>
+            `;
+            noActivityMessage.style.display = 'none';
+        }
+    }
+
+    function renderUserActivity(activities) {
+        return activities.map(activity => `
+            <div class="activity-item">
+                <div class="activity-icon">
+                    <i class="fas fa-${activity.activityType === 'liked' ? 'heart' : 'comment'}"></i>
+                </div>
+                <div class="activity-content">
+                    <div class="activity-header">
+                        <span class="activity-action">
+                            You ${activity.activityType} ${activity.activityType === 'liked' ? 'an article' : 'on an article'}
+                        </span>
+                        <span class="activity-date">${formatActivityDate(activity.activityDate)}</span>
+                    </div>
+                    <div class="activity-article">
+                        <a href="~/Post/${activity.articleID}" class="activity-article-link">
+                            ${activity.imageURL ? `
+                                <div class="activity-article-image">
+                                    <img src="${activity.imageURL}" alt="${activity.title}" loading="lazy">
+                                </div>
+                            ` : ''}
+                            <div class="activity-article-info">
+                                <h4 class="activity-article-title">${activity.title}</h4>
+                                <div class="activity-article-meta">
+                                    <span class="activity-category">${activity.category}</span>
+                                    <span class="activity-author">by ${activity.username}</span>
+                                    ${activity.sourceName ? `<span class="activity-source">${activity.sourceName}</span>` : ''}
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function formatActivityDate(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffInHours = (now - date) / (1000 * 60 * 60);
+        
+        if (diffInHours < 1) {
+            return 'Just now';
+        } else if (diffInHours < 24) {
+            return `${Math.floor(diffInHours)} hour${Math.floor(diffInHours) !== 1 ? 's' : ''} ago`;
+        } else if (diffInHours < 24 * 7) {
+            const days = Math.floor(diffInHours / 24);
+            return `${days} day${days !== 1 ? 's' : ''} ago`;
+        } else {
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         }
     }
 
@@ -1023,6 +1132,206 @@ else
     margin: 0;
     color: #666;
     font-size: 0.9rem;
+}
+
+/* Recent Activity Styles */
+.recent-activity-section {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e9ecef;
+}
+
+.recent-activity-section h3 {
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.activity-description {
+    color: #666;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+}
+
+.recent-activity-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.loading-placeholder {
+    text-align: center;
+    padding: 2rem;
+    color: #666;
+}
+
+.loading-placeholder i {
+    margin-right: 0.5rem;
+}
+
+.activity-item {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #28a745;
+    transition: all 0.3s ease;
+}
+
+.activity-item:hover {
+    background: #f1f3f4;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.activity-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #28a745;
+    color: white;
+    border-radius: 50%;
+    font-size: 1rem;
+}
+
+.activity-item .activity-icon .fa-heart {
+    color: #dc3545;
+    background: rgba(220, 53, 69, 0.1);
+}
+
+.activity-item .activity-icon .fa-comment {
+    color: #007bff;
+    background: rgba(0, 123, 255, 0.1);
+}
+
+.activity-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.activity-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.activity-action {
+    font-weight: 500;
+    color: #333;
+    font-size: 0.9rem;
+}
+
+.activity-date {
+    color: #666;
+    font-size: 0.8rem;
+}
+
+.activity-article {
+    background: white;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #e9ecef;
+}
+
+.activity-article-link {
+    display: flex;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s ease;
+}
+
+.activity-article-link:hover {
+    background: #f8f9fa;
+    color: inherit;
+    text-decoration: none;
+}
+
+.activity-article-image {
+    flex-shrink: 0;
+    width: 80px;
+    height: 60px;
+    overflow: hidden;
+}
+
+.activity-article-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.activity-article-info {
+    flex: 1;
+    padding: 0.75rem;
+    min-width: 0;
+}
+
+.activity-article-title {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #333;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.activity-article-meta {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.activity-category {
+    background: #007bff;
+    color: white;
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+.activity-author, .activity-source {
+    color: #666;
+}
+
+.no-activity-message {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #666;
+}
+
+.no-activity-message i {
+    font-size: 3rem;
+    color: #dee2e6;
+    margin-bottom: 1rem;
+}
+
+.no-activity-message h4 {
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.error-state {
+    text-align: center;
+    padding: 2rem;
+    color: #dc3545;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 8px;
+}
+
+.error-state i {
+    font-size: 2rem;
+    margin-bottom: 1rem;
 }
 
 @@media (max-width: 768px) {

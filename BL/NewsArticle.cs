@@ -39,4 +39,16 @@
         public UserActivity? Activity { get; set; }
         public List<NewsArticle>? RecentPosts { get; set; }
     }
+
+    public class UserActivityItem
+    {
+        public string ActivityType { get; set; } = string.Empty; // "liked", "commented", "shared", etc.
+        public int ArticleID { get; set; }
+        public DateTime ActivityDate { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public string? ImageURL { get; set; }
+        public string SourceName { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+    }
 }
