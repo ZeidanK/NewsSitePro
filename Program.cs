@@ -22,6 +22,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddScoped<DBservices>();
 
 // Register Business Layer Services
+builder.Services.AddScoped<NewsSite.BL.Services.NotificationService>();
 builder.Services.AddScoped<NewsSite.BL.Services.IUserService, NewsSite.BL.Services.UserService>();
 builder.Services.AddScoped<NewsSite.BL.Services.INewsService, NewsSite.BL.Services.NewsService>();
 builder.Services.AddScoped<NewsSite.BL.Services.ICommentService, NewsSite.BL.Services.CommentService>();

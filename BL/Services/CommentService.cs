@@ -1,18 +1,22 @@
 using NewsSite.BL;
+using NewsSite.BL.Services;
 
 namespace NewsSite.BL.Services
 {
     /// <summary>
     /// Comment Service - Business Logic Layer
     /// Implements comment-related business operations and validation
+    /// Integrates with NotificationService for comment-related notifications
     /// </summary>
     public class CommentService : ICommentService
     {
         private readonly DBservices _dbService;
+        private readonly NotificationService _notificationService;
 
-        public CommentService(DBservices dbService)
+        public CommentService(DBservices dbService, NotificationService notificationService)
         {
             _dbService = dbService;
+            _notificationService = notificationService;
         }
 
         public async Task<List<Comment>> GetCommentsByPostIdAsync(int postId)
@@ -25,6 +29,11 @@ namespace NewsSite.BL.Services
             return await _dbService.GetCommentsByPostId(postId);
         }
 
+        /// <summary>
+        /// Creates a new comment and sends notification to post owner
+        /// </summary>
+        /// <param name="comment">Comment to create</param>
+        /// <returns>True if comment was created successfully</returns>
         public async Task<bool> CreateCommentAsync(Comment comment)
         {
             // Business logic validation
@@ -64,7 +73,42 @@ namespace NewsSite.BL.Services
                 }
             }
 
-            return await _dbService.CreateComment(comment);
+            // Create the comment and get the new comment ID
+            int commentId = await _dbService.CreateComment(comment);
+            
+            if (commentId > 0)
+            {
+                try
+                {
+                    // Get article details to find the article author
+                    var article = await _dbService.GetNewsArticleById(comment.PostID);
+                    if (article != null)
+                    {
+                        // Get commenter details
+                        var commenter = _dbService.GetUserById(comment.UserID);
+                        if (commenter != null)
+                        {
+                            // Create notification for article author
+                            await _notificationService.CreateCommentNotificationAsync(
+                                comment.PostID,
+                                commentId,
+                                comment.UserID,
+                                article.UserID,
+                                commenter.Name ?? "Unknown User"
+                            );
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log the notification error but don't fail the comment creation
+                    Console.WriteLine($"Failed to create comment notification: {ex.Message}");
+                }
+                
+                return true;
+            }
+
+            return false;
         }
 
         public async Task<bool> UpdateCommentAsync(int commentId, int userId, string content)
@@ -159,7 +203,41 @@ namespace NewsSite.BL.Services
                 throw new ArgumentException("Comment not found");
             }
 
-            return await Task.FromResult("liked"); // Implement like toggle logic in DBservices
+            var result = await _dbService.ToggleCommentLike(commentId, userId);
+            
+            // Create like notification if comment was liked (not unliked)
+            if (result == "liked")
+            {
+                try
+                {
+                    // Get liker details
+                    var liker = _dbService.GetUserById(userId);
+                    if (liker != null)
+                    {
+                        // Create notification for comment author (using a custom notification for comment likes)
+                        var request = new CreateNotificationRequest
+                        {
+                            UserID = comment.UserID,
+                            Type = "CommentLike",
+                            Title = "Comment Liked",
+                            Message = $"{liker.Name ?? "Unknown User"} liked your comment",
+                            RelatedEntityType = "Comment",
+                            RelatedEntityID = commentId,
+                            FromUserID = userId,
+                            ActionUrl = $"/Posts/Details/{comment.PostID}#comment-{commentId}"
+                        };
+
+                        await _notificationService.CreateCustomNotificationAsync(request);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log the notification error but don't fail the like action
+                    Console.WriteLine($"Failed to create comment like notification: {ex.Message}");
+                }
+            }
+            
+            return result;
         }
     }
 }

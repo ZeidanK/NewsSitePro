@@ -207,10 +207,10 @@ public class DBservices
     // Get user by id, username, or email
     public User GetUser(string? email = null, int? id = null, string? name = null)
     {
-        SqlConnection con = null;
-        SqlCommand cmd = null;
-        SqlDataReader reader = null;
-        User user = null;
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+        User? user = null;
 
         try
         {
@@ -262,8 +262,8 @@ public class DBservices
     // Create user
     public bool CreateUser(User user)
     {
-        SqlConnection con = null;
-        SqlCommand cmd = null;
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
         try
         {
             con = connect("myProjDB");
@@ -293,8 +293,8 @@ public class DBservices
     // Update user (basic info)
     public bool UpdateUser(User user)
     {
-        SqlConnection con = null;
-        SqlCommand cmd = null;
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
         try
         {
             con = connect("myProjDB");
@@ -926,14 +926,16 @@ public class DBservices
     public async Task<List<AdminUserView>> GetAllUsersForAdmin(int page, int pageSize)
     {
         var users = new List<AdminUserView>();
-        
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
         try
         {
             IConfigurationRoot configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json").Build();
             string cStr = configuration.GetConnectionString("myProjDB");
             
-            using (var con = new SqlConnection(cStr))
+            using ( con = new SqlConnection(cStr))
             {
                 await con.OpenAsync();
                 
@@ -958,12 +960,12 @@ public class DBservices
                     ORDER BY u.JoinDate DESC
                     OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
                 
-                using (var cmd = new SqlCommand(query, con))
+                using ( cmd = new SqlCommand(query, con))
                 {
                     cmd.Parameters.AddWithValue("@Offset", offset);
                     cmd.Parameters.AddWithValue("@PageSize", pageSize);
                     
-                    using (var reader = await cmd.ExecuteReaderAsync())
+                    using ( reader = await cmd.ExecuteReaderAsync())
                     {
                         while (await reader.ReadAsync())
                         {
@@ -1014,7 +1016,6 @@ public class DBservices
     public async Task<List<AdminUserView>> GetFilteredUsersForAdmin(int page, int pageSize, string search, string status, string joinDate)
     {
         var users = new List<AdminUserView>();
-        
         try
         {
             using (var con = new SqlConnection(connectionString))
@@ -1664,41 +1665,35 @@ public class DBservices
     public async Task<List<Notification>> GetUserNotifications(int userId, int page, int pageSize)
     {
         var notifications = new List<Notification>();
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
         
         try
         {
-            IConfigurationRoot configuration = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json").Build();
-            string cStr = configuration.GetConnectionString("myProjDB");
-            
-            using (var con = new SqlConnection(cStr))
+            using (con = connect("myProjDB"))
             {
                 await con.OpenAsync();
                 
-                var offset = (page - 1) * pageSize;
-                var query = @"
-                    SELECT n.ID, n.UserID, n.Type, n.Title, n.Message, n.RelatedEntityType, 
-                           n.RelatedEntityID, n.IsRead, n.CreatedAt, n.FromUserID, n.ActionUrl,
-                           u.Username AS FromUserName
-                    FROM NewsSitePro2025_Notifications n
-                    LEFT JOIN NewsSitePro2025_Users u ON n.FromUserID = u.UserID
-                    WHERE n.UserID = @UserID
-                    ORDER BY n.CreatedAt DESC
-                    OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
-                
-                using (var cmd = new SqlCommand(query, con))
+                var paramDic = new Dictionary<string, object>
                 {
-                    cmd.Parameters.AddWithValue("@UserID", userId);
-                    cmd.Parameters.AddWithValue("@Offset", offset);
-                    cmd.Parameters.AddWithValue("@PageSize", pageSize);
+                    { "@UserID", userId },
+                    { "@PageNumber", page },
+                    { "@PageSize", pageSize }
+                };
+                
+                try
+                {
+                    // Try to use stored procedure first
+                    cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Notifications_GetUserNotifications", con, paramDic);
                     
-                    using (var reader = await cmd.ExecuteReaderAsync())
+                    using (reader = await cmd.ExecuteReaderAsync())
                     {
                         while (await reader.ReadAsync())
                         {
                             notifications.Add(new Notification
                             {
-                                ID = reader.GetInt32("ID"),
+                                ID = reader.GetInt32("NotificationID"),
                                 UserID = reader.GetInt32("UserID"),
                                 Type = reader.GetString("Type"),
                                 Title = reader.GetString("Title"),
@@ -1711,6 +1706,51 @@ public class DBservices
                                 FromUserName = reader.IsDBNull("FromUserName") ? null : reader.GetString("FromUserName"),
                                 ActionUrl = reader.IsDBNull("ActionUrl") ? null : reader.GetString("ActionUrl")
                             });
+                        }
+                    }
+                }
+                catch
+                {
+                    // Fallback to direct SQL query
+                    notifications.Clear();
+                    
+                    var offset = (page - 1) * pageSize;
+                    var query = @"
+                        SELECT n.NotificationID as ID, n.UserID, n.Type, n.Title, n.Message, n.RelatedEntityType, 
+                               n.RelatedEntityID, n.IsRead, n.CreatedAt, n.FromUserID, n.ActionUrl,
+                               u.Username AS FromUserName
+                        FROM NewsSitePro2025_Notifications n
+                        LEFT JOIN NewsSitePro2025_Users u ON n.FromUserID = u.UserID
+                        WHERE n.UserID = @UserID
+                        ORDER BY n.CreatedAt DESC
+                        OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
+                    
+                    using (cmd = new SqlCommand(query, con))
+                    {
+                        cmd.Parameters.AddWithValue("@UserID", userId);
+                        cmd.Parameters.AddWithValue("@Offset", offset);
+                        cmd.Parameters.AddWithValue("@PageSize", pageSize);
+                        
+                        using (reader = await cmd.ExecuteReaderAsync())
+                        {
+                            while (await reader.ReadAsync())
+                            {
+                                notifications.Add(new Notification
+                                {
+                                    ID = reader.GetInt32("ID"),
+                                    UserID = reader.GetInt32("UserID"),
+                                    Type = reader.GetString("Type"),
+                                    Title = reader.GetString("Title"),
+                                    Message = reader.GetString("Message"),
+                                    RelatedEntityType = reader.IsDBNull("RelatedEntityType") ? null : reader.GetString("RelatedEntityType"),
+                                    RelatedEntityID = reader.IsDBNull("RelatedEntityID") ? null : reader.GetInt32("RelatedEntityID"),
+                                    IsRead = reader.GetBoolean("IsRead"),
+                                    CreatedAt = reader.GetDateTime("CreatedAt"),
+                                    FromUserID = reader.IsDBNull("FromUserID") ? null : reader.GetInt32("FromUserID"),
+                                    FromUserName = reader.IsDBNull("FromUserName") ? null : reader.GetString("FromUserName"),
+                                    ActionUrl = reader.IsDBNull("ActionUrl") ? null : reader.GetString("ActionUrl")
+                                });
+                            }
                         }
                     }
                 }
@@ -1780,21 +1820,37 @@ public class DBservices
 
     public async Task<int> GetUnreadNotificationCount(int userId)
     {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+        
         try
         {
-            IConfigurationRoot configuration = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json").Build();
-            string cStr = configuration.GetConnectionString("myProjDB");
-            
-            using (var con = new SqlConnection(cStr))
+            using (con = connect("myProjDB"))
             {
                 await con.OpenAsync();
-
-                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_Notifications WHERE UserID = @UserID AND IsRead = 0", con))
+                
+                var paramDic = new Dictionary<string, object>
                 {
-                    cmd.Parameters.AddWithValue("@UserID", userId);
+                    { "@UserID", userId }
+                };
+                
+                try
+                {
+                    // Try to use stored procedure first
+                    cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Notifications_GetUnreadCount", con, paramDic);
                     var result = await cmd.ExecuteScalarAsync();
-                    return result != null ? (int)result : 0;
+                    return result != null ? Convert.ToInt32(result) : 0;
+                }
+                catch
+                {
+                    // Fallback to direct SQL query
+                    using (cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_Notifications WHERE UserID = @UserID AND IsRead = 0", con))
+                    {
+                        cmd.Parameters.AddWithValue("@UserID", userId);
+                        var result = await cmd.ExecuteScalarAsync();
+                        return result != null ? (int)result : 0;
+                    }
                 }
             }
         }
@@ -1804,37 +1860,50 @@ public class DBservices
         }
     }
 
-    public async Task<bool> CreateNotification(CreateNotificationRequest request)
+    /// <summary>
+    /// Creates a new notification using the stored procedure
+    /// </summary>
+    /// <param name="request">Notification creation request</param>
+    /// <returns>The ID of the created notification, or -1 if failed</returns>
+    public async Task<int> CreateNotification(CreateNotificationRequest request)
     {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+        
         try
         {
-            IConfigurationRoot configuration = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json").Build();
-            string cStr = configuration.GetConnectionString("myProjDB");
-            
-            using (var con = new SqlConnection(cStr))
+            try
             {
-                await con.OpenAsync();
                 
-                var query = @"
-                    INSERT INTO NewsSitePro2025_Notifications (UserID, Type, Title, Message, RelatedEntityType, RelatedEntityID, FromUserID, ActionUrl, CreatedAt)
-                    VALUES (@UserID, @Type, @Title, @Message, @RelatedEntityType, @RelatedEntityID, @FromUserID, @ActionUrl, GETDATE())";
-                
-                using (var cmd = new SqlCommand(query, con))
-                {
-                    cmd.Parameters.AddWithValue("@UserID", request.UserID);
-                    cmd.Parameters.AddWithValue("@Type", request.Type);
-                    cmd.Parameters.AddWithValue("@Title", request.Title);
-                    cmd.Parameters.AddWithValue("@Message", request.Message);
-                    cmd.Parameters.AddWithValue("@RelatedEntityType", (object?)request.RelatedEntityType ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue("@RelatedEntityID", (object?)request.RelatedEntityID ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue("@FromUserID", (object?)request.FromUserID ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue("@ActionUrl", (object?)request.ActionUrl ?? DBNull.Value);
-                    
-                    var rowsAffected = await cmd.ExecuteNonQueryAsync();
-                    return rowsAffected > 0;
-                }
+                con = connect("myProjDB");
+            }catch (Exception ex)
+            {
+                throw new Exception("Error connecting to database: " + ex.Message);
             }
+
+            try
+            {
+
+
+                var paramDic = new Dictionary<string, object>
+                {
+                    { "@UserID", request.UserID },
+                    { "@Type", request.Type },
+                    { "@Title", request.Title },
+                    { "@Message", request.Message },
+                    { "@RelatedEntityType", (object?)request.RelatedEntityType ?? DBNull.Value },
+                    { "@RelatedEntityID", (object?)request.RelatedEntityID ?? DBNull.Value },
+                    { "@FromUserID", (object?)request.FromUserID ?? DBNull.Value },
+                    { "@ActionUrl", (object?)request.ActionUrl ?? DBNull.Value }
+                };
+
+                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Notifications_Insert", con, paramDic);
+
+                var result = await cmd.ExecuteScalarAsync();
+                return result != null ? Convert.ToInt32(result) : -1;
+            }
+            catch { throw; }
         }
         catch (Exception ex)
         {
@@ -1842,28 +1911,47 @@ public class DBservices
         }
     }
 
+    /// <summary>
+    /// Marks a specific notification as read using stored procedure
+    /// </summary>
+    /// <param name="notificationId">ID of the notification to mark as read</param>
+    /// <param name="userId">ID of the user (for security)</param>
+    /// <returns>True if successful, false otherwise</returns>
     public async Task<bool> MarkNotificationAsRead(int notificationId, int userId)
     {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+        
         try
         {
-            IConfigurationRoot configuration = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json").Build();
-            string cStr = configuration.GetConnectionString("myProjDB");
-            
-            using (var con = new SqlConnection(cStr))
+            using (con = connect("myProjDB"))
             {
                 await con.OpenAsync();
-
-                var query = "UPDATE NewsSitePro2025_Notifications SET IsRead = 1 WHERE ID = @ID AND UserID = @UserID";
-
-                using (var cmd = new SqlCommand(query, con))
+                
+                var paramDic = new Dictionary<string, object>
                 {
-                    cmd.Parameters.AddWithValue("@ID", notificationId);
-                    cmd.Parameters.AddWithValue("@UserID", userId);
+                    { "@NotificationID", notificationId }
+                };
+                
+                // First verify the notification belongs to the user for security
+                var verifyQuery = "SELECT COUNT(*) FROM NewsSitePro2025_Notifications WHERE NotificationID = @NotificationID AND UserID = @UserID";
+                using (var verifyCmd = new SqlCommand(verifyQuery, con))
+                {
+                    verifyCmd.Parameters.AddWithValue("@NotificationID", notificationId);
+                    verifyCmd.Parameters.AddWithValue("@UserID", userId);
                     
-                    var rowsAffected = await cmd.ExecuteNonQueryAsync();
-                    return rowsAffected > 0;
+                    var count = (int?)await verifyCmd.ExecuteScalarAsync();
+                    if (count == null || count == 0)
+                    {
+                        return false; // Notification doesn't belong to user
+                    }
                 }
+                
+                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Notifications_MarkAsRead", con, paramDic);
+                
+                var rowsAffected = await cmd.ExecuteNonQueryAsync();
+                return rowsAffected > 0;
             }
         }
         catch (Exception ex)
@@ -1874,30 +1962,54 @@ public class DBservices
 
     public async Task<bool> MarkAllNotificationsAsRead(int userId)
     {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+        
         try
         {
-            IConfigurationRoot configuration = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json").Build();
-            string cStr = configuration.GetConnectionString("myProjDB");
-            
-            using (var con = new SqlConnection(cStr))
+            using (con = connect("myProjDB"))
             {
                 await con.OpenAsync();
-
-                var query = "UPDATE NewsSitePro2025_Notifications SET IsRead = 1 WHERE UserID = @UserID AND IsRead = 0";
-
-                using (var cmd = new SqlCommand(query, con))
+                
+                var paramDic = new Dictionary<string, object>
                 {
-                    cmd.Parameters.AddWithValue("@UserID", userId);
-                    
-                    var rowsAffected = await cmd.ExecuteNonQueryAsync();
-                    return rowsAffected > 0;
-                }
+                    { "@UserID", userId }
+                };
+                
+                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Notifications_MarkAllAsRead", con, paramDic);
+                var rowsAffected = await cmd.ExecuteNonQueryAsync();
+                return rowsAffected > 0;
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw new Exception("Error marking all notifications as read: " + ex.Message);
+            // Fallback to direct SQL if stored procedure doesn't exist
+            try
+            {
+                IConfigurationRoot configuration = new ConfigurationBuilder()
+                    .AddJsonFile("appsettings.json").Build();
+                string cStr = configuration.GetConnectionString("myProjDB");
+                
+                using (var fallbackCon = new SqlConnection(cStr))
+                {
+                    await fallbackCon.OpenAsync();
+
+                    var query = "UPDATE NewsSitePro2025_Notifications SET IsRead = 1 WHERE UserID = @UserID AND IsRead = 0";
+
+                    using (var fallbackCmd = new SqlCommand(query, fallbackCon))
+                    {
+                        fallbackCmd.Parameters.AddWithValue("@UserID", userId);
+                        
+                        var rowsAffected = await fallbackCmd.ExecuteNonQueryAsync();
+                        return rowsAffected > 0;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error marking all notifications as read: " + ex.Message);
+            }
         }
     }
 
@@ -2125,36 +2237,44 @@ public class DBservices
         }
     }
 
-    public async Task<bool> CreateComment(NewsSite.BL.Comment comment)
+    /// <summary>
+    /// Creates a new comment and returns the comment ID
+    /// </summary>
+    /// <param name="comment">Comment to create</param>
+    /// <returns>The ID of the created comment, or -1 if failed</returns>
+    public async Task<int> CreateComment(NewsSite.BL.Comment comment)
     {
-        SqlConnection con = null;
-        SqlCommand cmd = null;
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
         
         try
         {
             con = connect("myProjDB");
+            await con.OpenAsync();
+            
+            // Map PostID to ArticleID for the stored procedure
             var paramDic = new Dictionary<string, object>
             {
-                { "@PostID", comment.PostID },
+                { "@ArticleID", comment.PostID },
                 { "@UserID", comment.UserID },
-                { "@Content", comment.Content },
-                { "@ParentCommentID", comment.ParentCommentID ?? (object)DBNull.Value }
+                { "@Content", comment.Content }
             };
             
             try
             {
                 cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Comments_Insert", con, paramDic);
-                int result = await cmd.ExecuteNonQueryAsync();
-                return result > 0;
+                var result = await cmd.ExecuteScalarAsync();
+                return result != null ? Convert.ToInt32(result) : -1;
             }
             catch
             {
-                // If stored procedure doesn't exist, use direct SQL query
+                // If stored procedure doesn't exist, use direct SQL query with SCOPE_IDENTITY()
                 cmd?.Dispose();
                 
                 string sql = @"
                     INSERT INTO NewsSitePro2025_Comments (PostID, UserID, Content, ParentCommentID, CreatedAt)
-                    VALUES (@PostID, @UserID, @Content, @ParentCommentID, GETDATE())";
+                    VALUES (@PostID, @UserID, @Content, @ParentCommentID, GETDATE());
+                    SELECT SCOPE_IDENTITY();";
                 
                 cmd = new SqlCommand(sql, con);
                 cmd.Parameters.AddWithValue("@PostID", comment.PostID);
@@ -2162,8 +2282,8 @@ public class DBservices
                 cmd.Parameters.AddWithValue("@Content", comment.Content);
                 cmd.Parameters.AddWithValue("@ParentCommentID", comment.ParentCommentID ?? (object)DBNull.Value);
                 
-                int result = await cmd.ExecuteNonQueryAsync();
-                return result > 0;
+                var result = await cmd.ExecuteScalarAsync();
+                return result != null ? Convert.ToInt32(result) : -1;
             }
         }
         catch (Exception)
@@ -2249,6 +2369,78 @@ public class DBservices
             cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Comments_GetCount", con, paramDic);
             object result = await cmd.ExecuteScalarAsync();
             return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
+
+    /// <summary>
+    /// Toggles like on a comment
+    /// </summary>
+    /// <param name="commentId">ID of the comment to like/unlike</param>
+    /// <param name="userId">ID of the user performing the action</param>
+    /// <returns>String indicating the action performed ("liked" or "unliked")</returns>
+    public async Task<string> ToggleCommentLike(int commentId, int userId)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@CommentID", commentId },
+                { "@UserID", userId }
+            };
+
+            try
+            {
+                // Try to use stored procedure first
+                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Comments_ToggleLike", con, paramDic);
+                var result = await cmd.ExecuteScalarAsync();
+                return result?.ToString() ?? "error";
+            }
+            catch
+            {
+                // Fallback to direct SQL query
+                cmd?.Dispose();
+                
+                // Check if like exists
+                var checkQuery = "SELECT COUNT(*) FROM NewsSitePro2025_CommentLikes WHERE CommentID = @CommentID AND UserID = @UserID";
+                cmd = new SqlCommand(checkQuery, con);
+                cmd.Parameters.AddWithValue("@CommentID", commentId);
+                cmd.Parameters.AddWithValue("@UserID", userId);
+                
+                var exists = Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
+                
+                if (exists)
+                {
+                    // Remove like
+                    cmd?.Dispose();
+                    cmd = new SqlCommand("DELETE FROM NewsSitePro2025_CommentLikes WHERE CommentID = @CommentID AND UserID = @UserID", con);
+                    cmd.Parameters.AddWithValue("@CommentID", commentId);
+                    cmd.Parameters.AddWithValue("@UserID", userId);
+                    await cmd.ExecuteNonQueryAsync();
+                    return "unliked";
+                }
+                else
+                {
+                    // Add like
+                    cmd?.Dispose();
+                    cmd = new SqlCommand("INSERT INTO NewsSitePro2025_CommentLikes (CommentID, UserID, LikeDate) VALUES (@CommentID, @UserID, GETDATE())", con);
+                    cmd.Parameters.AddWithValue("@CommentID", commentId);
+                    cmd.Parameters.AddWithValue("@UserID", userId);
+                    await cmd.ExecuteNonQueryAsync();
+                    return "liked";
+                }
+            }
         }
         catch (Exception)
         {
@@ -4001,10 +4193,46 @@ public class DBservices
         return true;
     }
 
+    /// <summary>
+    /// Gets the list of user IDs that are followed by the specified user
+    /// </summary>
+    /// <param name="userId">The user ID to get followers for</param>
+    /// <returns>List of user IDs that follow the specified user</returns>
     public async Task<List<int>> GetFollowedUserIdsAsync(int userId)
     {
-        // Return empty list for now - follows not implemented yet
-        return new List<int>();
+        var followerIds = new List<int>();
+        
+        try
+        {
+            using (var con = connect("myProjDB"))
+            {
+                await con.OpenAsync();
+                
+                var query = @"
+                    SELECT FollowerUserID 
+                    FROM NewsSitePro2025_UserFollows 
+                    WHERE FollowedUserID = @UserId";
+                
+                using (var cmd = new SqlCommand(query, con))
+                {
+                    cmd.Parameters.AddWithValue("@UserId", userId);
+                    
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            followerIds.Add(reader.GetInt32("FollowerUserID"));
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // Return empty list if there's an error (table might not exist yet)
+        }
+        
+        return followerIds;
     }
 
     public async Task<List<NewsArticle>> GetFollowingFeedAsync(int userId, int count = 20)

@@ -5,14 +5,17 @@ namespace NewsSite.BL.Services
     /// <summary>
     /// User Service - Business Logic Layer
     /// Implements user-related business operations and validation
+    /// Integrated with NotificationService for user action notifications
     /// </summary>
     public class UserService : IUserService
     {
         private readonly DBservices _dbService;
+        private readonly NotificationService _notificationService;
 
-        public UserService(DBservices dbService)
+        public UserService(DBservices dbService, NotificationService notificationService)
         {
             _dbService = dbService;
+            _notificationService = notificationService;
         }
 
         public async Task<User?> GetUserByIdAsync(int userId)
@@ -160,7 +163,31 @@ namespace NewsSite.BL.Services
                 throw new InvalidOperationException("Cannot follow yourself");
             }
 
-            return await _dbService.ToggleUserFollow(currentUserId, targetUserId);
+            var result = await _dbService.ToggleUserFollow(currentUserId, targetUserId);
+            
+            // Create follow notification if user was followed (not unfollowed)
+            if (result.IsFollowing)
+            {
+                try
+                {
+                    var followerUser = _dbService.GetUserById(currentUserId);
+                    if (followerUser != null)
+                    {
+                        await _notificationService.CreateFollowNotificationAsync(
+                            currentUserId, 
+                            targetUserId, 
+                            followerUser.Name ?? "Unknown User"
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log the notification error but don't fail the follow action
+                    Console.WriteLine($"Failed to create follow notification: {ex.Message}");
+                }
+            }
+            
+            return result;
         }
 
         public async Task<bool> IsUserFollowingAsync(int currentUserId, int targetUserId)

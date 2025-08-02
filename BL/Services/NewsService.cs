@@ -5,14 +5,17 @@ namespace NewsSite.BL.Services
     /// <summary>
     /// News Service - Business Logic Layer
     /// Implements news article-related business operations and validation
+    /// Integrated with NotificationService for like and share notifications
     /// </summary>
     public class NewsService : INewsService
     {
         private readonly DBservices _dbService;
+        private readonly NotificationService _notificationService;
 
-        public NewsService(DBservices dbService)
+        public NewsService(DBservices dbService, NotificationService notificationService)
         {
             _dbService = dbService;
+            _notificationService = notificationService;
         }
 
         public async Task<List<NewsArticle>> GetAllNewsArticlesAsync(int pageNumber = 1, int pageSize = 10, string? category = null, int? currentUserId = null)
@@ -75,7 +78,34 @@ namespace NewsSite.BL.Services
                 throw new ArgumentException("Content cannot exceed 4000 characters");
             }
 
-            return await Task.FromResult(_dbService.CreateNewsArticle(article));
+            var articleId = await Task.FromResult(_dbService.CreateNewsArticle(article));
+            
+            // Create new post notifications for followers
+            if (articleId > 0)
+            {
+                try
+                {
+                    // Get author details
+                    var author = _dbService.GetUserById(article.UserID);
+                    if (author != null)
+                    {
+                        // Create notifications for all followers
+                        await _notificationService.CreateNewPostNotificationsForFollowersAsync(
+                            articleId,
+                            article.UserID,
+                            author.Name ?? "Unknown User",
+                            article.Title
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log the notification error but don't fail the article creation
+                    Console.WriteLine($"Failed to create new post notifications for followers: {ex.Message}");
+                }
+            }
+            
+            return articleId;
         }
 
         public async Task<bool> UpdateNewsArticleAsync(NewsArticle article)
@@ -129,12 +159,67 @@ namespace NewsSite.BL.Services
 
         public async Task<string> ToggleArticleLikeAsync(int articleId, int userId)
         {
+            Console.WriteLine($"[NewsService] ToggleArticleLikeAsync called - ArticleId: {articleId}, UserId: {userId}");
+            
             if (articleId <= 0 || userId <= 0)
             {
                 throw new ArgumentException("Valid Article ID and User ID are required");
             }
 
-            return await Task.FromResult(_dbService.ToggleArticleLike(articleId, userId));
+            var result = await Task.FromResult(_dbService.ToggleArticleLike(articleId, userId));
+            Console.WriteLine($"[NewsService] ToggleArticleLike result: {result}");
+            
+            // Create like notification if article was liked (not unliked)
+            if (result == "liked")
+            {
+                Console.WriteLine($"[NewsService] Article was liked, creating notification...");
+                try
+                {
+                    // Get article details to find the article author
+                    var article = await _dbService.GetNewsArticleById(articleId);
+                    if (article != null)
+                    {
+                        Console.WriteLine($"[NewsService] Article found - AuthorId: {article.UserID}, Title: {article.Title}");
+                        
+                        // Get liker details
+                        var liker = _dbService.GetUserById(userId);
+                        if (liker != null)
+                        {
+                            Console.WriteLine($"[NewsService] Liker found - Name: {liker.Name}");
+                            
+                            // Create notification for article author
+                            var notificationId = await _notificationService.CreateLikeNotificationAsync(
+                                articleId,
+                                userId,
+                                article.UserID,
+                                liker.Name ?? "Unknown User"
+                            );
+                            
+                            Console.WriteLine($"[NewsService] Notification created with ID: {notificationId}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[NewsService] Liker not found for UserId: {userId}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[NewsService] Article not found for ArticleId: {articleId}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log the notification error but don't fail the like action
+                    Console.WriteLine($"[NewsService] Failed to create like notification: {ex.Message}");
+                    Console.WriteLine($"[NewsService] Stack trace: {ex.StackTrace}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"[NewsService] Article was not liked (result: {result}), skipping notification");
+            }
+            
+            return result;
         }
 
         public async Task<string> ToggleSaveArticleAsync(int articleId, int userId)

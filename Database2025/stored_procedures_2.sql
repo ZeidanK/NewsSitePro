@@ -106,6 +106,99 @@ AS
 BEGIN
     SET NOCOUNT ON;
     UPDATE NewsSitePro2025_Notifications SET IsRead = 1 WHERE NotificationID = @NotificationID;
+    SELECT @@ROWCOUNT AS RowsAffected;
+END
+GO
+
+CREATE PROCEDURE NewsSitePro2025_sp_Notifications_GetUserNotifications
+    @UserID INT,
+    @PageNumber INT = 1,
+    @PageSize INT = 20
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @Offset INT = (@PageNumber - 1) * @PageSize;
+    
+    SELECT 
+        n.NotificationID,
+        n.UserID,
+        n.Type,
+        n.Title,
+        n.Message,
+        n.RelatedEntityType,
+        n.RelatedEntityID,
+        n.IsRead,
+        n.CreatedAt,
+        n.FromUserID,
+        n.ActionUrl,
+        u.Username AS FromUserName
+    FROM NewsSitePro2025_Notifications n
+    LEFT JOIN NewsSitePro2025_Users u ON n.FromUserID = u.UserID
+    WHERE n.UserID = @UserID
+    ORDER BY n.CreatedAt DESC
+    OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
+END
+GO
+
+CREATE PROCEDURE NewsSitePro2025_sp_Notifications_GetUnreadCount
+    @UserID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT COUNT(*) AS UnreadCount
+    FROM NewsSitePro2025_Notifications
+    WHERE UserID = @UserID AND IsRead = 0;
+END
+GO
+
+CREATE PROCEDURE NewsSitePro2025_sp_Notifications_MarkAllAsRead
+    @UserID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE NewsSitePro2025_Notifications 
+    SET IsRead = 1 
+    WHERE UserID = @UserID AND IsRead = 0;
+    SELECT @@ROWCOUNT AS RowsAffected;
+END
+GO
+
+CREATE PROCEDURE NewsSitePro2025_sp_Notifications_GetSummary
+    @UserID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Get total unread count
+    SELECT COUNT(*) AS TotalUnread
+    FROM NewsSitePro2025_Notifications
+    WHERE UserID = @UserID AND IsRead = 0;
+    
+    -- Get unread count by type
+    SELECT Type, COUNT(*) AS Count
+    FROM NewsSitePro2025_Notifications
+    WHERE UserID = @UserID AND IsRead = 0
+    GROUP BY Type;
+    
+    -- Get recent notifications (top 5)
+    SELECT TOP 5
+        n.NotificationID,
+        n.UserID,
+        n.Type,
+        n.Title,
+        n.Message,
+        n.RelatedEntityType,
+        n.RelatedEntityID,
+        n.IsRead,
+        n.CreatedAt,
+        n.FromUserID,
+        n.ActionUrl,
+        u.Username AS FromUserName
+    FROM NewsSitePro2025_Notifications n
+    LEFT JOIN NewsSitePro2025_Users u ON n.FromUserID = u.UserID
+    WHERE n.UserID = @UserID
+    ORDER BY n.CreatedAt DESC;
 END
 GO
 

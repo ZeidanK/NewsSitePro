@@ -113,7 +113,7 @@ namespace NewsSite.Pages
             {
                 var jwtToken = Request.Cookies["jwtToken"];
                 User? currentUser = null;
-                
+
                 // Get current user from JWT token (same pattern as OnGet)
                 if (!string.IsNullOrEmpty(jwtToken))
                 {
@@ -140,13 +140,13 @@ namespace NewsSite.Pages
                     CreatedAt = DateTime.Now
                 };
 
-                var success = await _dbService.CreateComment(comment);
-                
-                if (success)
+                var commentId = await _dbService.CreateComment(comment);
+
+                if (commentId > 0)
                 {
                     return new JsonResult(new { success = true, message = "Comment added successfully" });
                 }
-                else 
+                else
                 {
                     return BadRequest(new { success = false, message = "Failed to add comment" });
                 }

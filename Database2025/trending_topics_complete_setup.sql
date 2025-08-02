@@ -93,7 +93,7 @@ BEGIN
             FROM NewsSitePro2025_NewsArticles na
             LEFT JOIN NewsSitePro2025_ArticleLikes al ON na.ArticleID = al.ArticleID 
                 AND al.LikeDate >= DATEADD(hour, -@TimeWindowHours, GETDATE())
-            LEFT JOIN NewsSitePro2025_Comments c ON na.ArticleID = c.PostID 
+            LEFT JOIN NewsSitePro2025_Comments c ON na.ArticleID = c.ArticleID 
                 AND c.CreatedAt >= DATEADD(hour, -@TimeWindowHours, GETDATE())
             LEFT JOIN NewsSitePro2025_ArticleViews av ON na.ArticleID = av.ArticleID 
                 AND av.ViewDate >= DATEADD(hour, -@TimeWindowHours, GETDATE())
@@ -259,9 +259,9 @@ BEGIN
     ) likes ON na.ArticleID = likes.ArticleID
     
     LEFT JOIN (
-        SELECT PostID as ArticleID, COUNT(*) as CommentsCount
+        SELECT ArticleID, COUNT(*) as CommentsCount
         FROM NewsSitePro2025_Comments
-        GROUP BY PostID
+        GROUP BY ArticleID
     ) comments ON na.ArticleID = comments.ArticleID
     
     LEFT JOIN (
