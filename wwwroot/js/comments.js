@@ -25,7 +25,9 @@ class CommentsManager {
         const token = getCookie('jwtToken');
         if (token) {
             try {
-                const response = await fetch('/api/Auth/validate', {
+                // Use centralized API URL generation to avoid relative path issues
+                const apiUrl = window.ApiConfig.getApiUrl('api/Auth/validate');
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`

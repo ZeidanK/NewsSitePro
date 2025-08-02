@@ -3,7 +3,8 @@
 // Toggle like on a post
 async function toggleLike(postId) {
     try {
-        const response = await fetch(`/api/posts/Like/${postId}`, {
+        const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl(`api/posts/Like/${postId}`) : `/api/posts/Like/${postId}`;
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

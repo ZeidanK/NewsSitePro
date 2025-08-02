@@ -1,7 +1,6 @@
-// Helper function for API URL generation
+// Helper function for API URL generation - use centralized config
 function getApiUrl(endpoint) {
-    const APP_BASE_URL = window.location.pathname.split('/').slice(0, -1).join('/') || '';
-    return `${APP_BASE_URL}/${endpoint}`.replace(/\/+/g, '/').replace(/\/$/, '');
+    return window.ApiConfig ? window.ApiConfig.getApiUrl(endpoint) : `/${endpoint}`;
 }
 
 // AI-powered content recommendation engine with machine learning

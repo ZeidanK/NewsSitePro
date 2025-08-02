@@ -285,7 +285,8 @@ class SearchManager {
             btn.textContent = 'Following...';
             
             // TODO: Implement actual follow API call
-            const response = await fetch(`/api/User/Follow`, {
+            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl('api/User/Follow') : '/api/User/Follow';
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

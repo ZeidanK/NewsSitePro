@@ -1,7 +1,30 @@
-// Helper function for API URL generation
+// API Configuration
+window.ApiConfig = {
+    getBaseUrl: function() {
+        const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+        const port = isLocalhost ? ":7128" : "";
+        const address = isLocalhost ? "https://localhost" : "https://proj.ruppin.ac.il/cgroup4/test2/tar1";
+        
+        return `${address}${port}`;
+    },
+    
+    getApiUrl: function(endpoint) {
+        const baseUrl = this.getBaseUrl();
+        console.log(`DEBUG - Raw baseUrl: ${baseUrl}`);
+        console.log(`DEBUG - Raw endpoint: ${endpoint}`);
+        // Ensure endpoint starts with slash for absolute path
+        const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+        console.log(`DEBUG - Clean endpoint: ${cleanEndpoint}`);
+        // Return complete absolute URL
+        const finalUrl = `${baseUrl}${cleanEndpoint}`;
+        console.log(`DEBUG - Final constructed URL: ${finalUrl}`);
+        return finalUrl;
+    }
+};
+
+// Helper function for API URL generation (backward compatibility)
 function getApiUrl(endpoint) {
-    const APP_BASE_URL = window.location.pathname.split('/').slice(0, -1).join('/') || '';
-    return `${APP_BASE_URL}/${endpoint}`.replace(/\/+/g, '/').replace(/\/$/, '');
+    return window.ApiConfig.getApiUrl(endpoint);
 }
 
 // Authentication and notification management service
@@ -28,8 +51,16 @@ class AuthService {
                 return;
             }
 
-            // Validate token with server
-            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl('api/Auth/validate') : getApiUrl('api/Auth/validate');
+            // Validate token with server - now correctly generates /api/Auth/validate
+            const endpoint = 'api/Auth/validate';
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            console.log(`Base URL: ${window.ApiConfig.getBaseUrl()}`);
+            console.log(`API URL: ${window.ApiConfig.getApiUrl(endpoint)}`);
+            console.log(`window.location.origin: ${window.location.origin}`);
+            console.log(`window.location.pathname: ${window.location.pathname}`);
+            console.log(`Endpoint parameter: ${endpoint}`);
+            console.log(`Final API URL: ${apiUrl}`);
+            console.log(`Checking auth status with token: ${token}`);
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
@@ -94,7 +125,8 @@ class AuthService {
         if (!this.isAuthenticated) return;
 
         try {
-            const response = await fetch('/Notifications?handler=UnreadCount', {
+            const apiUrl = window.ApiConfig.getApiUrl('Notifications?handler=UnreadCount');
+            const response = await fetch(apiUrl, {
                 headers: {
                     'Authorization': `Bearer ${this.getToken()}`
                 }
@@ -327,7 +359,8 @@ class AuthService {
         try {
             content.innerHTML = '<div class="loading">Loading notifications...</div>';
             
-            const response = await fetch('/Notifications?handler=RecentNotifications', {
+            const apiUrl = window.ApiConfig.getApiUrl('Notifications?handler=RecentNotifications');
+            const response = await fetch(apiUrl, {
                 headers: {
                     'Authorization': `Bearer ${this.getToken()}`
                 }
@@ -358,7 +391,8 @@ class AuthService {
 
     async markNotificationRead(notificationId) {
         try {
-            const response = await fetch('/Notifications?handler=MarkAsRead', {
+            const apiUrl = window.ApiConfig.getApiUrl('Notifications?handler=MarkAsRead');
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -384,7 +418,8 @@ class AuthService {
 
     async markAllNotificationsRead() {
         try {
-            const response = await fetch('/Notifications?handler=MarkAllAsRead', {
+            const apiUrl = window.ApiConfig.getApiUrl('Notifications?handler=MarkAllAsRead');
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

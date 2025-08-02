@@ -2,7 +2,8 @@
 window.PostCardInteractions = {
     async toggleLike(postId, button) {
         try {
-            const response = await fetch(`/api/posts/Like/${postId}`, {
+            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl(`api/posts/Like/${postId}`) : `/api/posts/Like/${postId}`;
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -36,7 +37,8 @@ window.PostCardInteractions = {
 
     async toggleSave(postId, button) {
         try {
-            const response = await fetch(`/api/posts/Save/${postId}`, {
+            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl(`api/posts/Save/${postId}`) : `/api/posts/Save/${postId}`;
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -87,7 +89,8 @@ window.PostCardInteractions = {
                 return;
             }
 
-            const response = await fetch(`/api/posts/Report/${postId}`, {
+            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl(`api/posts/Report/${postId}`) : `/api/posts/Report/${postId}`;
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -115,7 +118,8 @@ window.PostCardInteractions = {
                 return;
             }
 
-            const response = await fetch(`/api/User/Block/${userId}`, {
+            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl(`api/User/Block/${userId}`) : `/api/User/Block/${userId}`;
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -150,7 +154,8 @@ window.PostCardInteractions = {
 
         // Fallback implementation if follow manager isn't available
         try {
-            const response = await fetch(`/api/User/Follow/${userId}`, {
+            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl(`api/User/Follow/${userId}`) : `/api/User/Follow/${userId}`;
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
