@@ -17,7 +17,7 @@ BEGIN
         SELECT 
             'liked' as ActivityType,
             na.ArticleID,
-            al.LikeDate as ActivityDate,
+            al.CreatedAt as ActivityDate,
             na.Title,
             na.Category,
             na.ImageURL,
@@ -43,7 +43,7 @@ BEGIN
         FROM NewsSitePro2025_Comments c
         INNER JOIN NewsSitePro2025_NewsArticles na ON c.PostID = na.ArticleID
         INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
-        WHERE c.UserID = @UserID AND (c.IsDeleted = 0 OR c.IsDeleted IS NULL)
+        WHERE c.UserID = @UserID AND c.IsDeleted = 0
         GROUP BY na.ArticleID, na.Title, na.Category, na.ImageURL, na.SourceName, u.Username
     ) as Activities
     ORDER BY ActivityDate DESC
@@ -69,7 +69,7 @@ BEGIN
            COALESCE(vc.ViewsCount, 0) as ViewsCount,
            CASE WHEN al.UserID IS NOT NULL THEN 1 ELSE 0 END as IsLiked,
            1 as IsSaved, -- Always 1 since these are saved articles
-           sa.SaveDate
+           sa.SavedAt
     FROM NewsSitePro2025_SavedArticles sa
     INNER JOIN NewsSitePro2025_NewsArticles na ON sa.ArticleID = na.ArticleID
     INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
@@ -87,7 +87,7 @@ BEGIN
     WHERE sa.UserID = @UserID
       AND (@SearchTerm IS NULL OR na.Title LIKE '%' + @SearchTerm + '%' OR na.Content LIKE '%' + @SearchTerm + '%')
       AND (@Category IS NULL OR na.Category = @Category)
-    ORDER BY sa.SaveDate DESC
+    ORDER BY sa.SavedAt DESC
     OFFSET (@PageNumber - 1) * @PageSize ROWS
     FETCH NEXT @PageSize ROWS ONLY;
 END
@@ -131,7 +131,7 @@ BEGIN
            COALESCE(vc.ViewsCount, 0) as ViewsCount,
            CASE WHEN al.UserID IS NOT NULL THEN 1 ELSE 0 END as IsLiked,
            1 as IsSaved,
-           sa.SaveDate
+           sa.SavedAt
     FROM NewsSitePro2025_SavedArticles sa
     INNER JOIN NewsSitePro2025_NewsArticles na ON sa.ArticleID = na.ArticleID
     INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
@@ -151,7 +151,7 @@ BEGIN
     
     -- Dynamic sorting
     IF @SortBy = 'SavedAt'
-        SET @sql = @sql + 'sa.SaveDate';
+        SET @sql = @sql + 'sa.SavedAt';
     ELSE IF @SortBy = 'PublishDate'
         SET @sql = @sql + 'na.PublishDate';
     ELSE IF @SortBy = 'Title'
@@ -159,7 +159,7 @@ BEGIN
     ELSE IF @SortBy = 'Category'
         SET @sql = @sql + 'na.Category';
     ELSE
-        SET @sql = @sql + 'sa.SaveDate';
+        SET @sql = @sql + 'sa.SavedAt';
     
     SET @sql = @sql + ' ' + @SortOrder + '
     OFFSET (@PageNumber - 1) * @PageSize ROWS

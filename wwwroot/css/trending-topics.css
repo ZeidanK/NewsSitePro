@@ -1,0 +1,226 @@
+/* ===================================
+   Trending Topics Styles
+   =================================== */
+
+.trending-section {
+    margin-bottom: 2rem;
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid #e9ecef;
+}
+
+.trending-section .section-header {
+    margin-bottom: 1rem;
+    color: #2c3e50;
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.trending-last-updated {
+    font-size: 0.75rem;
+    color: #6c757d;
+    font-weight: normal;
+}
+
+.trending-list {
+    margin-bottom: 1rem;
+}
+
+.trending-item {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.trending-item:hover {
+    background: #f1f3f4;
+    border-color: #007bff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+}
+
+.trending-item:last-child {
+    margin-bottom: 0;
+}
+
+.trending-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.trending-rank {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    font-size: 0.7rem;
+    color: #6c757d;
+    font-weight: bold;
+}
+
+.trending-category {
+    font-size: 0.75rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+.trending-topic {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.trending-topic::before {
+    content: "#";
+    color: #007bff;
+    margin-right: 0.2rem;
+}
+
+.trending-count {
+    font-size: 0.8rem;
+    color: #28a745;
+    font-weight: 500;
+}
+
+.trending-score {
+    font-size: 0.7rem;
+    color: #ffc107;
+    font-weight: bold;
+    position: absolute;
+    bottom: 0.5rem;
+    right: 0.5rem;
+}
+
+.trending-score::before {
+    content: "⭐ ";
+}
+
+/* Loading State */
+.trending-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    color: #6c757d;
+    gap: 0.5rem;
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Category-specific colors */
+.trending-item[data-category="Technology"] .trending-category {
+    color: #007bff;
+}
+
+.trending-item[data-category="Sports"] .trending-category {
+    color: #28a745;
+}
+
+.trending-item[data-category="Politics"] .trending-category {
+    color: #dc3545;
+}
+
+.trending-item[data-category="Entertainment"] .trending-category {
+    color: #ffc107;
+}
+
+.trending-item[data-category="Health"] .trending-category {
+    color: #20c997;
+}
+
+.trending-item[data-category="Environment"] .trending-category {
+    color: #198754;
+}
+
+/* Show more link */
+.show-more-link {
+    display: inline-block;
+    color: #007bff;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 0.5rem 0;
+    transition: color 0.3s ease;
+}
+
+.show-more-link:hover {
+    color: #0056b3;
+    text-decoration: underline;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .trending-section {
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .trending-item {
+        padding: 0.5rem;
+    }
+    
+    .trending-info {
+        gap: 0.2rem;
+    }
+    
+    .trending-rank,
+    .trending-score {
+        position: static;
+        display: inline-block;
+        margin-left: auto;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .trending-section {
+        background: #2c3e50;
+        border-color: #495057;
+    }
+    
+    .trending-item {
+        background: #343a40;
+        border-color: #495057;
+        color: #f8f9fa;
+    }
+    
+    .trending-item:hover {
+        background: #495057;
+        border-color: #007bff;
+    }
+    
+    .trending-topic,
+    .section-header {
+        color: #f8f9fa;
+    }
+    
+    .trending-category,
+    .trending-last-updated,
+    .trending-rank {
+        color: #adb5bd;
+    }
+}

@@ -3079,7 +3079,14 @@ public class DBservices
         }
     }
 
-    public async Task<List<TrendingTopic>> GetTrendingTopicsAsync(int count = 10)
+    /// <summary>
+    /// Gets trending topics using the enhanced calculation stored procedure
+    /// </summary>
+    /// <param name="count">Number of trending topics to return</param>
+    /// <param name="category">Optional category filter</param>
+    /// <param name="minScore">Minimum trend score threshold</param>
+    /// <returns>List of trending topics</returns>
+    public async Task<List<TrendingTopic>> GetTrendingTopicsAsync(int count = 10, string? category = null, double minScore = 0.0)
     {
         var topics = new List<TrendingTopic>();
         SqlConnection? con = null;
@@ -3087,50 +3094,45 @@ public class DBservices
         try
         {
             con = connect("myProjDB");
-            var sql = @"
-                SELECT TOP (@Count) 
-                    Category,
-                    COUNT(*) as TotalInteractions,
-                    SUM(CASE WHEN InteractionType = 'view' THEN 1 ELSE 0 END) as Views,
-                    SUM(CASE WHEN InteractionType = 'like' THEN 1 ELSE 0 END) as Likes,
-                    SUM(CASE WHEN InteractionType = 'share' THEN 1 ELSE 0 END) as Shares
-                FROM NewsSitePro2025_ArticleInteractions ai
-                INNER JOIN NewsArticles na ON ai.ArticleID = na.ArticleID
-                WHERE ai.Timestamp >= DATEADD(day, -7, GETDATE())
-                GROUP BY Category
-                ORDER BY TotalInteractions DESC";
+            
+            // Use the new stored procedure for better trending calculation
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@Count", count },
+                { "@MinScore", minScore }
+            };
+            
+            if (!string.IsNullOrEmpty(category))
+            {
+                paramDic.Add("@Category", category);
+            }
 
-            var cmd = new SqlCommand(sql, con);
-            cmd.Parameters.AddWithValue("@Count", count);
+            var cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_TrendingTopics_Get", con, paramDic);
             var reader = await cmd.ExecuteReaderAsync();
 
             while (await reader.ReadAsync())
             {
-                var totalInteractions = reader.GetInt32("TotalInteractions");
-                var views = reader.GetInt32("Views");
-                var likes = reader.GetInt32("Likes");
-                var shares = reader.GetInt32("Shares");
-
-                // Calculate trend score (weighted by interaction type)
-                var trendScore = (views * 1.0) + (likes * 3.0) + (shares * 5.0);
-
                 topics.Add(new TrendingTopic
                 {
-                    Topic = reader.GetString("Category"),
-                    TrendScore = trendScore,
-                    TotalInteractions = totalInteractions,
-                    LastUpdated = DateTime.Now
+                    TrendID = reader.GetInt32("TrendID"),
+                    Topic = reader.GetString("Topic"),
+                    Category = reader.GetString("Category"),
+                    TrendScore = reader.GetDouble("TrendScore"),
+                    TotalInteractions = reader.GetInt32("TotalInteractions"),
+                    LastUpdated = reader.GetDateTime("LastUpdated"),
+                    RelatedKeywords = reader.IsDBNull("RelatedKeywords") ? null : reader.GetString("RelatedKeywords"),
+                    GeographicRegions = reader.IsDBNull("GeographicRegions") ? null : reader.GetString("GeographicRegions")
                 });
             }
         }
         catch (Exception)
         {
-            // If tables don't exist, return sample trending topics
+            // If stored procedure doesn't exist, return sample trending topics for development
             topics.AddRange(new[]
             {
-                new TrendingTopic { Topic = "Technology", TrendScore = 85.5, TotalInteractions = 150, LastUpdated = DateTime.Now },
-                new TrendingTopic { Topic = "Sports", TrendScore = 78.2, TotalInteractions = 120, LastUpdated = DateTime.Now },
-                new TrendingTopic { Topic = "Politics", TrendScore = 72.8, TotalInteractions = 98, LastUpdated = DateTime.Now }
+                new TrendingTopic { TrendID = 1, Topic = "AI Technology", Category = "Technology", TrendScore = 85.5, TotalInteractions = 150, LastUpdated = DateTime.Now },
+                new TrendingTopic { TrendID = 2, Topic = "World Cup 2025", Category = "Sports", TrendScore = 78.2, TotalInteractions = 120, LastUpdated = DateTime.Now },
+                new TrendingTopic { TrendID = 3, Topic = "Election Updates", Category = "Politics", TrendScore = 72.8, TotalInteractions = 98, LastUpdated = DateTime.Now }
             });
         }
         finally
@@ -3139,6 +3141,201 @@ public class DBservices
         }
 
         return topics;
+    }
+
+    /// <summary>
+    /// Calculates and updates trending topics based on current engagement metrics
+    /// </summary>
+    /// <param name="timeWindowHours">Time window in hours for trending calculation</param>
+    /// <param name="maxTopics">Maximum number of trending topics to maintain</param>
+    /// <returns>Success status and message</returns>
+    public async Task<(bool Success, string Message)> CalculateTrendingTopicsAsync(int timeWindowHours = 24, int maxTopics = 20)
+    {
+        SqlConnection? con = null;
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@TimeWindowHours", timeWindowHours },
+                { "@MaxTopics", maxTopics }
+            };
+
+            var cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_TrendingTopics_Calculate", con, paramDic);
+            var reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                var status = reader.GetString("Status");
+                var message = reader.GetString("Message");
+                return (status == "SUCCESS", message);
+            }
+
+            return (false, "No response from calculation procedure");
+        }
+        catch (Exception ex)
+        {
+            return (false, $"Error calculating trending topics: {ex.Message}");
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
+
+    /// <summary>
+    /// Gets trending topics grouped by categories
+    /// </summary>
+    /// <param name="topicsPerCategory">Number of topics per category</param>
+    /// <returns>List of trending topics grouped by category</returns>
+    public async Task<List<TrendingTopic>> GetTrendingTopicsByCategoryAsync(int topicsPerCategory = 3)
+    {
+        var topics = new List<TrendingTopic>();
+        SqlConnection? con = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@TopicsPerCategory", topicsPerCategory }
+            };
+
+            var cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_TrendingTopics_GetByCategory", con, paramDic);
+            var reader = await cmd.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                topics.Add(new TrendingTopic
+                {
+                    TrendID = reader.GetInt32("TrendID"),
+                    Topic = reader.GetString("Topic"),
+                    Category = reader.GetString("Category"),
+                    TrendScore = reader.GetDouble("TrendScore"),
+                    TotalInteractions = reader.GetInt32("TotalInteractions"),
+                    LastUpdated = reader.GetDateTime("LastUpdated")
+                });
+            }
+        }
+        catch (Exception)
+        {
+            // Return fallback data if procedure doesn't exist
+            topics.AddRange(new[]
+            {
+                new TrendingTopic { TrendID = 1, Topic = "AI Innovation", Category = "Technology", TrendScore = 85.5, TotalInteractions = 150, LastUpdated = DateTime.Now },
+                new TrendingTopic { TrendID = 2, Topic = "Climate Change", Category = "Environment", TrendScore = 78.2, TotalInteractions = 120, LastUpdated = DateTime.Now },
+                new TrendingTopic { TrendID = 3, Topic = "Election 2024", Category = "Politics", TrendScore = 72.8, TotalInteractions = 98, LastUpdated = DateTime.Now }
+            });
+        }
+        finally
+        {
+            con?.Close();
+        }
+
+        return topics;
+    }
+
+    /// <summary>
+    /// Gets articles related to a specific trending topic
+    /// </summary>
+    /// <param name="topic">The trending topic</param>
+    /// <param name="category">Category of the topic</param>
+    /// <param name="count">Number of articles to return</param>
+    /// <param name="currentUserId">Current user ID for context</param>
+    /// <returns>List of related articles</returns>
+    public async Task<List<NewsArticle>> GetTrendingTopicRelatedArticlesAsync(string topic, string category, int count = 10, int? currentUserId = null)
+    {
+        var articles = new List<NewsArticle>();
+        SqlConnection? con = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@Topic", topic },
+                { "@Category", category },
+                { "@Count", count }
+            };
+
+            if (currentUserId.HasValue)
+            {
+                paramDic.Add("@CurrentUserID", currentUserId.Value);
+            }
+
+            var cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_TrendingTopics_GetRelatedArticles", con, paramDic);
+            var reader = await cmd.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                articles.Add(new NewsArticle
+                {
+                    ArticleID = reader.GetInt32("ArticleID"),
+                    Title = reader.GetString("Title"),
+                    Content = reader.GetString("Content"),
+                    ImageURL = reader.IsDBNull("ImageURL") ? null : reader.GetString("ImageURL"),
+                    SourceURL = reader.IsDBNull("SourceURL") ? null : reader.GetString("SourceURL"),
+                    SourceName = reader.IsDBNull("SourceName") ? null : reader.GetString("SourceName"),
+                    PublishDate = reader.GetDateTime("PublishDate"),
+                    Category = reader.GetString("Category"),
+                    UserID = reader.GetInt32("UserID"),
+                    Username = reader.GetString("Username"),
+                    UserProfilePicture = reader.IsDBNull("UserProfilePicture") ? null : reader.GetString("UserProfilePicture"),
+                    LikesCount = reader.GetInt32("LikesCount"),
+                    ViewsCount = reader.GetInt32("ViewsCount"),
+                    IsLiked = reader.GetInt32("IsLiked") == 1,
+                    IsSaved = reader.GetInt32("IsSaved") == 1
+                });
+            }
+        }
+        catch (Exception)
+        {
+            // Return empty list if procedure doesn't exist
+        }
+        finally
+        {
+            con?.Close();
+        }
+
+        return articles;
+    }
+
+    /// <summary>
+    /// Cleans up old trending topics
+    /// </summary>
+    /// <param name="maxAgeHours">Maximum age in hours for trending topics</param>
+    /// <returns>Number of deleted topics and message</returns>
+    public async Task<(int DeletedCount, string Message)> CleanupOldTrendingTopicsAsync(int maxAgeHours = 24)
+    {
+        SqlConnection? con = null;
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@MaxAgeHours", maxAgeHours }
+            };
+
+            var cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_TrendingTopics_Cleanup", con, paramDic);
+            var reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                var deletedCount = reader.GetInt32("DeletedCount");
+                var message = reader.GetString("Message");
+                return (deletedCount, message);
+            }
+
+            return (0, "No response from cleanup procedure");
+        }
+        catch (Exception ex)
+        {
+            return (0, $"Error during cleanup: {ex.Message}");
+        }
+        finally
+        {
+            con?.Close();
+        }
     }
 
     public async Task<List<NewsArticle>> GetArticlesByInterestAsync(int userId, string category, int count = 10)

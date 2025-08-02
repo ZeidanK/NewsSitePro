@@ -7,7 +7,7 @@
 @using NewsSite.BL
 @{
     ViewData["Title"] = "News Management - Admin";
-    Layout = "~/Pages/Shared/_Layout.cshtml";
+    Layout = "~/Pages/Shared/_Layout.cshtml"; 
 }
 
 @section Styles {
@@ -112,8 +112,14 @@
                         <button id="rejectAllBtn" class="btn btn-danger btn-sm">
                             <i class="fas fa-times-circle"></i> Reject All Pending
                         </button>
-                        <button id="autoModeBtn" class="btn btn-info btn-sm">
-                            <i class="fas fa-robot"></i> Enable Auto-Publish
+                        <button id="autoModeBtn" class="btn btn-info btn-sm" title="Toggle automatic publishing of approved articles">
+                            <i class="fas fa-robot"></i> <span id="autoPublishText">Enable Auto-Publish</span>
+                        </button>
+                        <button id="backgroundServiceBtn" class="btn btn-warning btn-sm" title="Toggle automatic news fetching every 24 hours">
+                            <i class="fas fa-clock"></i> <span id="backgroundServiceText">Auto Sync: ON</span>
+                        </button>
+                        <button id="triggerSyncBtn" class="btn btn-primary btn-sm" title="Manually fetch news now">
+                            <i class="fas fa-download"></i> Sync News Now
                         </button>
                     </div>
                 </div>

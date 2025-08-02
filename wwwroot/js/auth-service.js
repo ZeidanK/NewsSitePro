@@ -1,3 +1,9 @@
+// Helper function for API URL generation
+function getApiUrl(endpoint) {
+    const APP_BASE_URL = window.location.pathname.split('/').slice(0, -1).join('/') || '';
+    return `${APP_BASE_URL}/${endpoint}`.replace(/\/+/g, '/').replace(/\/$/, '');
+}
+
 // Authentication and notification management service
 class AuthService {
     constructor() {
@@ -23,7 +29,8 @@ class AuthService {
             }
 
             // Validate token with server
-            const response = await fetch('/api/Auth/validate', {
+            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl('api/Auth/validate') : getApiUrl('api/Auth/validate');
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

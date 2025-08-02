@@ -1,3 +1,9 @@
+// Helper function for API URL generation
+function getApiUrl(endpoint) {
+    const APP_BASE_URL = window.location.pathname.split('/').slice(0, -1).join('/') || '';
+    return `${APP_BASE_URL}/${endpoint}`.replace(/\/+/g, '/').replace(/\/$/, '');
+}
+
 // AI-powered content recommendation engine with machine learning
 class AIRecommendationEngine {
     constructor() {
@@ -19,7 +25,8 @@ class AIRecommendationEngine {
 
     async loadUserProfile() {
         try {
-            const response = await fetch('/api/user/profile/insights', {
+            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl('api/user/profile/insights') : getApiUrl('api/user/profile/insights');
+            const response = await fetch(apiUrl, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
                 }
@@ -36,7 +43,8 @@ class AIRecommendationEngine {
 
     async loadReadingHistory() {
         try {
-            const response = await fetch('/api/user/reading-history', {
+            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl('api/user/reading-history') : getApiUrl('api/user/reading-history');
+            const response = await fetch(apiUrl, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
                 }

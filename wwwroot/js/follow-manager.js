@@ -2,6 +2,13 @@
  * Follow Status Manager
  * Handles follow/unfollow functionality and keeps status synchronized across all UI components
  */
+
+// Helper function for API URL generation
+function getApiUrl(endpoint) {
+    const APP_BASE_URL = window.location.pathname.split('/').slice(0, -1).join('/') || '';
+    return `${APP_BASE_URL}/${endpoint}`.replace(/\/+/g, '/').replace(/\/$/, '');
+}
+
 class FollowStatusManager {
     constructor() {
         this.followStatus = new Map(); // userId -> isFollowing

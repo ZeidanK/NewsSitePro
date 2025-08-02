@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NewsSite.BL;
 using NewsSite.BL.Services;
+using NewsSite.Services;
+using Microsoft.Extensions.Caching.Memory;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
@@ -499,6 +501,134 @@ namespace NewsSite.Controllers
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
+
+        // Background Service Control Endpoints
+        [HttpGet("background-service/status")]
+        public async Task<IActionResult> GetBackgroundServiceStatus()
+        {
+            try
+            {
+                if (!await IsCurrentUserAdminAsync())
+                {
+                    return StatusCode(403, new { success = false, message = "Admin access required" });
+                }
+
+                // Get background service status from cache first, then configuration
+                var memoryCache = HttpContext.RequestServices.GetService<IMemoryCache>();
+                var isEnabled = false; // Default to disabled
+
+                if (memoryCache != null && memoryCache.TryGetValue("BackgroundService:NewsSync:Enabled", out var cachedValue))
+                {
+                    isEnabled = (bool)cachedValue;
+                }
+                else
+                {
+                    // Check configuration if no cache value exists
+                    isEnabled = HttpContext.RequestServices.GetService<IConfiguration>()
+                        ?.GetValue<bool>("BackgroundServices:NewsSync:Enabled") ?? false;
+                    
+                    // Store in cache for consistency
+                    if (memoryCache != null)
+                    {
+                        memoryCache.Set("BackgroundService:NewsSync:Enabled", isEnabled, TimeSpan.FromHours(24));
+                    }
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    isEnabled = isEnabled,
+                    lastSyncTime = DateTime.Now.AddHours(-12), // This could be retrieved from database
+                    nextSyncTime = DateTime.Now.AddHours(12),
+                    syncInterval = "24 hours"
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost("background-service/toggle")]
+        public async Task<IActionResult> ToggleBackgroundService([FromBody] ToggleServiceRequest request)
+        {
+            try
+            {
+                if (!await IsCurrentUserAdminAsync())
+                {
+                    return StatusCode(403, new { success = false, message = "Admin access required" });
+                }
+
+                // Store the setting in a cache for the background service to check
+                var memoryCache = HttpContext.RequestServices.GetService<IMemoryCache>();
+                if (memoryCache != null)
+                {
+                    // Store with a long expiration time (24 hours) to persist across requests
+                    memoryCache.Set("BackgroundService:NewsSync:Enabled", request.Enabled, TimeSpan.FromHours(24));
+                }
+
+                // Log the admin action
+                var user = await GetCurrentUserFromJwt();
+                if (user != null)
+                {
+                    await _adminService.LogAdminActionAsync(user.Id, 
+                        $"Background service {(request.Enabled ? "enabled" : "disabled")}", 
+                        $"News sync background service was {(request.Enabled ? "enabled" : "disabled")} by admin");
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"Background service {(request.Enabled ? "enabled" : "disabled")} successfully",
+                    isEnabled = request.Enabled
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost("background-service/trigger-sync")]
+        public async Task<IActionResult> TriggerManualSync()
+        {
+            try
+            {
+                if (!await IsCurrentUserAdminAsync())
+                {
+                    return StatusCode(403, new { success = false, message = "Admin access required" });
+                }
+
+                // Trigger manual sync using the NewsApiService
+                var newsApiService = HttpContext.RequestServices.GetService<INewsApiService>();
+                if (newsApiService == null)
+                {
+                    return StatusCode(500, new { success = false, message = "News API service not available" });
+                }
+
+                var articlesAdded = await newsApiService.SyncNewsArticlesToDatabase();
+
+                // Log the admin action
+                var user = await GetCurrentUserFromJwt();
+                if (user != null)
+                {
+                    await _adminService.LogAdminActionAsync(user.Id, 
+                        "Manual news sync triggered", 
+                        $"Manual news sync completed. Added {articlesAdded} articles");
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"Manual sync completed successfully",
+                    articlesAdded = articlesAdded
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
     }
 
     // Request/Response Models
@@ -533,5 +663,10 @@ namespace NewsSite.Controllers
         public int UserId { get; set; }
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
+    }
+
+    public class ToggleServiceRequest
+    {
+        public bool Enabled { get; set; }
     }
 }

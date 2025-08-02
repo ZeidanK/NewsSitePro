@@ -1,4 +1,5 @@
 using NewsSite.Services;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace NewsSite.BackgroundServices
 {
@@ -25,7 +26,35 @@ namespace NewsSite.BackgroundServices
             {
                 try
                 {
+                    // Check if background service is enabled via cache
                     using var scope = _serviceProvider.CreateScope();
+                    var memoryCache = scope.ServiceProvider.GetService<IMemoryCache>();
+                    var isEnabled = false; // Default to DISABLED for safety
+
+                    if (memoryCache != null && memoryCache.TryGetValue("BackgroundService:NewsSync:Enabled", out var cachedValue))
+                    {
+                        isEnabled = (bool)cachedValue;
+                    }
+                    else
+                    {
+                        // If no cache value exists, check configuration or default to disabled
+                        var configuration = scope.ServiceProvider.GetService<IConfiguration>();
+                        isEnabled = configuration?.GetValue<bool>("BackgroundServices:NewsSync:Enabled") ?? false;
+                        
+                        // Store the initial value in cache
+                        if (memoryCache != null)
+                        {
+                            memoryCache.Set("BackgroundService:NewsSync:Enabled", isEnabled, TimeSpan.FromHours(24));
+                        }
+                    }
+
+                    if (!isEnabled)
+                    {
+                        _logger.LogInformation("Background service is disabled by admin. Skipping news sync.");
+                        await Task.Delay(TimeSpan.FromMinutes(30), stoppingToken); // Check more frequently when disabled
+                        continue;
+                    }
+
                     var newsApiService = scope.ServiceProvider.GetRequiredService<INewsApiService>();
                     
                     _logger.LogInformation("Starting daily news sync to conserve API requests...");
@@ -37,7 +66,7 @@ namespace NewsSite.BackgroundServices
                     _logger.LogError(ex, "Error occurred during background news sync");
                 }
 
-                await Task.Delay(_period, stoppingToken);
+                await Task.Delay(_period, stoppingToken); 
             }
         }
     }

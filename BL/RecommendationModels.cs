@@ -87,19 +87,6 @@ namespace NewsSite.BL
         public DateTime ComputedAt { get; set; } = DateTime.UtcNow;
     }
 
-    // Trending Topics
-    public class TrendingTopic
-    {
-        public int TrendID { get; set; }
-        public string Topic { get; set; } = string.Empty;
-        public string Category { get; set; } = string.Empty;
-        public double TrendScore { get; set; } // Calculated based on engagement
-        public int TotalInteractions { get; set; }
-        public DateTime LastUpdated { get; set; }
-        public string? RelatedKeywords { get; set; } // JSON array
-        public string? GeographicRegions { get; set; } // JSON array of regions where trending
-    }
-
     // User Follow Relationships
     public class UserFollow
     {

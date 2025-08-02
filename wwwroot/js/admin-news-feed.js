@@ -3,6 +3,12 @@
     Extends live news feed functionality with admin-specific features like fetching, approval workflow, and source management
 */
 
+// Helper function for API URL generation
+function getApiUrl(endpoint) {
+    const APP_BASE_URL = window.location.pathname.split('/').slice(0, -1).join('/') || '';
+    return `${APP_BASE_URL}/${endpoint}`.replace(/\/+/g, '/').replace(/\/$/, '');
+}
+
 /**
  * AdminNewsFeed class - Handles admin-specific news management functionality
  * Extends the base LiveNewsFeed with administrative controls and news API integration
@@ -30,6 +36,10 @@ class AdminNewsFeed {
         this.selectedArticles = new Set(); // Track selected articles for bulk operations
         this.sources = []; // Available news sources
         
+        // Service status tracking
+        this.autoPublishEnabled = false;
+        this.backgroundSyncEnabled = true; // Default to enabled
+        
         // DOM element references for performance
         this.elements = {
             container: null,
@@ -50,6 +60,12 @@ class AdminNewsFeed {
             
             // Set up all event listeners for admin interface
             this.setupEventListeners();
+            
+            // Load background service status
+            await this.loadBackgroundServiceStatus();
+            
+            // Initialize auto-publish UI (default to disabled)
+            this.updateAutoPublishUI(false);
             
             // Load initial news data based on default filter
             await this.loadNewsArticles();
@@ -124,6 +140,15 @@ class AdminNewsFeed {
             this.toggleAutoPublishMode();
         });
 
+        // Background service control
+        document.getElementById('backgroundServiceBtn')?.addEventListener('click', () => {
+            this.toggleBackgroundService();
+        });
+
+        document.getElementById('triggerSyncBtn')?.addEventListener('click', () => {
+            this.triggerManualSync();
+        });
+
         // Source management
         document.getElementById('manageSourcesBtn')?.addEventListener('click', () => {
             this.openSourceManagementModal();
@@ -181,6 +206,10 @@ class AdminNewsFeed {
         this.currentFilter = filter;
         this.currentPage = 1;
         this.hasMore = true;
+
+        // Clear selected articles when switching filters
+        this.selectedArticles.clear();
+        this.updateBulkActionButtons();
 
         // Clear current articles and load new ones
         this.elements.container.innerHTML = '';
@@ -254,7 +283,8 @@ class AdminNewsFeed {
         try {
             // Call our NewsController endpoint instead of directly calling external API
             // This provides better error handling and logging
-            const response = await fetch('/api/News/fetch-external', {
+            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl('api/News/fetch-external') : getApiUrl('api/News/fetch-external');
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -858,7 +888,8 @@ class AdminNewsFeed {
      */
     async fetchPublishedArticles() {
         try {
-            const response = await fetch('/api/News/admin/published?page=1&pageSize=20', {
+            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl('api/News/admin/published?page=1&pageSize=20') : getApiUrl('api/News/admin/published?page=1&pageSize=20');
+            const response = await fetch(apiUrl, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${this.getAuthToken()}`,
@@ -928,23 +959,13 @@ class AdminNewsFeed {
      * Toggle auto-publish mode
      */
     toggleAutoPublishMode() {
-        this.autoPublishMode = !this.autoPublishMode;
-        
-        const button = document.querySelector('[onclick*="toggleAutoPublishMode"]');
-        if (button) {
-            button.innerHTML = this.autoPublishMode 
-                ? '<i class="fas fa-pause"></i> Disable Auto-Publish'
-                : '<i class="fas fa-play"></i> Enable Auto-Publish';
-                
-            button.className = this.autoPublishMode
-                ? 'btn btn-warning'
-                : 'btn btn-success';
-        }
+        const newState = !this.autoPublishEnabled;
+        this.updateAutoPublishUI(newState);
         
         this.showMessage(
-            this.autoPublishMode 
-                ? 'Auto-publish mode enabled' 
-                : 'Auto-publish mode disabled', 
+            newState 
+                ? 'Auto-publish mode enabled - approved articles will be published automatically' 
+                : 'Auto-publish mode disabled - you need to manually publish approved articles', 
             'info'
         );
     }
@@ -967,7 +988,7 @@ class AdminNewsFeed {
     }
 
     /**
-     * Update load more button visibility and state
+     * Update load more button visibility and state  
      */
     updateLoadMoreButton(articlesCount) {
         const loadMoreBtn = document.getElementById('loadMoreBtn');
@@ -1033,6 +1054,217 @@ class AdminNewsFeed {
     showStatusMessage(message, type = 'info') {
         this.showMessage(message, type);
     }
+
+    /**
+     * Toggle article selection for bulk operations
+     */
+    toggleArticleSelection(articleId) {
+        try {
+            const checkbox = document.querySelector(`input[value="${articleId}"]`);
+            if (!checkbox) return;
+
+            if (checkbox.checked) {
+                this.selectedArticles.add(articleId);
+            } else {
+                this.selectedArticles.delete(articleId);
+            }
+
+            // Update UI to show selected count
+            this.updateBulkActionButtons();
+        } catch (error) {
+            console.error('Error toggling article selection:', error);
+        }
+    }
+
+    /**
+     * Update bulk action buttons based on selection
+     */
+    updateBulkActionButtons() {
+        const selectedCount = this.selectedArticles.size;
+        const publishAllBtn = document.getElementById('publishAllBtn');
+        const rejectAllBtn = document.getElementById('rejectAllBtn');
+
+        if (publishAllBtn) {
+            publishAllBtn.disabled = selectedCount === 0;
+            publishAllBtn.innerHTML = selectedCount > 0 
+                ? `<i class="fas fa-check-double"></i> Publish Selected (${selectedCount})`
+                : '<i class="fas fa-check-double"></i> Publish All Approved';
+        }
+
+        if (rejectAllBtn) {
+            rejectAllBtn.disabled = selectedCount === 0;
+            rejectAllBtn.innerHTML = selectedCount > 0 
+                ? `<i class="fas fa-times-circle"></i> Reject Selected (${selectedCount})`
+                : '<i class="fas fa-times-circle"></i> Reject All Pending';
+        }
+    }
+
+    /**
+     * Load background service status from server
+     */
+    async loadBackgroundServiceStatus() {
+        try {
+            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl('api/admin/background-service/status') : getApiUrl('api/admin/background-service/status');
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${this.getAuthToken()}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                this.updateBackgroundServiceUI(result.isEnabled);
+            } else {
+                console.error('Failed to load background service status');
+                // Default to disabled if we can't get status
+                this.updateBackgroundServiceUI(false);
+            }
+        } catch (error) {
+            console.error('Error loading background service status:', error);
+            // Default to disabled if there's an error
+            this.updateBackgroundServiceUI(false);
+        }
+    }
+
+    /**
+     * Toggle background service on/off
+     */
+    async toggleBackgroundService() {
+        try {
+            const button = document.getElementById('backgroundServiceBtn');
+            
+            if (!button) return;
+
+            // Determine current state from our tracking variable
+            const newState = !this.backgroundSyncEnabled;
+
+            // Show loading state
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl('api/admin/background-service/toggle') : getApiUrl('api/admin/background-service/toggle');
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.getAuthToken()}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ enabled: newState })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                this.updateBackgroundServiceUI(result.isEnabled);
+                this.showMessage(result.message, 'success');
+            } else {
+                const error = await response.json();
+                this.showMessage(error.message || 'Failed to toggle background service', 'error');
+                // Restore button state
+                this.updateBackgroundServiceUI(this.backgroundSyncEnabled);
+            }
+        } catch (error) {
+            console.error('Error toggling background service:', error);
+            this.showMessage('Error toggling background service: ' + error.message, 'error');
+            // Restore original state
+            this.updateBackgroundServiceUI(this.backgroundSyncEnabled);
+        }
+    }
+
+    /**
+     * Trigger manual news sync
+     */
+    async triggerManualSync() {
+        try {
+            const button = document.getElementById('triggerSyncBtn');
+            
+            if (!button) return;
+
+            // Show loading state
+            const originalContent = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+
+            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl('api/admin/background-service/trigger-sync') : getApiUrl('api/admin/background-service/trigger-sync');
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.getAuthToken()}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                this.showMessage(`${result.message}. Added ${result.articlesAdded} new articles.`, 'success');
+                
+                // Refresh the current view to show new articles
+                if (this.currentFilter === 'published') {
+                    await this.loadNewsArticles();
+                }
+            } else {
+                const error = await response.json();
+                this.showMessage(error.message || 'Failed to trigger manual sync', 'error');
+            }
+        } catch (error) {
+            console.error('Error triggering manual sync:', error);
+            this.showMessage('Error triggering manual sync: ' + error.message, 'error');
+        } finally {
+            // Restore button state
+            const button = document.getElementById('triggerSyncBtn');
+            if (button) {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-download"></i> Sync News Now';
+            }
+        }
+    }
+
+    /**
+     * Update background service UI based on current status
+     */
+    updateBackgroundServiceUI(isEnabled) {
+        const button = document.getElementById('backgroundServiceBtn');
+        const textSpan = document.getElementById('backgroundServiceText');
+        
+        if (!button || !textSpan) return;
+
+        this.backgroundSyncEnabled = isEnabled;
+        button.disabled = false;
+        
+        if (isEnabled) {
+            button.className = 'btn btn-success btn-sm';
+            button.innerHTML = '<i class="fas fa-clock"></i> <span id="backgroundServiceText">Auto Sync: ON</span>';
+            button.title = 'Background sync is enabled - fetching news every 24 hours. Click to disable.';
+        } else {
+            button.className = 'btn btn-danger btn-sm';
+            button.innerHTML = '<i class="fas fa-clock"></i> <span id="backgroundServiceText">Auto Sync: OFF</span>';
+            button.title = 'Background sync is disabled. Click to enable automatic news fetching every 24 hours.';
+        }
+    }
+
+    /**
+     * Update auto-publish UI based on current status
+     */
+    updateAutoPublishUI(isEnabled) {
+        const button = document.getElementById('autoModeBtn');
+        const textSpan = document.getElementById('autoPublishText');
+        
+        if (!button || !textSpan) return;
+
+        this.autoPublishEnabled = isEnabled;
+        button.disabled = false;
+        
+        if (isEnabled) {
+            button.className = 'btn btn-success btn-sm';
+            button.innerHTML = '<i class="fas fa-robot"></i> <span id="autoPublishText">Auto-Publish: ON</span>';
+            button.title = 'Auto-publish is enabled - approved articles will be published automatically. Click to disable.';
+        } else {
+            button.className = 'btn btn-info btn-sm';
+            button.innerHTML = '<i class="fas fa-robot"></i> <span id="autoPublishText">Auto-Publish: OFF</span>';
+            button.title = 'Auto-publish is disabled - you need to manually publish approved articles. Click to enable.';
+        }
+    }
 }
 
 // Global instance for easy access from HTML onclick handlers
@@ -1041,4 +1273,5 @@ window.adminNewsFeed = null;
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     window.adminNewsFeed = new AdminNewsFeed();
+    window.adminNewsFeed.init();
 });

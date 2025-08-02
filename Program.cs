@@ -15,6 +15,9 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddRazorPages();
 builder.Services.AddAuthorization();
 
+// Add Memory Cache for background service control
+builder.Services.AddMemoryCache();
+
 // Register DBservices for dependency injection
 builder.Services.AddScoped<DBservices>();
 
@@ -36,6 +39,9 @@ builder.Services.AddScoped<IRecommendationService, RecommendationService>();
 
 // Register Background Service for automatic news fetching
 builder.Services.AddHostedService<NewsApiBackgroundService>();
+
+// Register Background Service for trending topics calculation
+builder.Services.AddHostedService<TrendingTopicsBackgroundService>();
 
 // Configure authentication
 builder.Services.AddAuthentication(options =>
