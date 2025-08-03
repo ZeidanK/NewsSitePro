@@ -30,7 +30,7 @@ namespace NewsSite.Pages
         public List<ActivityLog> RecentActivity { get; set; } = new List<ActivityLog>();
         public List<UserReport> PendingReports { get; set; } = new List<UserReport>();
 
-        public IActionResult OnGetAsync()
+        public async Task<IActionResult> OnGetAsync()
         {
             Console.WriteLine("=== ADMIN PAGE ACCESSED ===");
 
@@ -66,7 +66,7 @@ namespace NewsSite.Pages
                 // Try to load real dashboard stats
                 try
                 {
-                    var stats = dbService.GetAdminDashboardStats().Result;
+                    var stats = await dbService.GetAdminDashboardStats();
                     TotalUsers = stats.TotalUsers;
                     ActiveUsers = stats.ActiveUsers;
                     BannedUsers = stats.BannedUsers;

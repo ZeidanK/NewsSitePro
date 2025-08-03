@@ -11,10 +11,10 @@ namespace NewsSite.BL
 {
     public class User
     {
-        
+
         private int id;
         private string? name;
-        private string? email; 
+        private string? email;
         private string? passwordHash;
         private bool isAdmin;
         private bool isLocked;
@@ -22,12 +22,12 @@ namespace NewsSite.BL
         private DateTime joinDate;
         private string? profilePicture;
         private readonly object? _config;
-        
+
         public User(IConfiguration config)
         {
             _config = config;
         }
-        
+
         public int Id { get => id; set => id = value; }
         public string? Name { get => name; set => name = value; }
         public string? Email { get => email; set => email = value; }
@@ -59,21 +59,21 @@ namespace NewsSite.BL
 
 
         public bool Register(string name, string email, string password)
-{
-    DBservices dBservices = new DBservices();
-    // Check if user already exists
-    var existing = dBservices.GetUser(email, null, null);
-    if (existing != null) return false;
+        {
+            DBservices dBservices = new DBservices();
+            // Check if user already exists
+            var existing = dBservices.GetUser(email, null, null);
+            if (existing != null) return false;
 
-    this.Name = name;
-    this.Email = email;
-    this.PasswordHash = HashPassword(password);
-    this.IsAdmin = false;
-    this.IsLocked = false;
+            this.Name = name;
+            this.Email = email;
+            this.PasswordHash = HashPassword(password);
+            this.IsAdmin = false;
+            this.IsLocked = false;
 
-    // Save user to DB
-    return dBservices.CreateUser(this);
-}
+            // Save user to DB
+            return dBservices.CreateUser(this);
+        }
 
         public bool UpdateDetails(int id, string name, string password)
         {
@@ -161,7 +161,7 @@ namespace NewsSite.BL
         new Claim(JwtRegisteredClaimNames.Sub, this.Email), // Standard subject claim
         new Claim("id", this.Id.ToString()), // Standard name identifier
         new Claim("name", this.Name),
-        
+
         new Claim("isAdmin", this.IsAdmin.ToString()),
         new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
     };
@@ -177,7 +177,7 @@ namespace NewsSite.BL
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-    
+
 
 
 
@@ -212,12 +212,12 @@ namespace NewsSite.BL
                 {
                     var token = authHeader.Substring("Bearer ".Length).Trim();
                     var handler = new JwtSecurityTokenHandler();
-                    
+
                     if (handler.CanReadToken(token))
                     {
                         var jsonToken = handler.ReadJwtToken(token);
                         var idClaim = jsonToken.Claims.FirstOrDefault(x => x.Type == "id");
-                        
+
                         if (idClaim != null && int.TryParse(idClaim.Value, out int tokenUserId))
                         {
                             return tokenUserId;
@@ -234,7 +234,7 @@ namespace NewsSite.BL
                     {
                         var jsonToken = handler.ReadJwtToken(jwtCookie);
                         var idClaim = jsonToken.Claims.FirstOrDefault(x => x.Type == "id");
-                        
+
                         if (idClaim != null && int.TryParse(idClaim.Value, out int cookieUserId))
                         {
                             return cookieUserId;
@@ -249,23 +249,63 @@ namespace NewsSite.BL
                 return null;
             }
         }
+
+        // public int GetUserFollowersCount(int userId)
+        // {
+        //     DBservices dBservices = new DBservices();
+        //     return dBservices.GetUserFollowersCount(userId);
+        // }
+        // public int GetUserFollowingCount(int userId)
+        // {
+        //     DBservices dBservices = new DBservices();
+        //     return dBservices.GetUserFollowingCount(userId);
+        // }
+
+        // public List<User> GetUserFollowers(int userId)
+        // {
+        //     DBservices dBservices = new DBservices();
+        //     return dBservices.GetUserFollowers(userId);
+        // }
+
+        // public List<User> GetUserFollowing(int userId)
+        // {
+        //     DBservices dBservices = new DBservices();
+        //     return dBservices.GetUserFollowing(userId);
+        // }
+        // public bool FollowUser(int followerId, int followedId)
+        // {
+        //     DBservices dBservices = new DBservices();
+        //     return dBservices.FollowUser(followerId, followedId);
+        // }
+        // public bool UnfollowUser(int followerId, int followedId)
+        // {
+        //     DBservices dBservices = new DBservices();
+        //     return dBservices.UnfollowUser(followerId, followedId);
+        // }
+        // public int GetUserPostsCount(int userId)
+        // {
+        //     DBservices dBservices = new DBservices();
+        //     return dBservices.GetUserPostsCount(userId);
+        // }
+
+    
     }
 
     // Admin-specific user view models
     public class AdminUserView
-    {
-        public int Id { get; set; }
-        public string Username { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-        public string? FullName { get; set; }
-        public string? ProfilePicture { get; set; }
-        public DateTime JoinDate { get; set; }
-        public DateTime? LastActivity { get; set; }
-        public string Status { get; set; } = string.Empty;
-        public int PostCount { get; set; }
-        public int LikesReceived { get; set; }
-        public bool IsAdmin { get; set; }
-    }
+{
+    public int Id { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? FullName { get; set; }
+    public string? ProfilePicture { get; set; }
+    public DateTime JoinDate { get; set; }
+    public DateTime? LastActivity { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public int PostCount { get; set; }
+    public int LikesReceived { get; set; }
+    public bool IsAdmin { get; set; }
+}
 
     public class AdminUserDetails : AdminUserView
     {

@@ -77,9 +77,13 @@ namespace NewsSite.BL
     {
         public const string Like = "Like";
         public const string Comment = "Comment";
+        public const string CommentReply = "CommentReply";
         public const string Follow = "Follow";
         public const string NewPost = "NewPost";
         public const string PostShare = "PostShare";
+        public const string Repost = "Repost";
+        public const string RepostLike = "RepostLike";
+        public const string RepostComment = "RepostComment";
         public const string AdminMessage = "AdminMessage";
         public const string SystemUpdate = "SystemUpdate";
         public const string AccountUpdate = "AccountUpdate";

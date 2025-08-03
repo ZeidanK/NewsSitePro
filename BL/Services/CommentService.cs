@@ -239,5 +239,204 @@ namespace NewsSite.BL.Services
             
             return result;
         }
+
+        /// <summary>
+        /// Creates a comment on a repost and sends notification to repost owner
+        /// </summary>
+        /// <param name="repostComment">Repost comment to create</param>
+        /// <returns>True if comment was created successfully</returns>
+        public async Task<bool> CreateRepostCommentAsync(RepostComment repostComment)
+        {
+            // Business logic validation
+            if (string.IsNullOrWhiteSpace(repostComment.Content))
+            {
+                throw new ArgumentException("Comment content is required");
+            }
+
+            if (repostComment.RepostID <= 0)
+            {
+                throw new ArgumentException("Valid Repost ID is required");
+            }
+
+            if (repostComment.UserID <= 0)
+            {
+                throw new ArgumentException("Valid User ID is required");
+            }
+
+            // Validate content length
+            if (repostComment.Content.Length > 1000)
+            {
+                throw new ArgumentException("Comment cannot exceed 1000 characters");
+            }
+
+            // Validate parent comment if provided
+            if (repostComment.ParentCommentID.HasValue)
+            {
+                var parentComment = await GetRepostCommentByIdAsync(repostComment.ParentCommentID.Value);
+                if (parentComment == null)
+                {
+                    throw new ArgumentException("Parent comment not found");
+                }
+
+                if (parentComment.RepostID != repostComment.RepostID)
+                {
+                    throw new ArgumentException("Parent comment must belong to the same repost");
+                }
+            }
+
+            // Create the comment and get the new comment ID
+            var createRequest = new CreateRepostCommentRequest
+            {
+                RepostID = repostComment.RepostID,
+                UserID = repostComment.UserID,
+                Content = repostComment.Content,
+                ParentCommentID = repostComment.ParentCommentID
+            };
+            
+            int commentId = await _dbService.CreateRepostCommentAsync(createRequest);
+            
+            if (commentId > 0)
+            {
+                try
+                {
+                    // Get repost details to find the repost owner
+                    var repost = await _dbService.GetRepostByIdAsync(repostComment.RepostID);
+                    if (repost != null)
+                    {
+                        // Get commenter details
+                        var commenter = _dbService.GetUserById(repostComment.UserID);
+                        if (commenter != null)
+                        {
+                            // Create notification for repost owner
+                            await _notificationService.CreateRepostCommentNotificationAsync(
+                                repostComment.RepostID,
+                                commentId,
+                                repostComment.UserID,
+                                repost.UserID,
+                                commenter.Name ?? "Unknown User",
+                                repostComment.Content
+                            );
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log the notification error but don't fail the comment creation
+                    Console.WriteLine($"Failed to create repost comment notification: {ex.Message}");
+                }
+                
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Gets comments for a specific repost
+        /// </summary>
+        /// <param name="repostId">ID of the repost</param>
+        /// <returns>List of repost comments</returns>
+        public async Task<List<RepostComment>> GetCommentsByRepostIdAsync(int repostId)
+        {
+            if (repostId <= 0)
+            {
+                throw new ArgumentException("Valid Repost ID is required");
+            }
+
+            return await _dbService.GetCommentsByRepostId(repostId);
+        }
+
+        /// <summary>
+        /// Gets a specific repost comment by ID
+        /// </summary>
+        /// <param name="commentId">ID of the comment</param>
+        /// <returns>RepostComment or null if not found</returns>
+        public async Task<RepostComment> GetRepostCommentByIdAsync(int commentId)
+        {
+            if (commentId <= 0)
+            {
+                throw new ArgumentException("Valid Comment ID is required");
+            }
+
+            return await _dbService.GetRepostCommentById(commentId);
+        }
+
+        /// <summary>
+        /// Updates a repost comment
+        /// </summary>
+        /// <param name="commentId">ID of the comment to update</param>
+        /// <param name="userId">ID of the user making the update</param>
+        /// <param name="content">New content for the comment</param>
+        /// <returns>True if update was successful</returns>
+        public async Task<bool> UpdateRepostCommentAsync(int commentId, int userId, string content)
+        {
+            // Business logic validation
+            if (commentId <= 0)
+            {
+                throw new ArgumentException("Valid Comment ID is required");
+            }
+
+            if (userId <= 0)
+            {
+                throw new ArgumentException("Valid User ID is required");
+            }
+
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                throw new ArgumentException("Comment content is required");
+            }
+
+            if (content.Length > 1000)
+            {
+                throw new ArgumentException("Comment cannot exceed 1000 characters");
+            }
+
+            // Verify user owns the comment
+            var comment = await GetRepostCommentByIdAsync(commentId);
+            if (comment == null)
+            {
+                throw new ArgumentException("Comment not found");
+            }
+
+            if (comment.UserID != userId)
+            {
+                throw new UnauthorizedAccessException("You can only edit your own comments");
+            }
+
+            return await _dbService.UpdateRepostComment(commentId, content);
+        }
+
+        /// <summary>
+        /// Deletes a repost comment (soft delete)
+        /// </summary>
+        /// <param name="commentId">ID of the comment to delete</param>
+        /// <param name="userId">ID of the user requesting deletion</param>
+        /// <returns>True if deletion was successful</returns>
+        public async Task<bool> DeleteRepostCommentAsync(int commentId, int userId)
+        {
+            if (commentId <= 0)
+            {
+                throw new ArgumentException("Valid Comment ID is required");
+            }
+
+            if (userId <= 0)
+            {
+                throw new ArgumentException("Valid User ID is required");
+            }
+
+            // Verify user owns the comment
+            var comment = await GetRepostCommentByIdAsync(commentId);
+            if (comment == null)
+            {
+                throw new ArgumentException("Comment not found");
+            }
+
+            if (comment.UserID != userId)
+            {
+                throw new UnauthorizedAccessException("You can only delete your own comments");
+            }
+
+            return await _dbService.DeleteRepostComment(commentId);
+        }
     }
 }

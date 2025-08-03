@@ -1,4 +1,5 @@
 using NewsSite.BL;
+using NewsSite.BL.Interfaces;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -8,7 +9,7 @@ namespace NewsSite.BL.Services
     /// Service for handling all notification-related operations
     /// This service provides high-level methods for creating notifications for different actions
     /// </summary>
-    public class NotificationService
+    public class NotificationService : INotificationService
     {
         private readonly DBservices _dbService;
 
@@ -196,6 +197,89 @@ namespace NewsSite.BL.Services
         }
 
         /// <summary>
+        /// Creates a notification when a user comments on a post
+        /// </summary>
+        /// <param name="postId">ID of the post that was commented on</param>
+        /// <param name="commentId">ID of the comment that was created</param>
+        /// <param name="commentedByUserId">ID of the user who made the comment</param>
+        /// <param name="postOwnerId">ID of the user who owns the post</param>
+        /// <param name="commentedByUserName">Name of the user who made the comment</param>
+        /// <param name="commentContent">Content of the comment (first 50 chars)</param>
+        /// <returns>ID of created notification or -1 if failed</returns>
+        public async Task<int> CreateCommentNotificationAsync(int postId, int commentId, int commentedByUserId, int postOwnerId, string commentedByUserName, string commentContent)
+        {
+            Console.WriteLine($"[NotificationService] CreateCommentNotificationAsync called - PostId: {postId}, CommentId: {commentId}, CommentedByUserId: {commentedByUserId}, PostOwnerId: {postOwnerId}, CommentedByUserName: {commentedByUserName}");
+            
+            // Don't create notification if user comments on their own post
+            if (commentedByUserId == postOwnerId)
+            {
+                Console.WriteLine($"[NotificationService] Skipping notification - user commented on their own post");
+                return -1;
+            }
+
+            // Truncate comment content for notification
+            var truncatedContent = commentContent?.Length > 50 ? commentContent.Substring(0, 50) + "..." : commentContent;
+
+            var request = new CreateNotificationRequest
+            {
+                UserID = postOwnerId,
+                Type = NotificationTypes.Comment,
+                Title = "New Comment",
+                Message = $"{commentedByUserName} commented on your post: \"{truncatedContent}\"",
+                RelatedEntityType = "Post",
+                RelatedEntityID = postId,
+                FromUserID = commentedByUserId,
+                ActionUrl = $"/Posts/Details/{postId}#comment-{commentId}"
+            };
+
+            var result = await _dbService.CreateNotification(request);
+            Console.WriteLine($"[NotificationService] CreateCommentNotificationAsync result: {result}");
+            return result;
+        }
+
+        /// <summary>
+        /// Creates a notification when a user replies to a comment
+        /// </summary>
+        /// <param name="postId">ID of the post containing the comment</param>
+        /// <param name="commentId">ID of the reply comment</param>
+        /// <param name="parentCommentId">ID of the parent comment being replied to</param>
+        /// <param name="repliedByUserId">ID of the user who made the reply</param>
+        /// <param name="originalCommenterId">ID of the user who made the original comment</param>
+        /// <param name="repliedByUserName">Name of the user who made the reply</param>
+        /// <param name="replyContent">Content of the reply (first 50 chars)</param>
+        /// <returns>ID of created notification or -1 if failed</returns>
+        public async Task<int> CreateCommentReplyNotificationAsync(int postId, int commentId, int parentCommentId, int repliedByUserId, int originalCommenterId, string repliedByUserName, string replyContent)
+        {
+            Console.WriteLine($"[NotificationService] CreateCommentReplyNotificationAsync called - PostId: {postId}, CommentId: {commentId}, ParentCommentId: {parentCommentId}, RepliedByUserId: {repliedByUserId}, OriginalCommenterId: {originalCommenterId}");
+            
+            // Don't create notification if user replies to their own comment
+            if (repliedByUserId == originalCommenterId)
+            {
+                Console.WriteLine($"[NotificationService] Skipping notification - user replied to their own comment");
+                return -1;
+            }
+
+            // Truncate reply content for notification
+            var truncatedContent = replyContent?.Length > 50 ? replyContent.Substring(0, 50) + "..." : replyContent;
+
+            var request = new CreateNotificationRequest
+            {
+                UserID = originalCommenterId,
+                Type = NotificationTypes.CommentReply,
+                Title = "Reply to Comment",
+                Message = $"{repliedByUserName} replied to your comment: \"{truncatedContent}\"",
+                RelatedEntityType = "Comment",
+                RelatedEntityID = parentCommentId,
+                FromUserID = repliedByUserId,
+                ActionUrl = $"/Posts/Details/{postId}#comment-{commentId}"
+            };
+
+            var result = await _dbService.CreateNotification(request);
+            Console.WriteLine($"[NotificationService] CreateCommentReplyNotificationAsync result: {result}");
+            return result;
+        }
+
+        /// <summary>
         /// Creates an admin message notification
         /// </summary>
         /// <param name="userId">ID of the user to notify</param>
@@ -268,9 +352,121 @@ namespace NewsSite.BL.Services
         }
 
         /// <summary>
-        /// Creates bulk notifications for multiple users
+        /// Creates a notification when a user reposts an article
         /// </summary>
-        /// <param name="userIds">List of user IDs to notify</param>
+        /// <param name="repostId">ID of the repost</param>
+        /// <param name="repostedByUserId">ID of the user who reposted</param>
+        /// <param name="originalAuthorId">ID of the original article author</param>
+        /// <param name="repostedByUserName">Name of the user who reposted</param>
+        /// <param name="originalArticleTitle">Title of the original article</param>
+        /// <returns>ID of created notification or -1 if failed</returns>
+        public async Task<int> CreateRepostNotificationAsync(int repostId, int repostedByUserId, int originalAuthorId, string repostedByUserName, string originalArticleTitle)
+        {
+            Console.WriteLine($"[NotificationService] CreateRepostNotificationAsync called - RepostId: {repostId}, RepostedByUserId: {repostedByUserId}, OriginalAuthorId: {originalAuthorId}, RepostedByUserName: {repostedByUserName}");
+            
+            // Don't create notification if user reposts their own article
+            if (repostedByUserId == originalAuthorId)
+            {
+                Console.WriteLine($"[NotificationService] Skipping notification - user reposted their own article");
+                return -1;
+            }
+
+            // Truncate article title for notification
+            var truncatedTitle = originalArticleTitle?.Length > 50 ? originalArticleTitle.Substring(0, 50) + "..." : originalArticleTitle;
+
+            var request = new CreateNotificationRequest
+            {
+                UserID = originalAuthorId,
+                Type = NotificationTypes.Repost,
+                Title = "Article Reposted",
+                Message = $"{repostedByUserName} reposted your article: \"{truncatedTitle}\"",
+                RelatedEntityType = "Repost",
+                RelatedEntityID = repostId,
+                FromUserID = repostedByUserId,
+                ActionUrl = $"/Reposts/Details/{repostId}"
+            };
+
+            var result = await _dbService.CreateNotification(request);
+            Console.WriteLine($"[NotificationService] CreateRepostNotificationAsync result: {result}");
+            return result;
+        }
+
+        /// <summary>
+        /// Creates a notification when a user likes a repost
+        /// </summary>
+        /// <param name="repostId">ID of the repost that was liked</param>
+        /// <param name="likedByUserId">ID of the user who liked the repost</param>
+        /// <param name="repostOwnerId">ID of the user who owns the repost</param>
+        /// <param name="likedByUserName">Name of the user who liked the repost</param>
+        /// <returns>ID of created notification or -1 if failed</returns>
+        public async Task<int> CreateRepostLikeNotificationAsync(int repostId, int likedByUserId, int repostOwnerId, string likedByUserName)
+        {
+            Console.WriteLine($"[NotificationService] CreateRepostLikeNotificationAsync called - RepostId: {repostId}, LikedByUserId: {likedByUserId}, RepostOwnerId: {repostOwnerId}, LikedByUserName: {likedByUserName}");
+            
+            // Don't create notification if user likes their own repost
+            if (likedByUserId == repostOwnerId)
+            {
+                Console.WriteLine($"[NotificationService] Skipping notification - user liked their own repost");
+                return -1;
+            }
+
+            var request = new CreateNotificationRequest
+            {
+                UserID = repostOwnerId,
+                Type = NotificationTypes.RepostLike,
+                Title = "Repost Liked",
+                Message = $"{likedByUserName} liked your repost",
+                RelatedEntityType = "Repost",
+                RelatedEntityID = repostId,
+                FromUserID = likedByUserId,
+                ActionUrl = $"/Reposts/Details/{repostId}"
+            };
+
+            var result = await _dbService.CreateNotification(request);
+            Console.WriteLine($"[NotificationService] CreateRepostLikeNotificationAsync result: {result}");
+            return result;
+        }
+
+        /// <summary>
+        /// Creates a notification when a user comments on a repost
+        /// </summary>
+        /// <param name="repostId">ID of the repost that was commented on</param>
+        /// <param name="commentId">ID of the comment that was created</param>
+        /// <param name="commentedByUserId">ID of the user who made the comment</param>
+        /// <param name="repostOwnerId">ID of the user who owns the repost</param>
+        /// <param name="commentedByUserName">Name of the user who made the comment</param>
+        /// <param name="commentContent">Content of the comment (first 50 chars)</param>
+        /// <returns>ID of created notification or -1 if failed</returns>
+        public async Task<int> CreateRepostCommentNotificationAsync(int repostId, int commentId, int commentedByUserId, int repostOwnerId, string commentedByUserName, string commentContent)
+        {
+            Console.WriteLine($"[NotificationService] CreateRepostCommentNotificationAsync called - RepostId: {repostId}, CommentId: {commentId}, CommentedByUserId: {commentedByUserId}, RepostOwnerId: {repostOwnerId}, CommentedByUserName: {commentedByUserName}");
+            
+            // Don't create notification if user comments on their own repost
+            if (commentedByUserId == repostOwnerId)
+            {
+                Console.WriteLine($"[NotificationService] Skipping notification - user commented on their own repost");
+                return -1;
+            }
+
+            // Truncate comment content for notification
+            var truncatedContent = commentContent?.Length > 50 ? commentContent.Substring(0, 50) + "..." : commentContent;
+
+            var request = new CreateNotificationRequest
+            {
+                UserID = repostOwnerId,
+                Type = NotificationTypes.RepostComment,
+                Title = "New Comment on Repost",
+                Message = $"{commentedByUserName} commented on your repost: \"{truncatedContent}\"",
+                RelatedEntityType = "Repost",
+                RelatedEntityID = repostId,
+                FromUserID = commentedByUserId,
+                ActionUrl = $"/Reposts/Details/{repostId}#comment-{commentId}"
+            };
+
+            var result = await _dbService.CreateNotification(request);
+            Console.WriteLine($"[NotificationService] CreateRepostCommentNotificationAsync result: {result}");
+            return result;
+        }
         /// <param name="type">Type of notification</param>
         /// <param name="title">Title of the notification</param>
         /// <param name="message">Content of the notification</param>
@@ -350,7 +546,7 @@ namespace NewsSite.BL.Services
         /// <returns>Number of unread notifications</returns>
         public async Task<int> GetUnreadNotificationCountAsync(int userId)
         {
-            return await _dbService.GetUnreadNotificationCount(userId);
+            return await Task.FromResult(_dbService.GetUnreadNotificationCount(userId));
         }
 
         /// <summary>

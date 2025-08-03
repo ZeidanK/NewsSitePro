@@ -26,7 +26,7 @@ namespace NewsSite.BL.Services
             if (page < 1) page = 1;
             if (pageSize < 1 || pageSize > 100) pageSize = 20; // Limit page size
 
-            return await _dbService.GetAllUsersForAdmin(page, pageSize);
+            return await Task.FromResult(_dbService.GetAllUsersForAdmin(page, pageSize));
         }
 
         public async Task<List<AdminUserView>> GetFilteredUsersForAdminAsync(int page, int pageSize, string search, string status, string joinDate)
@@ -130,7 +130,7 @@ namespace NewsSite.BL.Services
         {
             if (count < 1 || count > 50) count = 10; // Limit count
 
-            return await _dbService.GetRecentActivityLogs(count);
+            return await Task.FromResult(_dbService.GetRecentActivityLogs(count));
         }
 
         public async Task<List<UserReport>> GetPendingReportsAsync()

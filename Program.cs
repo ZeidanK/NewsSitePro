@@ -27,6 +27,7 @@ builder.Services.AddScoped<NewsSite.BL.Services.IUserService, NewsSite.BL.Servic
 builder.Services.AddScoped<NewsSite.BL.Services.INewsService, NewsSite.BL.Services.NewsService>();
 builder.Services.AddScoped<NewsSite.BL.Services.ICommentService, NewsSite.BL.Services.CommentService>();
 builder.Services.AddScoped<NewsSite.BL.Services.IAdminService, NewsSite.BL.Services.AdminService>();
+builder.Services.AddScoped<NewsSite.BL.Interfaces.IRepostService, NewsSite.BL.Services.RepostService>();
 // PostService removed - using NewsService directly for article operations
 
 // Register HttpClient for News API
@@ -52,16 +53,22 @@ builder.Services.AddAuthentication(options =>
 })
     .AddJwtBearer(options =>
     {
+        var jwtSettings = builder.Configuration.GetSection("Jwt");
+        var key = jwtSettings["Key"];
+        var issuer = jwtSettings["Issuer"];
+        var audience = jwtSettings["Audience"];
+
         options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
         {
             ValidateIssuer = true,
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = "YourIssuer",
-            ValidAudience = "YourAudience",
+            ValidIssuer = issuer,
+            ValidAudience = audience,
             IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
-                System.Text.Encoding.UTF8.GetBytes("YourSecretKey"))
+                System.Text.Encoding.UTF8.GetBytes(key)),
+            ClockSkew = TimeSpan.Zero // Reduce clock skew to zero
         };
 
         options.Events = new JwtBearerEvents
@@ -73,6 +80,11 @@ builder.Services.AddAuthentication(options =>
                 {
                     context.Token = token;
                 }
+                return Task.CompletedTask;
+            },
+            OnAuthenticationFailed = context =>
+            {
+                Console.WriteLine($"JWT Authentication failed: {context.Exception.Message}");
                 return Task.CompletedTask;
             }
         };

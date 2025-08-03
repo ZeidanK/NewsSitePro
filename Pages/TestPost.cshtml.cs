@@ -40,7 +40,7 @@ namespace NewsSite.Pages
                     {
                         var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
                         var jsonToken = handler.ReadJwtToken(jwtToken);
-                        var userIdClaim = jsonToken.Claims.FirstOrDefault(c => c.Type == "userId" || c.Type == "nameid" || c.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+                        var userIdClaim = jsonToken.Claims.FirstOrDefault(c => c.Type == "id" || c.Type == "userId" || c.Type == "nameid" || c.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
                         if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
                         {
                             currentUserId = userId;
@@ -71,7 +71,7 @@ namespace NewsSite.Pages
                 // Method 2: Check User.Identity as fallback (skip session completely)
                 if (!isAuthenticated && User?.Identity?.IsAuthenticated == true)
                 {
-                    var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                    var userIdClaim = User.FindFirst("id")?.Value ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
                     if (!string.IsNullOrEmpty(userIdClaim) && int.TryParse(userIdClaim, out int identityUserId))
                     {
                         currentUserId = identityUserId;

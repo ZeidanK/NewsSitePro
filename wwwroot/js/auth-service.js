@@ -224,20 +224,35 @@ class AuthService {
             
             notificationContainer.appendChild(notificationBtn);
             
-            // Notification dropdown
+            // Enhanced Notification dropdown
             const dropdown = document.createElement('div');
-            dropdown.className = 'notification-dropdown';
+            dropdown.className = 'notification-dropdown enhanced-dropdown';
             dropdown.id = 'notificationDropdown';
             dropdown.innerHTML = `
                 <div class="dropdown-header">
-                    <h6>Notifications</h6>
-                    <button class="mark-all-read-btn" onclick="authService.markAllNotificationsRead()">Mark All Read</button>
+                    <div class="header-content">
+                        <h6><i class="fas fa-bell"></i> Notifications</h6>
+                        <div class="header-actions">
+                            <button class="mark-all-read-btn" onclick="authService.markAllNotificationsRead()" title="Mark All Read">
+                                <i class="fas fa-check-double"></i>
+                            </button>
+                            <a href="/Notifications" class="settings-btn" title="Notification Settings">
+                                <i class="fas fa-cog"></i>
+                            </a>
+                        </div>
+                    </div>
                 </div>
                 <div class="dropdown-content" id="notificationContent">
-                    <div class="loading">Loading notifications...</div>
+                    <div class="loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        Loading notifications...
+                    </div>
                 </div>
                 <div class="dropdown-footer">
-                    <a href="/Notifications" class="view-all-btn">View All Notifications</a>
+                    <a href="/Notifications" class="view-all-btn">
+                        <i class="fas fa-list"></i>
+                        View All Notifications
+                    </a>
                 </div>
             `;
             
@@ -357,35 +372,92 @@ class AuthService {
         if (!content) return;
 
         try {
-            content.innerHTML = '<div class="loading">Loading notifications...</div>';
+            content.innerHTML = `
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    Loading notifications...
+                </div>
+            `;
             
+            console.log('[AuthService] Loading recent notifications...');
             const apiUrl = window.ApiConfig.getApiUrl('Notifications?handler=RecentNotifications');
+            console.log('[AuthService] API URL:', apiUrl);
+            console.log('[AuthService] Token:', this.getToken());
+            
             const response = await fetch(apiUrl, {
                 headers: {
-                    'Authorization': `Bearer ${this.getToken()}`
-                }
+                    'Authorization': `Bearer ${this.getToken()}`,
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include'
             });
-            if (!response.ok) throw new Error('Failed to load notifications');
+            
+            console.log('[AuthService] Response status:', response.status);
+            console.log('[AuthService] Response ok:', response.ok);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[AuthService] API Error:', errorText);
+                throw new Error(`Failed to load notifications: ${response.status} - ${errorText}`);
+            }
             
             const data = await response.json();
+            console.log('[AuthService] Response data:', data);
             
             if (data.success && data.notifications && data.notifications.length > 0) {
+                console.log('[AuthService] Found', data.notifications.length, 'notifications');
                 content.innerHTML = data.notifications.map(notification => `
                     <div class="notification-item ${notification.isRead ? 'read' : 'unread'}" data-id="${notification.id}">
+                        <div class="notification-icon">
+                            ${this.getNotificationIcon(notification.type)}
+                        </div>
                         <div class="notification-content">
                             <div class="notification-title">${notification.title}</div>
                             <div class="notification-message">${notification.message}</div>
-                            <div class="notification-time">${this.formatTime(notification.createdAt)}</div>
+                            <div class="notification-meta">
+                                <span class="notification-time">
+                                    <i class="fas fa-clock"></i>
+                                    ${this.formatTime(notification.createdAt)}
+                                </span>
+                                ${notification.fromUserName ? `<span class="notification-from">by ${notification.fromUserName}</span>` : ''}
+                            </div>
                         </div>
-                        ${!notification.isRead ? `<button class="mark-read-btn-small" onclick="authService.markNotificationRead(${notification.id})">✓</button>` : ''}
+                        <div class="notification-actions">
+                            ${!notification.isRead ? `
+                                <button class="mark-read-btn-small" onclick="authService.markNotificationRead(${notification.id})" title="Mark as Read">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            ` : ''}
+                            ${notification.actionUrl ? `
+                                <a href="${notification.actionUrl}" class="view-btn-small" title="View">
+                                    <i class="fas fa-external-link-alt"></i>
+                                </a>
+                            ` : ''}
+                        </div>
                     </div>
                 `).join('');
             } else {
-                content.innerHTML = '<div class="no-notifications">No recent notifications</div>';
+                console.log('[AuthService] No notifications found or data.success is false');
+                content.innerHTML = `
+                    <div class="no-notifications">
+                        <i class="fas fa-bell-slash"></i>
+                        <p>No recent notifications</p>
+                        <small>When you get notifications, they'll appear here.</small>
+                    </div>
+                `;
             }
         } catch (error) {
-            console.error('Error loading notifications:', error);
-            content.innerHTML = '<div class="error">Failed to load notifications</div>';
+            console.error('[AuthService] Error loading notifications:', error);
+            content.innerHTML = `
+                <div class="error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Failed to load notifications</p>
+                    <small>${error.message}</small>
+                    <button onclick="authService.loadRecentNotifications()" class="retry-btn">
+                        <i class="fas fa-redo"></i> Retry
+                    </button>
+                </div>
+            `;
         }
     }
 
@@ -446,6 +518,24 @@ class AuthService {
         } catch (error) {
             console.error('Logout error:', error);
         }
+    }
+
+    getNotificationIcon(type) {
+        const iconMap = {
+            'Like': '<i class="fas fa-heart text-danger"></i>',
+            'Comment': '<i class="fas fa-comment text-primary"></i>',
+            'Follow': '<i class="fas fa-user-plus text-success"></i>',
+            'NewPost': '<i class="fas fa-newspaper text-info"></i>',
+            'PostShare': '<i class="fas fa-share text-warning"></i>',
+            'Repost': '<i class="fas fa-retweet text-success"></i>',
+            'RepostLike': '<i class="fas fa-heart text-danger"></i>',
+            'RepostComment': '<i class="fas fa-comment text-primary"></i>',
+            'CommentReply': '<i class="fas fa-reply text-info"></i>',
+            'AdminMessage': '<i class="fas fa-shield-alt text-warning"></i>',
+            'SystemUpdate': '<i class="fas fa-cog text-secondary"></i>',
+            'SecurityAlert': '<i class="fas fa-exclamation-triangle text-danger"></i>'
+        };
+        return iconMap[type] || '<i class="fas fa-bell text-secondary"></i>';
     }
 
     bindEvents() {
