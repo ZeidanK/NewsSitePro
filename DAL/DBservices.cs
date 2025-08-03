@@ -3128,14 +3128,35 @@ SqlDataReader? reader = null;
         try
         {
             con = connect("myProjDB");
-            Dictionary<string, object> paramDic = new Dictionary<string, object>
-            {
-                ["@UserID"] = userId,
-                ["@PageNumber"] = pageNumber,
-                ["@PageSize"] = pageSize
-            };
+            
+            // Use direct SQL query instead of stored procedure
+            int offset = (pageNumber - 1) * pageSize;
+            string sql = @"
+                SELECT 
+                    na.ArticleID,
+                    na.Title,
+                    na.Content,
+                    na.ImageURL,
+                    na.SourceURL,
+                    na.SourceName,
+                    na.Category,
+                    na.PublishDate,
+                    na.UserID,
+                    u.Username,
+                    sa.SaveDate
+                FROM NewsSitePro2025_SavedArticles sa
+                INNER JOIN NewsSitePro2025_NewsArticles na ON sa.ArticleID = na.ArticleID
+                INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
+                WHERE sa.UserID = @UserID
+                ORDER BY sa.SaveDate DESC
+                OFFSET @Offset ROWS
+                FETCH NEXT @PageSize ROWS ONLY";
 
-            SqlCommand cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UserSavedArticles_Get", con, paramDic);
+            SqlCommand cmd = new SqlCommand(sql, con);
+            cmd.Parameters.AddWithValue("@UserID", userId);
+            cmd.Parameters.AddWithValue("@PageSize", pageSize);
+            cmd.Parameters.AddWithValue("@Offset", offset);
+            
             SqlDataReader reader = await cmd.ExecuteReaderAsync();
 
             while (reader.Read())
@@ -3152,9 +3173,9 @@ SqlDataReader? reader = null;
                     PublishDate = reader.GetDateTime("PublishDate"),
                     UserID = reader.GetInt32("UserID"),
                     Username = reader["Username"]?.ToString(),
-                    LikesCount = reader.GetInt32("LikesCount"),
-                    ViewsCount = reader.GetInt32("ViewsCount"),
-                    IsLiked = reader.GetInt32("IsLiked") == 1,
+                    LikesCount = 0, // Set default values
+                    ViewsCount = 0,
+                    IsLiked = false,
                     IsSaved = true // Always true for saved articles
                 });
             }
@@ -3172,26 +3193,26 @@ SqlDataReader? reader = null;
                 
                 string sql = @"
                     SELECT na.ArticleID, na.Title, na.Content, na.ImageURL, na.SourceURL, na.SourceName, 
-                           na.Category, na.PublishDate, na.UserID, u.Name as Username,
+                           na.Category, na.PublishDate, na.UserID, u.Username,
                            COALESCE(lc.LikesCount, 0) as LikesCount,
                            COALESCE(vc.ViewsCount, 0) as ViewsCount,
                            CASE WHEN al.UserID IS NOT NULL THEN 1 ELSE 0 END as IsLiked
-                    FROM NewsArticles na
-                    INNER JOIN SavedArticles sa ON na.ArticleID = sa.ArticleID
-                    INNER JOIN Users_News u ON na.UserID = u.ID
+                    FROM NewsSitePro2025_NewsArticles na
+                    INNER JOIN NewsSitePro2025_SavedArticles sa ON na.ArticleID = sa.ArticleID
+                    INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
                     LEFT JOIN (
                         SELECT ArticleID, COUNT(*) as LikesCount
-                        FROM ArticleLikes
+                        FROM NewsSitePro2025_ArticleLikes
                         GROUP BY ArticleID
                     ) lc ON na.ArticleID = lc.ArticleID
                     LEFT JOIN (
                         SELECT ArticleID, COUNT(*) as ViewsCount
-                        FROM ArticleViews
+                        FROM NewsSitePro2025_ArticleViews
                         GROUP BY ArticleID
                     ) vc ON na.ArticleID = vc.ArticleID
-                    LEFT JOIN ArticleLikes al ON na.ArticleID = al.ArticleID AND al.UserID = @UserID
+                    LEFT JOIN NewsSitePro2025_ArticleLikes al ON na.ArticleID = al.ArticleID AND al.UserID = @UserID
                     WHERE sa.UserID = @UserID
-                    ORDER BY sa.CreatedAt DESC
+                    ORDER BY sa.SaveDate DESC
                     OFFSET (@PageNumber - 1) * @PageSize ROWS
                     FETCH NEXT @PageSize ROWS ONLY";
 

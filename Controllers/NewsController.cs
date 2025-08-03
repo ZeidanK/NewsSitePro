@@ -140,51 +140,19 @@ namespace NewsSite.Controllers
                 int? currentUserId = NewsSite.BL.User.GetCurrentUserId(Request, User);
                 
                 // Get current user object for context creation
-                User? currentUser = null;
-                if (currentUserId.HasValue)
-                {
-                    try
-                    {
-                        currentUser = await _userService.GetUserByIdAsync(currentUserId.Value);
-                    }
-                    catch
-                    {
-                        // Continue without user context if user retrieval fails
-                    }
-                }
+                User? currentUser = await GetCurrentUserAsync(currentUserId ?? 0);
 
                 var articles = await _newsService.GetAllNewsArticlesAsync(page, limit, category, currentUserId);
                 
                 // Load follow status for all post authors if user is logged in
                 Dictionary<int, bool> followStatusMap = new Dictionary<int, bool>();
-                if (currentUserId.HasValue && articles.Any())
+                if (currentUserId.HasValue)
                 {
-                    var uniqueUserIds = articles.Select(p => p.UserID).Distinct().Where(uid => uid != currentUserId.Value);
-                    foreach (var userId in uniqueUserIds)
-                    {
-                        try
-                        {
-                            var isFollowing = await _userService.IsUserFollowingAsync(currentUserId.Value, userId);
-                            ViewData["IsFollowing_" + userId] = isFollowing;
-                            followStatusMap[userId] = isFollowing;
-                        }
-                        catch
-                        {
-                            // If follow status check fails, default to false
-                            ViewData["IsFollowing_" + userId] = false;
-                            followStatusMap[userId] = false;
-                        }
-                    }
+                    followStatusMap = await LoadFollowStatusMapAsync(currentUserId.Value, articles);
                 }
                 
                 // Create enhanced view model with context-aware rendering
-                var viewModel = new PostsListViewModel
-                {
-                    Posts = articles,
-                    CurrentUser = currentUser,
-                    FeedType = feed ?? "all",
-                    FollowStatusMap = followStatusMap
-                };
+                var viewModel = CreatePostsListViewModel(articles, currentUser, feed ?? "all", followStatusMap);
                 
                 return View("_PostsList", viewModel);
             }
@@ -193,6 +161,186 @@ namespace NewsSite.Controllers
                 _logger.LogError(ex, "Error rendering posts");
                 return StatusCode(500, "Error rendering posts");
             }
+        }
+
+        // GET: api/News/posts/saved - Returns server-rendered HTML for saved articles using ViewComponents
+        /// <summary>
+        /// Renders saved articles as HTML using ViewComponents with enhanced context awareness
+        /// Only shows articles that the current user has saved
+        /// </summary>
+        [HttpGet("posts/saved")]
+        public async Task<IActionResult> GetSavedPostsRendered(
+            [FromQuery] int page = 1, 
+            [FromQuery] int limit = 10,
+            [FromQuery] string? category = null,
+            [FromQuery] string? search = null)
+        {
+            try
+            {
+                // Get current user ID using the centralized method
+                int? currentUserId = NewsSite.BL.User.GetCurrentUserId(Request, User);
+                
+                if (!currentUserId.HasValue)
+                {
+                    return Unauthorized("User must be logged in to view saved articles");
+                }
+                
+                // Get current user object for context creation
+                User? currentUser = await GetCurrentUserAsync(currentUserId.Value);
+
+                // Use the existing GetSavedArticlesByUserAsync method instead
+                var savedArticles = await _newsService.GetSavedArticlesByUserAsync(currentUserId.Value, page, limit);
+                
+                // Apply filters manually if needed
+                if (!string.IsNullOrEmpty(category) && category != "all")
+                {
+                    savedArticles = savedArticles.Where(a => 
+                        string.Equals(a.Category, category, StringComparison.OrdinalIgnoreCase)
+                    ).ToList();
+                }
+                
+                if (!string.IsNullOrEmpty(search))
+                {
+                    savedArticles = savedArticles.Where(a => 
+                        (a.Title?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                        (a.Content?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
+                    ).ToList();
+                }
+                
+                // Load follow status for all post authors
+                var followStatusMap = await LoadFollowStatusMapAsync(currentUserId.Value, savedArticles);
+                
+                // Create enhanced view model with context-aware rendering
+                var viewModel = CreatePostsListViewModel(savedArticles, currentUser, "saved", followStatusMap);
+                
+                return View("_PostsList", viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error rendering saved posts: {Error}", ex.Message);
+                return StatusCode(500, "Error rendering saved posts");
+            }
+        }
+
+        // GET: api/News/posts/following - Returns server-rendered HTML for posts from followed users
+        /// <summary>
+        /// Renders posts from followed users as HTML using ViewComponents
+        /// Only shows articles from users that the current user follows
+        /// </summary>
+        [HttpGet("posts/following")]
+        public async Task<IActionResult> GetFollowingPostsRendered(
+            [FromQuery] int page = 1, 
+            [FromQuery] int limit = 10,
+            [FromQuery] string? category = null)
+        {
+            try
+            {
+                // Get current user ID using the centralized method
+                int? currentUserId = NewsSite.BL.User.GetCurrentUserId(Request, User);
+                
+                if (!currentUserId.HasValue)
+                {
+                    return Unauthorized("User must be logged in to view following feed");
+                }
+                
+                // Get current user object for context creation
+                User? currentUser = await GetCurrentUserAsync(currentUserId.Value);
+
+                // Get posts from followed users using the Business Logic layer
+                var followingPosts = await _newsService.GetFollowingPostsAsync(currentUserId.Value, page, limit, category);
+                
+                // All these users are followed by definition, so set all follow status to true
+                var followStatusMap = CreateFollowStatusMapForFollowing(followingPosts);
+                
+                // Create enhanced view model with context-aware rendering
+                var viewModel = CreatePostsListViewModel(followingPosts, currentUser, "following", followStatusMap);
+                
+                return View("_PostsList", viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error rendering following posts");
+                return StatusCode(500, "Error rendering following posts");
+            }
+        }
+
+        // REUSABLE HELPER METHODS
+
+        /// <summary>
+        /// Get current user object with error handling
+        /// </summary>
+        private async Task<User?> GetCurrentUserAsync(int userId)
+        {
+            try
+            {
+                return await _userService.GetUserByIdAsync(userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get current user {UserId}", userId);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Load follow status map for all unique user IDs in articles
+        /// </summary>
+        private async Task<Dictionary<int, bool>> LoadFollowStatusMapAsync(int currentUserId, List<NewsArticle> articles)
+        {
+            var followStatusMap = new Dictionary<int, bool>();
+            
+            if (!articles.Any()) return followStatusMap;
+
+            var uniqueUserIds = articles.Select(p => p.UserID).Distinct().Where(uid => uid != currentUserId);
+            
+            foreach (var userId in uniqueUserIds)
+            {
+                try
+                {
+                    var isFollowing = await _userService.IsUserFollowingAsync(currentUserId, userId);
+                    ViewData["IsFollowing_" + userId] = isFollowing;
+                    followStatusMap[userId] = isFollowing;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to get follow status for user {UserId}", userId);
+                    ViewData["IsFollowing_" + userId] = false;
+                    followStatusMap[userId] = false;
+                }
+            }
+            
+            return followStatusMap;
+        }
+
+        /// <summary>
+        /// Create follow status map for following feed (all users are followed)
+        /// </summary>
+        private Dictionary<int, bool> CreateFollowStatusMapForFollowing(List<NewsArticle> articles)
+        {
+            var followStatusMap = new Dictionary<int, bool>();
+            var uniqueUserIds = articles.Select(p => p.UserID).Distinct();
+            
+            foreach (var userId in uniqueUserIds)
+            {
+                ViewData["IsFollowing_" + userId] = true;
+                followStatusMap[userId] = true;
+            }
+            
+            return followStatusMap;
+        }
+
+        /// <summary>
+        /// Create PostsListViewModel with consistent structure
+        /// </summary>
+        private PostsListViewModel CreatePostsListViewModel(List<NewsArticle> articles, User? currentUser, string feedType, Dictionary<int, bool> followStatusMap)
+        {
+            return new PostsListViewModel
+            {
+                Posts = articles,
+                CurrentUser = currentUser,
+                FeedType = feedType,
+                FollowStatusMap = followStatusMap
+            };
         }
 
         // GET: api/News/posts/enhanced - Returns server-rendered HTML with enhanced context

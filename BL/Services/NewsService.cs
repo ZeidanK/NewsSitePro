@@ -267,6 +267,69 @@ namespace NewsSite.BL.Services
             return await _dbService.GetSavedArticlesByUser(userId, pageNumber, pageSize);
         }
 
+        public async Task<List<NewsArticle>> GetSavedArticlesWithFiltersAsync(int userId, int pageNumber = 1, int pageSize = 10, string? category = null, string? search = null)
+        {
+            if (userId <= 0)
+            {
+                throw new ArgumentException("Valid User ID is required");
+            }
+
+            // Business logic validation
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+
+            // Use the existing SearchSavedArticlesAsync method from DBservices
+            return await _dbService.SearchSavedArticlesAsync(userId, search, category, pageNumber, pageSize);
+        }
+
+        public async Task<List<NewsArticle>> GetFollowingPostsAsync(int userId, int pageNumber = 1, int pageSize = 10, string? category = null)
+        {
+            if (userId <= 0)
+            {
+                throw new ArgumentException("Valid User ID is required");
+            }
+
+            // Business logic validation
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+
+            // Get all articles first
+            var allArticles = await Task.FromResult(_dbService.GetAllNewsArticles(1, 1000, category, userId));
+            
+            // Filter to posts from users that the current user follows
+            var followingPosts = new List<NewsArticle>();
+            
+            foreach (var article in allArticles)
+            {
+                if (article.UserID != userId) // Don't include own posts in following feed
+                {
+                    try
+                    {
+                        // Check if current user follows this article's author
+                        var isFollowing = await _dbService.IsUserFollowing(userId, article.UserID);
+                        if (isFollowing)
+                        {
+                            followingPosts.Add(article);
+                        }
+                    }
+                    catch
+                    {
+                        // Skip if follow check fails
+                        continue;
+                    }
+                }
+            }
+            
+            // Apply pagination and sorting
+            var pagedPosts = followingPosts
+                .OrderByDescending(a => a.PublishDate)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+                
+            return pagedPosts;
+        }
+
         // Feed algorithm methods
         public async Task<List<NewsArticle>> GetPopularArticlesAsync(int pageSize = 10)
         {

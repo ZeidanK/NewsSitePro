@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using NewsSite.BL;
+using NewsSitePro.Models;
 
 namespace NewsSite.Pages
 {
@@ -18,6 +19,7 @@ namespace NewsSite.Pages
             this.configuration = configuration;
         }
 
+        public HeaderViewModel HeaderData { get; set; } = new HeaderViewModel();
         public List<Notification> Notifications { get; set; } = new List<Notification>();
         public NotificationSummary Summary { get; set; } = new NotificationSummary();
         public int CurrentPage { get; set; } = 1;
@@ -39,8 +41,28 @@ namespace NewsSite.Pages
 
             try
             {
+                // Get current user for header
+                User? currentUser = null;
+                var jwtToken = Request.Cookies["jwtToken"];
+                if (!string.IsNullOrEmpty(jwtToken))
+                {
+                    currentUser = new User().ExtractUserFromJWT(jwtToken);
+                }
+
+                // Set up header data
+                HeaderData = new HeaderViewModel
+                {
+                    UserName = currentUser?.Name ?? "Guest",
+                    NotificationCount = 0, // Will be updated after getting summary
+                    CurrentPage = "Notifications",
+                    user = currentUser
+                };
+
                 // Get notification summary
                 Summary = await dbService.GetNotificationSummary(userId.Value);
+                
+                // Update notification count in header
+                HeaderData.NotificationCount = Summary.TotalUnread;
 
                 // Get paginated notifications
                 Notifications = await dbService.GetUserNotifications(userId.Value, CurrentPage, PageSize);
