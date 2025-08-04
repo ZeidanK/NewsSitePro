@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using NewsSite.BL;
-using NewsSitePro.Models;
+using NewsSite.Models;
 using System.IdentityModel.Tokens.Jwt;
 
 namespace NewsSite.Pages
@@ -11,7 +11,7 @@ namespace NewsSite.Pages
         private readonly DBservices _dbService;
 
         public UserProfile? UserProfile { get; set; }
-        public HeaderViewModel HeaderData { get; set; } = new HeaderViewModel();
+        public NewsSitePro.Models.HeaderViewModel HeaderData { get; set; } = new NewsSitePro.Models.HeaderViewModel();
         public bool IsOwnProfile { get; set; } = false;
         public bool IsFollowing { get; set; } = false;
 
@@ -20,7 +20,7 @@ namespace NewsSite.Pages
             _dbService = dbService;
         }
 
-        public IActionResult OnGet(int? userId = null)
+        public async Task<IActionResult> OnGet(int? userId = null)
         {
             try
             {
@@ -54,7 +54,7 @@ namespace NewsSite.Pages
                 IsOwnProfile = currentUserId == targetUserId;
 
                 // Set up header data
-                HeaderData = new HeaderViewModel
+                HeaderData = new NewsSitePro.Models.HeaderViewModel
                 {
                     UserName = currentUser?.Name ?? "Guest",
                     NotificationCount = currentUser != null ? 3 : 0,
@@ -100,14 +100,29 @@ namespace NewsSite.Pages
                     Username = user.Name,
                     Email = user.Email,
                     Bio = user.Bio ?? "",
+                    ProfilePicture = user.ProfilePicture,
                     JoinDate = user.JoinDate,
                     IsAdmin = user.IsAdmin,
                     Activity = userStats,
                     RecentPosts = recentPosts
                 };
 
-                // Check if current user is following this user (placeholder)
-                IsFollowing = false; // TODO: Implement follow system
+                // Check if current user is following this user
+                if (currentUserId.HasValue && !IsOwnProfile)
+                {
+                    try
+                    {
+                        IsFollowing = await _dbService.IsUserFollowing(currentUserId.Value, targetUserId);
+                    }
+                    catch
+                    {
+                        IsFollowing = false;
+                    }
+                }
+                else
+                {
+                    IsFollowing = false;
+                }
 
                 return Page();
             }
@@ -118,7 +133,7 @@ namespace NewsSite.Pages
                 ViewData["ExceptionMessage"] = ex.Message; // For debugging, remove in production
                 
                 // Set up minimal header data for error display
-                HeaderData = new HeaderViewModel
+                HeaderData = new NewsSitePro.Models.HeaderViewModel
                 {
                     UserName = "Guest",
                     NotificationCount = 0,
@@ -210,7 +225,7 @@ namespace NewsSite.Pages
         }
 
         // API endpoint for getting user activity (recent liked and commented posts)
-        public async Task<IActionResult> OnGetGetUserActivity()
+        public async Task<IActionResult> OnGetGetUserActivity(int? userId = null)
         {
             try
             {
@@ -235,8 +250,11 @@ namespace NewsSite.Pages
                     return new JsonResult(new { success = false, message = "User not found" });
                 }
 
+                // Get the target user ID - if not provided, use current user
+                int targetUserId = userId ?? currentUser.Id;
+
                 // Get user activity (liked and commented posts, most recent first)
-                var userActivity = await _dbService.GetUserRecentActivityAsync(currentUser.Id, 1, 20);
+                var userActivity = await _dbService.GetUserRecentActivityAsync(targetUserId, 1, 20);
                 
                 return new JsonResult(new { 
                     success = true, 
@@ -307,6 +325,58 @@ namespace NewsSite.Pages
             catch (Exception ex)
             {
                 return new JsonResult(new { success = false, message = "Error loading saved posts: " + ex.Message });
+            }
+        }
+
+        // API endpoint for getting followers
+        public async Task<IActionResult> OnGetGetFollowers(int userId)
+        {
+            try
+            {
+                // Get followers list for the specified user
+                var followers = await _dbService.GetUserFollowersAsync(userId);
+                
+                return new JsonResult(new { 
+                    success = true, 
+                    followers = followers.Select(user => new {
+                        userId = user.Id,
+                        username = user.Name,
+                        bio = user.Bio,
+                        profilePicture = user.ProfilePicture,
+                        joinDate = user.JoinDate,
+                        isAdmin = user.IsAdmin
+                    })
+                });
+            }
+            catch (Exception ex)
+            {
+                return new JsonResult(new { success = false, message = "Error loading followers: " + ex.Message });
+            }
+        }
+
+        // API endpoint for getting following
+        public async Task<IActionResult> OnGetGetFollowing(int userId)
+        {
+            try
+            {
+                // Get following list for the specified user
+                var following = await _dbService.GetUserFollowingAsync(userId);
+                
+                return new JsonResult(new { 
+                    success = true, 
+                    following = following.Select(user => new {
+                        userId = user.Id,
+                        username = user.Name,
+                        bio = user.Bio,
+                        profilePicture = user.ProfilePicture,
+                        joinDate = user.JoinDate,
+                        isAdmin = user.IsAdmin
+                    })
+                });
+            }
+            catch (Exception ex)
+            {
+                return new JsonResult(new { success = false, message = "Error loading following: " + ex.Message });
             }
         }
     }

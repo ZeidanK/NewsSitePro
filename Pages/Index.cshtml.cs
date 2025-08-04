@@ -14,7 +14,7 @@ public class IndexModel : PageModel
         _dbService = new DBservices();
     }
 
-    public void OnGet()
+    public void OnGet() 
     {
         var jwt = Request.Cookies["jwtToken"];
         User? currentUser = null;

@@ -13,6 +13,7 @@ using NewsSitePro.Models;
 using NewsSitePro.Services;
 using Microsoft.AspNetCore.Mvc.ViewComponents;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.Extensions.Options;
 using System.IO;
 
 namespace NewsSite.Controllers
@@ -24,13 +25,20 @@ namespace NewsSite.Controllers
         private readonly INewsService _newsService;
         private readonly IUserService _userService;
         private readonly ILogger<NewsController> _logger;
+        private readonly SystemSettingsOptions _systemSettings;
 
-        public NewsController(INewsApiService newsApiService, INewsService newsService, IUserService userService, ILogger<NewsController> logger)
+        public NewsController(
+            INewsApiService newsApiService, 
+            INewsService newsService, 
+            IUserService userService, 
+            ILogger<NewsController> logger,
+            IOptions<SystemSettingsOptions> systemSettings)
         {
             _newsApiService = newsApiService;
             _newsService = newsService;
             _userService = userService;
             _logger = logger;
+            _systemSettings = systemSettings.Value;
         }
 
         // GET: api/News/headlines
@@ -125,6 +133,7 @@ namespace NewsSite.Controllers
         // Enhanced to support context-driven rendering with user relationships and permissions
         /// <summary>
         /// Renders posts as HTML using ViewComponents with enhanced context awareness
+        /// Routes to appropriate feed based on feed parameter
         /// Includes user relationship data (follow status) for personalized rendering
         /// </summary>
         [HttpGet("posts/rendered")]
@@ -136,6 +145,26 @@ namespace NewsSite.Controllers
         {
             try
             {
+                // Route to specific feed endpoints based on feed parameter
+                switch (feed?.ToLower())
+                {
+                    case "following":
+                        return await GetFollowingPostsRendered(page, limit, category);
+                    
+                    case "saved":
+                        return await GetSavedPostsRendered(page, limit, category, null);
+                    
+                    case "trending":
+                        return await GetTrendingPostsRendered(page, limit, category);
+                    
+                    case "all":
+                    case null:
+                    default:
+                        // Continue with default all posts logic
+                        break;
+                }
+
+                // Default: Get all posts
                 // Get current user ID using the centralized method
                 int? currentUserId = NewsSite.BL.User.GetCurrentUserId(Request, User);
                 
@@ -261,6 +290,62 @@ namespace NewsSite.Controllers
             {
                 _logger.LogError(ex, "Error rendering following posts");
                 return StatusCode(500, "Error rendering following posts");
+            }
+        }
+
+        // GET: api/News/posts/trending - Returns server-rendered HTML for trending posts
+        /// <summary>
+        /// Renders trending posts as HTML using ViewComponents
+        /// Shows articles with high engagement (likes, views, comments)
+        /// </summary>
+        [HttpGet("posts/trending")]
+        public async Task<IActionResult> GetTrendingPostsRendered(
+            [FromQuery] int page = 1, 
+            [FromQuery] int limit = 10,
+            [FromQuery] string? category = null)
+        {
+            try
+            {
+                // Get current user ID using the centralized method
+                int? currentUserId = NewsSite.BL.User.GetCurrentUserId(Request, User);
+                
+                // Get current user object for context creation
+                User? currentUser = await GetCurrentUserAsync(currentUserId ?? 0);
+
+                // Get trending posts using the Business Logic layer
+                int articlesToFetch = page * limit; // Fetch enough for pagination
+                var allTrendingPosts = await _newsService.GetTrendingArticlesAsync(articlesToFetch);
+                
+                // Apply category filter if specified
+                if (!string.IsNullOrEmpty(category) && category != "all")
+                {
+                    allTrendingPosts = allTrendingPosts
+                        .Where(a => string.Equals(a.Category, category, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                }
+                
+                // Apply pagination
+                var trendingPosts = allTrendingPosts
+                    .Skip((page - 1) * limit)
+                    .Take(limit)
+                    .ToList();
+                
+                // Load follow status for all post authors if user is logged in
+                Dictionary<int, bool> followStatusMap = new Dictionary<int, bool>();
+                if (currentUserId.HasValue)
+                {
+                    followStatusMap = await LoadFollowStatusMapAsync(currentUserId.Value, trendingPosts);
+                }
+                
+                // Create enhanced view model with context-aware rendering
+                var viewModel = CreatePostsListViewModel(trendingPosts, currentUser, "trending", followStatusMap);
+                
+                return View("_PostsList", viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error rendering trending posts");
+                return StatusCode(500, "Error rendering trending posts");
             }
         }
 
@@ -719,13 +804,39 @@ namespace NewsSite.Controllers
 
         /// <summary>
         /// Get system user ID for publishing admin-sourced articles
-        /// Could be enhanced to use actual admin user ID
+        /// Uses configuration-based system user ID instead of hardcoded values
+        /// Falls back to configured admin user ID if current user is not available
         /// </summary>
         private int GetSystemUserId()
         {
-            var currentUserId = BL.User.GetCurrentUserId(Request, User);
-            // If admin user is logged in, use their ID, otherwise use default system user
-            return currentUserId ?? 1; // Assuming user ID 1 exists as admin/system user
+            try
+            {
+                // Validate configuration first
+                if (!_systemSettings.IsValid())
+                {
+                    _logger.LogWarning("Invalid system settings configuration, using fallback values");
+                    return 1; // Ultimate fallback
+                }
+
+                // Try to get current logged-in user ID
+                var currentUserId = BL.User.GetCurrentUserId(Request, User);
+                
+                if (currentUserId.HasValue && currentUserId.Value > 0)
+                {
+                    // If admin user is logged in, use their ID for audit trail
+                    _logger.LogDebug("Using current admin user ID {UserId} for system operation", currentUserId.Value);
+                    return currentUserId.Value;
+                }
+                
+                // If no admin is logged in, use configured system user ID
+                _logger.LogDebug("Using configured system user ID {UserId} for system operation", _systemSettings.DefaultSystemUserId);
+                return _systemSettings.DefaultSystemUserId;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error determining system user ID, falling back to admin fallback user");
+                return _systemSettings?.AdminFallbackUserId ?? 1;
+            }
         }
 
         /// <summary>

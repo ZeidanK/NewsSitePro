@@ -25,6 +25,7 @@
         public int LikesCount { get; set; }
         public int SavedCount { get; set; }
         public int FollowersCount { get; set; }
+        public int FollowingCount { get; set; }
     }
 
     public class UserProfile

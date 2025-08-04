@@ -10,14 +10,14 @@ window.ApiConfig = {
     
     getApiUrl: function(endpoint) {
         const baseUrl = this.getBaseUrl();
-        console.log(`DEBUG - Raw baseUrl: ${baseUrl}`);
-        console.log(`DEBUG - Raw endpoint: ${endpoint}`);
+        //console.log(`DEBUG - Raw baseUrl: ${baseUrl}`);
+        //console.log(`DEBUG - Raw endpoint: ${endpoint}`);
         // Ensure endpoint starts with slash for absolute path
         const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-        console.log(`DEBUG - Clean endpoint: ${cleanEndpoint}`);
-        // Return complete absolute URL
+        //console.log(`DEBUG - Clean endpoint: ${cleanEndpoint}`);
+        // Construct and return final URL
         const finalUrl = `${baseUrl}${cleanEndpoint}`;
-        console.log(`DEBUG - Final constructed URL: ${finalUrl}`);
+        //console.log(`DEBUG - Final constructed URL: ${finalUrl}`);
         return finalUrl;
     }
 };
@@ -54,13 +54,13 @@ class AuthService {
             // Validate token with server - now correctly generates /api/Auth/validate
             const endpoint = 'api/Auth/validate';
             const apiUrl = window.ApiConfig.getApiUrl(endpoint);
-            console.log(`Base URL: ${window.ApiConfig.getBaseUrl()}`);
-            console.log(`API URL: ${window.ApiConfig.getApiUrl(endpoint)}`);
-            console.log(`window.location.origin: ${window.location.origin}`);
-            console.log(`window.location.pathname: ${window.location.pathname}`);
-            console.log(`Endpoint parameter: ${endpoint}`);
-            console.log(`Final API URL: ${apiUrl}`);
-            console.log(`Checking auth status with token: ${token}`);
+            //console.log(`Base URL: ${window.ApiConfig.getBaseUrl()}`);
+            //console.log(`API URL: ${window.ApiConfig.getApiUrl(endpoint)}`);
+            //console.log(`window.location.origin: ${window.location.origin}`);
+            //console.log(`window.location.pathname: ${window.location.pathname}`);
+            //console.log(`Endpoint parameter: ${endpoint}`);
+            //console.log(`Final API URL: ${apiUrl}`);
+            //console.log(`Checking auth status with token: ${token}`);
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {

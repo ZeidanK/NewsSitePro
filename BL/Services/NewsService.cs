@@ -301,36 +301,22 @@ namespace NewsSite.BL.Services
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1 || pageSize > 100) pageSize = 10;
 
-            // Get all articles first
-            var allArticles = await Task.FromResult(_dbService.GetAllNewsArticles(1, 1000, category, userId));
+            // Use the efficient database method to get following feed
+            // Calculate how many articles to fetch to support pagination
+            int articlesToFetch = pageNumber * pageSize; // Get enough articles for pagination
             
-            // Filter to posts from users that the current user follows
-            var followingPosts = new List<NewsArticle>();
+            var allFollowingPosts = await _dbService.GetFollowingFeedAsync(userId, articlesToFetch);
             
-            foreach (var article in allArticles)
+            // Apply category filter if specified
+            if (!string.IsNullOrEmpty(category) && category != "all")
             {
-                if (article.UserID != userId) // Don't include own posts in following feed
-                {
-                    try
-                    {
-                        // Check if current user follows this article's author
-                        var isFollowing = await _dbService.IsUserFollowing(userId, article.UserID);
-                        if (isFollowing)
-                        {
-                            followingPosts.Add(article);
-                        }
-                    }
-                    catch
-                    {
-                        // Skip if follow check fails
-                        continue;
-                    }
-                }
+                allFollowingPosts = allFollowingPosts
+                    .Where(a => string.Equals(a.Category, category, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
             }
             
-            // Apply pagination and sorting
-            var pagedPosts = followingPosts
-                .OrderByDescending(a => a.PublishDate)
+            // Apply pagination
+            var pagedPosts = allFollowingPosts
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
                 .ToList();

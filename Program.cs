@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using NewsSite.Services;
 using NewsSite.BackgroundServices;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +18,10 @@ builder.Services.AddAuthorization();
 
 // Add Memory Cache for background service control
 builder.Services.AddMemoryCache();
+
+// Configure System Settings Options
+builder.Services.Configure<NewsSitePro.Models.SystemSettingsOptions>(
+    builder.Configuration.GetSection(NewsSitePro.Models.SystemSettingsOptions.SectionName));
 
 // Register DBservices for dependency injection
 builder.Services.AddScoped<DBservices>();

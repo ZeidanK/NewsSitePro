@@ -80,7 +80,7 @@ namespace NewsSite.Pages
                             var isFollowing = await _dbService.IsUserFollowing(currentUserId.Value, PostData.UserID);
                             ViewData["IsFollowing_" + PostData.UserID] = isFollowing;
                         }
-
+ 
                         // Increment view count
                         _dbService.RecordArticleView(id.Value, currentUserId);
                     }

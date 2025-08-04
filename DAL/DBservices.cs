@@ -803,7 +803,8 @@ public class DBservices
                         (SELECT COUNT(*) FROM NewsArticles WHERE UserID = @UserID) as PostsCount,
                         (SELECT COUNT(*) FROM UserLikes ul INNER JOIN NewsArticles na ON ul.ArticleID = na.ArticleID WHERE na.UserID = @UserID) as LikesCount,
                         (SELECT COUNT(*) FROM SavedArticles WHERE UserID = @UserID) as SavedCount,
-                        (SELECT COUNT(*) FROM NewsSitePro2025_UserFollows WHERE FollowedUserID = @UserID) as FollowersCount";
+                        (SELECT COUNT(*) FROM NewsSitePro2025_UserFollows WHERE FollowedUserID = @UserID) as FollowersCount,
+                        (SELECT COUNT(*) FROM NewsSitePro2025_UserFollows WHERE FollowerUserID = @UserID) as FollowingCount";
                 
                 cmd = new SqlCommand(sql, con);
                 cmd.Parameters.AddWithValue("@UserID", userId);
@@ -817,7 +818,8 @@ public class DBservices
                     PostsCount = Convert.ToInt32(reader["PostsCount"]),
                     LikesCount = Convert.ToInt32(reader["LikesCount"]),
                     SavedCount = Convert.ToInt32(reader["SavedCount"]),
-                    FollowersCount = Convert.ToInt32(reader["FollowersCount"])
+                    FollowersCount = Convert.ToInt32(reader["FollowersCount"]),
+                    FollowingCount = Convert.ToInt32(reader["FollowingCount"])
                 };
             }
 
@@ -2392,48 +2394,52 @@ public class DBservices
     /// <returns>True if notification was created successfully</returns>
     private async Task<bool> CreateCommentNotification(int postId, int commenterUserId, int commentId)
     {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        
         try
         {
-            // Get the post author's ID to send them the notification
-            using (var con = connect("myProjDB"))
+            con = connect("myProjDB");
+            
+            var getPostAuthorQuery = "SELECT UserID FROM NewsSitePro2025_NewsArticles WHERE ArticleID = @PostID";
+            cmd = new SqlCommand(getPostAuthorQuery, con);
+            cmd.Parameters.AddWithValue("@PostID", postId);
+            var postAuthorId = await cmd.ExecuteScalarAsync();
+            
+            if (postAuthorId != null)
             {
-                var getPostAuthorQuery = "SELECT UserID FROM NewsSitePro2025_NewsArticles WHERE ArticleID = @PostID";
-                using (var cmd = new SqlCommand(getPostAuthorQuery, con))
+                var authorId = Convert.ToInt32(postAuthorId);
+                
+                // Don't create notification if user commented on their own post
+                if (authorId != commenterUserId)
                 {
-                    cmd.Parameters.AddWithValue("@PostID", postId);
-                    var postAuthorId = await cmd.ExecuteScalarAsync();
-                    
-                    if (postAuthorId != null)
+                    var notificationRequest = new CreateNotificationRequest
                     {
-                        var authorId = Convert.ToInt32(postAuthorId);
-                        
-                        // Don't create notification if user commented on their own post
-                        if (authorId != commenterUserId)
-                        {
-                            var notificationRequest = new CreateNotificationRequest
-                            {
-                                UserID = authorId,
-                                Type = "Comment",
-                                Title = "New Comment",
-                                Message = "Someone commented on your post",
-                                RelatedEntityType = "Post",
-                                RelatedEntityID = postId,
-                                FromUserID = commenterUserId,
-                                ActionUrl = $"/Posts/Details/{postId}#comment-{commentId}"
-                            };
-                            
-                            var notificationId = await CreateNotification(notificationRequest);
-                            return notificationId > 0;
-                        }
-                    }
+                        UserID = authorId,
+                        Type = "Comment",
+                        Title = "New Comment",
+                        Message = "Someone commented on your post",
+                        RelatedEntityType = "Post",
+                        RelatedEntityID = postId,
+                        FromUserID = commenterUserId,
+                        ActionUrl = $"/Posts/Details/{postId}#comment-{commentId}"
+                    };
+                    
+                    var notificationId = await CreateNotification(notificationRequest);
+                    return notificationId > 0;
                 }
             }
+            
             return true; // Return true even if no notification was needed
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[DBservices] Error creating comment notification: {ex.Message}");
             return false; // Don't throw, just return false
+        }
+        finally
+        {
+            con?.Close();
         }
     }
 
@@ -4771,44 +4777,238 @@ SqlDataReader? reader = null;
     public async Task<List<int>> GetFollowedUserIdsAsync(int userId)
     {
         var followerIds = new List<int>();
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
         
         try
         {
-            using (var con = connect("myProjDB"))
+            con = connect("myProjDB");
+            
+            var query = @"
+                SELECT FollowerUserID 
+                FROM NewsSitePro2025_UserFollows 
+                WHERE FollowedUserID = @UserId";
+            
+            cmd = new SqlCommand(query, con);
+            cmd.Parameters.AddWithValue("@UserId", userId);
+            
+            reader = await cmd.ExecuteReaderAsync();
+            
+            while (await reader.ReadAsync())
             {
-                await con.OpenAsync();
-                
-                var query = @"
-                    SELECT FollowerUserID 
-                    FROM NewsSitePro2025_UserFollows 
-                    WHERE FollowedUserID = @UserId";
-                
-                using (var cmd = new SqlCommand(query, con))
-                {
-                    cmd.Parameters.AddWithValue("@UserId", userId);
-                    
-                    using (var reader = await cmd.ExecuteReaderAsync())
-                    {
-                        while (await reader.ReadAsync())
-                        {
-                            followerIds.Add(reader.GetInt32("FollowerUserID"));
-                        }
-                    }
-                }
+                followerIds.Add(reader.GetInt32("FollowerUserID"));
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Return empty list if there's an error (table might not exist yet)
+            throw new Exception("Error getting followed user IDs: " + ex.Message);
+        }
+        finally
+        {
+            if (reader != null && !reader.IsClosed)
+            {
+                reader.Close();
+            }
+            con?.Close();
         }
         
         return followerIds;
     }
 
+    /// <summary>
+    /// Gets the list of users who follow the specified user
+    /// </summary>
+    /// <param name="userId">The user ID to get followers for</param>
+    /// <returns>List of User objects who follow the specified user</returns>
+    public async Task<List<User>> GetUserFollowersAsync(int userId)
+    {
+        var followers = new List<User>();
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+        
+        try
+        {
+            con = connect("myProjDB");
+            
+            var query = @"
+                SELECT u.UserID, u.UserName, u.UserEmail, u.Bio, u.JoinDate, u.IsAdmin, u.IsLocked
+                FROM Users_News u
+                INNER JOIN NewsSitePro2025_UserFollows uf ON u.UserID = uf.FollowerUserID
+                WHERE uf.FollowedUserID = @UserId
+                ORDER BY uf.FollowDate DESC";
+            
+            cmd = new SqlCommand(query, con);
+            cmd.Parameters.AddWithValue("@UserId", userId);
+            
+            reader = await cmd.ExecuteReaderAsync();
+            
+            while (await reader.ReadAsync())
+            {
+                followers.Add(new User
+                {
+                    Id = reader.GetInt32("UserID"),
+                    Name = reader.GetString("UserName"),
+                    Email = reader.GetString("UserEmail"),
+                    Bio = reader.IsDBNull("Bio") ? null : reader.GetString("Bio"),
+                    JoinDate = reader.GetDateTime("JoinDate"),
+                    IsAdmin = reader.GetBoolean("IsAdmin"),
+                    IsLocked = reader.GetBoolean("IsLocked")
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("Error getting user followers: " + ex.Message);
+        }
+        finally
+        {
+            if (reader != null && !reader.IsClosed)
+            {
+                reader.Close();
+            }
+            con?.Close();
+        }
+        
+        return followers;
+    }
+
+    /// <summary>
+    /// Gets the list of users that the specified user is following
+    /// </summary>
+    /// <param name="userId">The user ID to get following for</param>
+    /// <returns>List of User objects that the specified user is following</returns>
+    public async Task<List<User>> GetUserFollowingAsync(int userId)
+    {
+        var following = new List<User>();
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+        
+        try
+        {
+            con = connect("myProjDB");
+            
+            var query = @"
+                SELECT u.UserID, u.UserName, u.UserEmail, u.Bio, u.JoinDate, u.IsAdmin, u.IsLocked
+                FROM Users_News u
+                INNER JOIN NewsSitePro2025_UserFollows uf ON u.UserID = uf.FollowedUserID
+                WHERE uf.FollowerUserID = @UserId
+                ORDER BY uf.FollowDate DESC";
+            
+            cmd = new SqlCommand(query, con);
+            cmd.Parameters.AddWithValue("@UserId", userId);
+            
+            reader = await cmd.ExecuteReaderAsync();
+            
+            while (await reader.ReadAsync())
+            {
+                following.Add(new User
+                {
+                    Id = reader.GetInt32("UserID"),
+                    Name = reader.GetString("UserName"),
+                    Email = reader.GetString("UserEmail"),
+                    Bio = reader.IsDBNull("Bio") ? null : reader.GetString("Bio"),
+                    JoinDate = reader.GetDateTime("JoinDate"),
+                    IsAdmin = reader.GetBoolean("IsAdmin"),
+                    IsLocked = reader.GetBoolean("IsLocked")
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("Error getting user following: " + ex.Message);
+        }
+        finally
+        {
+            if (reader != null && !reader.IsClosed)
+            {
+                reader.Close();
+            }
+            con?.Close();
+        }
+        
+        return following;
+    }
+
     public async Task<List<NewsArticle>> GetFollowingFeedAsync(int userId, int count = 20)
     {
-        // Return regular feed for now
-        return await GetRecommendedArticlesAsync(userId, count);
+        var articles = new List<NewsArticle>();
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+        
+        try
+        {
+            con = connect("myProjDB");
+
+            // Get articles from users that the current user follows
+            string sql = @"
+                SELECT TOP (@Count) 
+                    n.ArticleID as ArticleID, n.Title, n.Content, n.ImageURL, n.SourceURL, n.SourceName, 
+                    n.Category, n.PublishDate, n.UserID,
+                    u.UserName,
+                    COALESCE(lc.LikesCount, 0) as LikesCount,
+                    COALESCE(vc.ViewsCount, 0) as ViewsCount
+                FROM NewsSitePro2025_NewsArticles n
+                INNER JOIN Users_News u ON n.UserID = u.UserID
+                INNER JOIN NewsSitePro2025_UserFollows uf ON n.UserID = uf.FollowedUserID
+                LEFT JOIN (
+                    SELECT ArticleID, COUNT(*) as LikesCount
+                    FROM NewsSitePro2025_ArticleLikes
+                    GROUP BY ArticleID
+                ) lc ON n.ArticleID = lc.ArticleID
+                LEFT JOIN (
+                    SELECT ArticleID, COUNT(*) as ViewsCount
+                    FROM NewsSitePro2025_ArticleViews
+                    GROUP BY ArticleID
+                ) vc ON n.ArticleID = vc.ArticleID
+                WHERE uf.FollowerUserID = @UserId 
+                    
+                ORDER BY n.PublishDate DESC";
+
+            cmd = new SqlCommand(sql, con);
+            cmd.Parameters.AddWithValue("@UserId", userId);
+            cmd.Parameters.AddWithValue("@Count", count);
+            
+            reader = await cmd.ExecuteReaderAsync();
+            
+            while (await reader.ReadAsync())
+            {
+                NewsArticle article = new NewsArticle
+                {
+                    ArticleID = reader.GetInt32("ArticleID"),
+                    Title = reader.IsDBNull("Title") ? string.Empty : reader.GetString("Title"),
+                    Content = reader.IsDBNull("Content") ? string.Empty : reader.GetString("Content"),
+                    ImageURL = reader.IsDBNull("ImageURL") ? string.Empty : reader.GetString("ImageURL"),
+                    SourceURL = reader.IsDBNull("SourceURL") ? string.Empty : reader.GetString("SourceURL"),
+                    SourceName = reader.IsDBNull("SourceName") ? string.Empty : reader.GetString("SourceName"),
+                    Category = reader.IsDBNull("Category") ? string.Empty : reader.GetString("Category"),
+                    PublishDate = reader.IsDBNull("PublishDate") ? DateTime.Now : reader.GetDateTime("PublishDate"),
+                    UserID = reader.GetInt32("UserID"),
+                    LikesCount = reader.IsDBNull("LikesCount") ? 0 : reader.GetInt32("LikesCount"),
+                    ViewsCount = reader.IsDBNull("ViewsCount") ? 0 : reader.GetInt32("ViewsCount"),
+                    Username = reader.IsDBNull("UserName") ? string.Empty : reader.GetString("UserName")
+                };
+
+                articles.Add(article);
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("Error getting following feed: " + ex.Message);
+        }
+        finally
+        {
+            if (reader != null && !reader.IsClosed)
+            {
+                reader.Close();
+            }
+            con?.Close();
+        }
+
+        return articles;
     }
 
     public async Task<List<NewsArticle>> GetPopularArticlesAsync(int count = 20)
