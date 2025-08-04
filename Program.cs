@@ -28,6 +28,7 @@ builder.Services.AddScoped<NewsSite.BL.Services.INewsService, NewsSite.BL.Servic
 builder.Services.AddScoped<NewsSite.BL.Services.ICommentService, NewsSite.BL.Services.CommentService>();
 builder.Services.AddScoped<NewsSite.BL.Services.IAdminService, NewsSite.BL.Services.AdminService>();
 builder.Services.AddScoped<NewsSite.BL.Interfaces.IRepostService, NewsSite.BL.Services.RepostService>();
+builder.Services.AddScoped<NewsSite.BL.Services.IUserBlockService, NewsSite.BL.Services.UserBlockService>();
 // PostService removed - using NewsService directly for article operations
 
 // Register HttpClient for News API

@@ -24,7 +24,15 @@ namespace NewsSite.BL.Services
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1 || pageSize > 100) pageSize = 10; // Limit page size
 
-            return await Task.FromResult(_dbService.GetAllNewsArticles(pageNumber, pageSize, category, currentUserId));
+            // Use block filtering when currentUserId is provided
+            if (currentUserId.HasValue)
+            {
+                return await Task.FromResult(_dbService.GetAllNewsArticlesWithBlockFilter(pageNumber, pageSize, category, currentUserId));
+            }
+            else
+            {
+                return await Task.FromResult(_dbService.GetAllNewsArticles(pageNumber, pageSize, category, currentUserId));
+            }
         }
 
         public async Task<NewsArticle?> GetNewsArticleByIdAsync(int articleId, int? currentUserId = null)

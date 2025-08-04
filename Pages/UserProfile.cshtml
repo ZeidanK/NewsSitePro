@@ -44,67 +44,9 @@ else
 
 <div class="user-profile-container">
     <div class="profile-header">
-        <div class="user-avatar">
-            <div class="avatar-circle">
-                @if (!string.IsNullOrEmpty(Model.UserProfile?.ProfilePicture))
-                {
-                    <img src="@Model.UserProfile.ProfilePicture" alt="Profile Picture" class="profile-pic-img" style="width:120px;height:120px;border-radius:50%;object-fit:cover;" />
-                }
-                else
-                {
-                    <i class="fas fa-user"></i>
-                }
-            </div>
-            @* Only show upload if this is the logged-in user's profile *@
-                @if (User.Identity?.IsAuthenticated == true && Model.UserProfile?.UserID == int.Parse(User.FindFirst("userId")?.Value ?? "0"))
-            {
-                <form id="profilePicForm" enctype="multipart/form-data">
-                    <input type="file" id="profilePicInput" name="file" accept="image/*" style="margin-top:10px;" />
-                    <button type="button" id="uploadPicBtn" class="btn btn-sm btn-primary" style="margin-top:5px;">Upload</button>
-                    <div id="profilePicPreview" style="margin-top:10px;"></div>
-                </form>
-            }
-        </div>
-        <div class="user-info">
-            <h1 class="username">@Model.UserProfile?.Username</h1>
-            <p class="user-bio">@(Model.UserProfile?.Bio ?? "No bio available")</p>
-            <p class="join-date">
-                <i class="fas fa-calendar-alt"></i>
-                Joined @Model.UserProfile?.JoinDate.ToString("MMMM yyyy")
-            </p>
-            @if (Model.UserProfile?.IsAdmin == true)
-            {
-                <span class="admin-badge">
-                    <i class="fas fa-star"></i> Admin
-                </span>
-            }
-            
-            @* Action buttons *@
-            <div class="profile-actions mt-3">
-                @if (Model.IsOwnProfile)
-                {
-                    <a href="~/Profile" class="btn btn-primary">
-                        <i class="fas fa-edit"></i> Edit Profile
-                    </a>
-                }
-                else
-                {
-                    <button type="button" class="btn btn-outline-primary btn-follow"
-                                data-user-id="@(Model.UserProfile?.UserID ?? 0)"
-                            data-following="@Model.IsFollowing.ToString().ToLower()">
-                        <i class="fas @(Model.IsFollowing ? "fa-user-minus" : "fa-user-plus")"></i>
-                        @(Model.IsFollowing ? "Unfollow" : "Follow")
-                    </button>
-                }
-            </div>
-        </div>
+        <!-- Profile header content (avatar, username, bio, etc) should be here -->
     </div>
-
     <div class="profile-stats">
-        <div class="stat-item">
-            <span class="stat-number">@(Model.UserProfile?.Activity?.PostsCount ?? 0)</span>
-            <span class="stat-label">Posts</span>
-        </div>
         <div class="stat-item">
             <span class="stat-number">@(Model.UserProfile?.Activity?.LikesCount ?? 0)</span>
             <span class="stat-label">Likes Given</span>
@@ -136,6 +78,12 @@ else
             <button class="tab-btn" data-tab="activity">
                 <i class="fas fa-chart-line"></i> Activity
             </button>
+            @if (Model.IsOwnProfile)
+            {
+                <button class="tab-btn" data-tab="blocked">
+                    <i class="fas fa-user-slash"></i> Blocked Users
+                </button>
+            }
         </div>
 
         <!-- My Posts Tab -->
@@ -144,6 +92,19 @@ else
                 <!-- Posts will be loaded dynamically using unified template -->
             </div>
         </div>
+        @if (Model.IsOwnProfile)
+        {
+            <div class="tab-content" id="blocked-tab">
+                <div id="blockedUsersContainer" class="blocked-users-container">
+                    <!-- Blocked users will be loaded here -->
+                </div>
+                <div id="noBlockedMessage" class="no-activity-message" style="display: none;">
+                    <i class="fas fa-user-slash"></i>
+                    <h4>No Blocked Users</h4>
+                    <p>You have not blocked any users.</p>
+                </div>
+            </div>
+        }
 
         <!-- Liked Posts Tab (Only for own profile) -->
         @if (Model.IsOwnProfile)
@@ -249,6 +210,10 @@ else
                     loadUserPosts();
                 } else if (targetTab === 'activity') {
                     loadUserActivity();
+        // Load blocked users
+        if (window.profileContext.isOwnProfile) {
+            loadBlockedUsers();
+        }
                 }
             });
         });
@@ -831,6 +796,60 @@ else
                 toast.parentNode.removeChild(toast);
             }
         }, 3000);
+    }
+    // Load blocked users list
+    async function loadBlockedUsers() {
+        const container = document.getElementById('blockedUsersContainer');
+        const noMsg = document.getElementById('noBlockedMessage');
+        container.innerHTML = '<div class="posts-loading">Loading blocked users...</div>';
+        try {
+            const response = await fetch('/api/UserBlock/blocked-users', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+            const data = await response.json();
+            if (response.ok && data.success) {
+                const blocks = data.blockedUsers;
+                if (blocks && blocks.length > 0) {
+                    noMsg.style.display = 'none';
+                    container.innerHTML = blocks.map(b => `
+                        <div class="blocked-user-item d-flex justify-content-between align-items-center p-2 border mb-2">
+                            <div>
+                                <strong>${b.username}</strong><br/>
+                                <small>Blocked on ${new Date(b.blockDate).toLocaleDateString()}</small>
+                            </div>
+                            <button class="btn btn-sm btn-success" onclick="unblockUser(${b.blockedUserID})">Unblock</button>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '';
+                    noMsg.style.display = 'block';
+                }
+            } else {
+                throw new Error(data.message || 'Failed to load blocked users');
+            }
+        } catch (error) {
+            console.error('Error loading blocked users:', error);
+            container.innerHTML = `<div class="error-state"><p>${error.message}</p></div>`;
+        }
+    }
+
+    // Unblock a user
+    async function unblockUser(userId) {
+        if (!confirm('Are you sure you want to unblock this user?')) return;
+        try {
+            const response = await fetch('/api/UserBlock/unblock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ blockedUserID: userId })
+            });
+            const data = await response.json();
+            if (response.ok && data.success) {
+                loadBlockedUsers();
+            } else {
+                alert(data.message || 'Failed to unblock user');
+            }
+        } catch (error) {
+            console.error('Error unblocking user:', error);
+            alert('Error unblocking user: ' + error.message);
+        }
     }
 </script>
 }

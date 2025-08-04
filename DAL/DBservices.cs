@@ -486,6 +486,72 @@ public class DBservices
         return articles;
     }
 
+    public List<NewsArticle> GetAllNewsArticlesWithBlockFilter(int pageNumber = 1, int pageSize = 10, string? category = null, int? currentUserId = null)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+        List<NewsArticle> articles = new List<NewsArticle>();
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@CurrentUserID", (object?)currentUserId ?? DBNull.Value },
+                { "@PageNumber", pageNumber },
+                { "@PageSize", pageSize },
+                { "@Category", (object?)category ?? DBNull.Value }
+            };
+
+            try
+            {
+                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_NewsArticles_GetWithBlockFilter", con, paramDic);
+                reader = cmd.ExecuteReader();
+
+                while (reader.Read())
+                {
+                    var article = new NewsArticle
+                    {
+                        ArticleID = Convert.ToInt32(reader["ArticleID"]),
+                        Title = reader["Title"]?.ToString(),
+                        Content = reader["Content"]?.ToString(),
+                        ImageURL = reader["ImageURL"]?.ToString(),
+                        SourceURL = reader["SourceURL"]?.ToString(),
+                        SourceName = reader["SourceName"]?.ToString(),
+                        Category = reader["Category"]?.ToString(),
+                        PublishDate = Convert.ToDateTime(reader["PublishDate"]),
+                        UserID = Convert.ToInt32(reader["UserID"]),
+                        Username = reader["Username"]?.ToString(),
+                        LikesCount = Convert.ToInt32(reader["LikesCount"]),
+                        ViewsCount = Convert.ToInt32(reader["ViewsCount"]),
+                        UserProfilePicture = reader["UserProfilePicture"]?.ToString(),
+                        IsLiked = reader["IsLiked"] != DBNull.Value && Convert.ToBoolean(reader["IsLiked"]),
+                        IsSaved = reader["IsSaved"] != DBNull.Value && Convert.ToBoolean(reader["IsSaved"])
+                    };
+
+                    articles.Add(article);
+                }
+            }
+            catch
+            {
+                // Fallback to regular GetAllNewsArticles if stored procedure fails
+                return GetAllNewsArticles(pageNumber, pageSize, category, currentUserId);
+            }
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+
+        return articles;
+    }
+
     public int CreateNewsArticle(NewsArticle article)
     {
         SqlConnection? con = null;
@@ -5583,6 +5649,511 @@ SqlDataReader? reader = null;
         {
             con?.Close();
         }
+    }
+
+    #endregion
+
+    #region User Blocking Methods
+
+    /// <summary>
+    /// Block a user
+    /// </summary>
+    public async Task<BlockResult> BlockUserAsync(int blockerUserID, int blockedUserID, string? reason = null)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@BlockerUserID", blockerUserID },
+                { "@BlockedUserID", blockedUserID },
+                { "@Reason", (object?)reason ?? DBNull.Value }
+            };
+
+            try
+            {
+                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UserBlocks_Block", con, paramDic);
+                reader = await cmd.ExecuteReaderAsync();
+                
+                if (await reader.ReadAsync())
+                {
+                    return new BlockResult
+                    {
+                        Result = reader["Result"].ToString() ?? "error",
+                        Message = reader["Message"].ToString() ?? "Unknown error"
+                    };
+                }
+                
+                return new BlockResult { Result = "error", Message = "No response from database" };
+            }
+            catch
+            {
+                // Fallback to direct SQL
+                reader?.Close();
+                cmd?.Dispose();
+                
+                var query = @"
+                    BEGIN TRY
+                        IF EXISTS (SELECT 1 FROM NewsSitePro2025_UserBlocks WHERE BlockerUserID = @BlockerUserID AND BlockedUserID = @BlockedUserID AND IsActive = 1)
+                        BEGIN
+                            SELECT 'already_blocked' as Result, 'User is already blocked' as Message;
+                        END
+                        ELSE
+                        BEGIN
+                            MERGE NewsSitePro2025_UserBlocks AS target
+                            USING (SELECT @BlockerUserID as BlockerUserID, @BlockedUserID as BlockedUserID) AS source
+                            ON (target.BlockerUserID = source.BlockerUserID AND target.BlockedUserID = source.BlockedUserID)
+                            WHEN MATCHED THEN
+                                UPDATE SET IsActive = 1, BlockDate = GETDATE(), Reason = @Reason, UpdatedAt = GETDATE()
+                            WHEN NOT MATCHED THEN
+                                INSERT (BlockerUserID, BlockedUserID, BlockDate, Reason, IsActive, CreatedAt, UpdatedAt)
+                                VALUES (@BlockerUserID, @BlockedUserID, GETDATE(), @Reason, 1, GETDATE(), GETDATE());
+                            
+                            SELECT 'success' as Result, 'User blocked successfully' as Message;
+                        END
+                    END TRY
+                    BEGIN CATCH
+                        SELECT 'error' as Result, ERROR_MESSAGE() as Message;
+                    END CATCH";
+                
+                cmd = new SqlCommand(query, con);
+                cmd.Parameters.AddWithValue("@BlockerUserID", blockerUserID);
+                cmd.Parameters.AddWithValue("@BlockedUserID", blockedUserID);
+                cmd.Parameters.AddWithValue("@Reason", (object?)reason ?? DBNull.Value);
+                
+                reader = await cmd.ExecuteReaderAsync();
+                
+                if (await reader.ReadAsync())
+                {
+                    return new BlockResult
+                    {
+                        Result = reader["Result"].ToString() ?? "error",
+                        Message = reader["Message"].ToString() ?? "Unknown error"
+                    };
+                }
+                
+                return new BlockResult { Result = "error", Message = "Failed to execute query" };
+            }
+        }
+        catch (Exception ex)
+        {
+            return new BlockResult { Result = "error", Message = ex.Message };
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    /// <summary>
+    /// Unblock a user
+    /// </summary>
+    public async Task<BlockResult> UnblockUserAsync(int blockerUserID, int blockedUserID)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@BlockerUserID", blockerUserID },
+                { "@BlockedUserID", blockedUserID }
+            };
+
+            try
+            {
+                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UserBlocks_Unblock", con, paramDic);
+                reader = await cmd.ExecuteReaderAsync();
+                
+                if (await reader.ReadAsync())
+                {
+                    return new BlockResult
+                    {
+                        Result = reader["Result"].ToString() ?? "error",
+                        Message = reader["Message"].ToString() ?? "Unknown error"
+                    };
+                }
+                
+                return new BlockResult { Result = "error", Message = "No response from database" };
+            }
+            catch
+            {
+                // Fallback to direct SQL
+                reader?.Close();
+                cmd?.Dispose();
+                
+                var query = @"
+                    UPDATE NewsSitePro2025_UserBlocks 
+                    SET IsActive = 0, UpdatedAt = GETDATE()
+                    WHERE BlockerUserID = @BlockerUserID 
+                      AND BlockedUserID = @BlockedUserID 
+                      AND IsActive = 1;
+                    
+                    SELECT CASE WHEN @@ROWCOUNT > 0 THEN 'success' ELSE 'not_found' END as Result,
+                           CASE WHEN @@ROWCOUNT > 0 THEN 'User unblocked successfully' ELSE 'Block relationship not found' END as Message";
+                
+                cmd = new SqlCommand(query, con);
+                cmd.Parameters.AddWithValue("@BlockerUserID", blockerUserID);
+                cmd.Parameters.AddWithValue("@BlockedUserID", blockedUserID);
+                
+                reader = await cmd.ExecuteReaderAsync();
+                
+                if (await reader.ReadAsync())
+                {
+                    return new BlockResult
+                    {
+                        Result = reader["Result"].ToString() ?? "error",
+                        Message = reader["Message"].ToString() ?? "Unknown error"
+                    };
+                }
+                
+                return new BlockResult { Result = "error", Message = "Failed to execute query" };
+            }
+        }
+        catch (Exception ex)
+        {
+            return new BlockResult { Result = "error", Message = ex.Message };
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    /// <summary>
+    /// Check if a user is blocked
+    /// </summary>
+    public async Task<bool> IsUserBlockedAsync(int blockerUserID, int blockedUserID)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@BlockerUserID", blockerUserID },
+                { "@BlockedUserID", blockedUserID }
+            };
+
+            try
+            {
+                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UserBlocks_IsBlocked", con, paramDic);
+                reader = await cmd.ExecuteReaderAsync();
+                
+                if (await reader.ReadAsync())
+                {
+                    return Convert.ToBoolean(reader["IsBlocked"]);
+                }
+                
+                return false;
+            }
+            catch
+            {
+                // Fallback to direct SQL
+                reader?.Close();
+                cmd?.Dispose();
+                
+                var query = @"
+                    SELECT CASE 
+                        WHEN EXISTS (
+                            SELECT 1 FROM NewsSitePro2025_UserBlocks 
+                            WHERE BlockerUserID = @BlockerUserID 
+                              AND BlockedUserID = @BlockedUserID 
+                              AND IsActive = 1
+                        ) THEN 1 
+                        ELSE 0 
+                    END as IsBlocked";
+                
+                cmd = new SqlCommand(query, con);
+                cmd.Parameters.AddWithValue("@BlockerUserID", blockerUserID);
+                cmd.Parameters.AddWithValue("@BlockedUserID", blockedUserID);
+                
+                var result = await cmd.ExecuteScalarAsync();
+                return Convert.ToBoolean(result);
+            }
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    /// <summary>
+    /// Get list of blocked users
+    /// </summary>
+    public async Task<List<UserBlock>> GetBlockedUsersAsync(int blockerUserID, int pageNumber = 1, int pageSize = 20)
+    {
+        var blockedUsers = new List<UserBlock>();
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@BlockerUserID", blockerUserID },
+                { "@PageNumber", pageNumber },
+                { "@PageSize", pageSize }
+            };
+
+            try
+            {
+                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UserBlocks_GetBlockedUsers", con, paramDic);
+                reader = await cmd.ExecuteReaderAsync();
+                
+                while (await reader.ReadAsync())
+                {
+                    blockedUsers.Add(new UserBlock
+                    {
+                        BlockID = reader.GetInt32("BlockID"),
+                        BlockedUserID = reader.GetInt32("BlockedUserID"),
+                        BlockedUsername = reader["BlockedUsername"].ToString(),
+                        BlockedUserEmail = reader["BlockedUserEmail"].ToString(),
+                        BlockedUserProfilePicture = reader["BlockedUserProfilePicture"].ToString(),
+                        BlockDate = reader.GetDateTime("BlockDate"),
+                        Reason = reader["Reason"].ToString()
+                    });
+                }
+            }
+            catch
+            {
+                // Fallback to direct SQL
+                reader?.Close();
+                cmd?.Dispose();
+                
+                var offset = (pageNumber - 1) * pageSize;
+                var query = @"
+                    SELECT 
+                        ub.BlockID,
+                        ub.BlockedUserID,
+                        u.Username as BlockedUsername,
+                        u.Email as BlockedUserEmail,
+                        u.ProfilePicture as BlockedUserProfilePicture,
+                        ub.BlockDate,
+                        ub.Reason
+                    FROM NewsSitePro2025_UserBlocks ub
+                    INNER JOIN NewsSitePro2025_Users u ON ub.BlockedUserID = u.UserID
+                    WHERE ub.BlockerUserID = @BlockerUserID 
+                      AND ub.IsActive = 1
+                    ORDER BY ub.BlockDate DESC
+                    OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
+                
+                cmd = new SqlCommand(query, con);
+                cmd.Parameters.AddWithValue("@BlockerUserID", blockerUserID);
+                cmd.Parameters.AddWithValue("@Offset", offset);
+                cmd.Parameters.AddWithValue("@PageSize", pageSize);
+                
+                reader = await cmd.ExecuteReaderAsync();
+                
+                while (await reader.ReadAsync())
+                {
+                    blockedUsers.Add(new UserBlock
+                    {
+                        BlockID = reader.GetInt32("BlockID"),
+                        BlockedUserID = reader.GetInt32("BlockedUserID"),
+                        BlockedUsername = reader["BlockedUsername"].ToString(),
+                        BlockedUserEmail = reader["BlockedUserEmail"].ToString(),
+                        BlockedUserProfilePicture = reader["BlockedUserProfilePicture"].ToString(),
+                        BlockDate = reader.GetDateTime("BlockDate"),
+                        Reason = reader["Reason"].ToString()
+                    });
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // Return empty list on error
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+
+        return blockedUsers;
+    }
+
+    /// <summary>
+    /// Get user block statistics
+    /// </summary>
+    public async Task<UserBlockStats> GetUserBlockStatsAsync(int userID)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@UserID", userID }
+            };
+
+            try
+            {
+                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UserBlocks_GetStats", con, paramDic);
+                reader = await cmd.ExecuteReaderAsync();
+                
+                if (await reader.ReadAsync())
+                {
+                    return new UserBlockStats
+                    {
+                        BlockedUsersCount = reader.GetInt32("BlockedUsersCount"),
+                        BlockedByUsersCount = reader.GetInt32("BlockedByUsersCount")
+                    };
+                }
+            }
+            catch
+            {
+                // Fallback to direct SQL
+                reader?.Close();
+                cmd?.Dispose();
+                
+                var query = @"
+                    SELECT 
+                        (SELECT COUNT(*) FROM NewsSitePro2025_UserBlocks WHERE BlockerUserID = @UserID AND IsActive = 1) as BlockedUsersCount,
+                        (SELECT COUNT(*) FROM NewsSitePro2025_UserBlocks WHERE BlockedUserID = @UserID AND IsActive = 1) as BlockedByUsersCount";
+                
+                cmd = new SqlCommand(query, con);
+                cmd.Parameters.AddWithValue("@UserID", userID);
+                
+                reader = await cmd.ExecuteReaderAsync();
+                
+                if (await reader.ReadAsync())
+                {
+                    return new UserBlockStats
+                    {
+                        BlockedUsersCount = reader.GetInt32("BlockedUsersCount"),
+                        BlockedByUsersCount = reader.GetInt32("BlockedByUsersCount")
+                    };
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // Return default stats on error
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+
+        return new UserBlockStats { BlockedUsersCount = 0, BlockedByUsersCount = 0 };
+    }
+
+    /// <summary>
+    /// Check mutual block status between two users
+    /// </summary>
+    public async Task<MutualBlockCheck> CheckMutualBlockAsync(int userID1, int userID2)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@UserID1", userID1 },
+                { "@UserID2", userID2 }
+            };
+
+            try
+            {
+                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UserBlocks_CheckMutual", con, paramDic);
+                reader = await cmd.ExecuteReaderAsync();
+                
+                if (await reader.ReadAsync())
+                {
+                    return new MutualBlockCheck
+                    {
+                        User1BlockedUser2 = Convert.ToBoolean(reader["User1BlockedUser2"]),
+                        User2BlockedUser1 = Convert.ToBoolean(reader["User2BlockedUser1"]),
+                        AnyBlockExists = Convert.ToBoolean(reader["AnyBlockExists"])
+                    };
+                }
+            }
+            catch
+            {
+                // Fallback to direct SQL
+                reader?.Close();
+                cmd?.Dispose();
+                
+                var query = @"
+                    SELECT 
+                        CASE WHEN EXISTS (
+                            SELECT 1 FROM NewsSitePro2025_UserBlocks 
+                            WHERE BlockerUserID = @UserID1 AND BlockedUserID = @UserID2 AND IsActive = 1
+                        ) THEN 1 ELSE 0 END as User1BlockedUser2,
+                        
+                        CASE WHEN EXISTS (
+                            SELECT 1 FROM NewsSitePro2025_UserBlocks 
+                            WHERE BlockerUserID = @UserID2 AND BlockedUserID = @UserID1 AND IsActive = 1
+                        ) THEN 1 ELSE 0 END as User2BlockedUser1,
+                        
+                        CASE WHEN EXISTS (
+                            SELECT 1 FROM NewsSitePro2025_UserBlocks 
+                            WHERE ((BlockerUserID = @UserID1 AND BlockedUserID = @UserID2) 
+                                OR (BlockerUserID = @UserID2 AND BlockedUserID = @UserID1)) 
+                              AND IsActive = 1
+                        ) THEN 1 ELSE 0 END as AnyBlockExists";
+                
+                cmd = new SqlCommand(query, con);
+                cmd.Parameters.AddWithValue("@UserID1", userID1);
+                cmd.Parameters.AddWithValue("@UserID2", userID2);
+                
+                reader = await cmd.ExecuteReaderAsync();
+                
+                if (await reader.ReadAsync())
+                {
+                    return new MutualBlockCheck
+                    {
+                        User1BlockedUser2 = Convert.ToBoolean(reader["User1BlockedUser2"]),
+                        User2BlockedUser1 = Convert.ToBoolean(reader["User2BlockedUser1"]),
+                        AnyBlockExists = Convert.ToBoolean(reader["AnyBlockExists"])
+                    };
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // Return default values on error
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+
+        return new MutualBlockCheck { User1BlockedUser2 = false, User2BlockedUser1 = false, AnyBlockExists = false };
     }
 
     #endregion

@@ -101,6 +101,22 @@ window.PostCardInteractions = {
             const result = await response.json();
             if (response.ok) {
                 this.showMessage('Post reported successfully. Thank you for helping keep our community safe.', 'success');
+                
+                // After successful report, offer to block the user
+                const postElement = document.querySelector(`[data-post-id="${postId}"]`);
+                if (postElement) {
+                    const username = postElement.querySelector('.username')?.textContent;
+                    const userLink = postElement.querySelector('.user-link');
+                    const userIdMatch = userLink?.href?.match(/\/UserProfile\/(\d+)/);
+                    const userId = userIdMatch ? userIdMatch[1] : null;
+
+                    if (userId && username) {
+                        const blockUser = confirm(`Would you also like to block ${username}? You will no longer see their posts or receive notifications from them.`);
+                        if (blockUser) {
+                            await this.blockUser(userId, username);
+                        }
+                    }
+                }
             } else {
                 this.showMessage(result.message || 'Failed to report post', 'error');
             }
@@ -112,27 +128,33 @@ window.PostCardInteractions = {
 
     async blockUser(userId, username) {
         try {
-            // Show confirmation dialog
-            const confirmed = confirm(`Are you sure you want to block ${username}? You will no longer see their posts.`);
-            if (!confirmed) {
-                return;
-            }
-
-            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl(`api/User/Block/${userId}`) : `/api/User/Block/${userId}`;
+            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl(`api/UserBlock/block`) : `/api/UserBlock/block`;
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
-                }
+                },
+                body: JSON.stringify({ 
+                    blockedUserID: parseInt(userId),
+                    reason: 'Blocked from user interaction' 
+                })
             });
 
             const result = await response.json();
             if (response.ok) {
-                this.showMessage(`${username} has been blocked`, 'success');
-                // Hide all posts from this user
-                document.querySelectorAll(`[data-user-id="${userId}"]`).forEach(post => {
-                    post.style.display = 'none';
+                this.showMessage(`${username} has been blocked successfully. You will no longer see their posts.`, 'success');
+                // Hide all posts from this user on the current page
+                document.querySelectorAll(`[data-post-id]`).forEach(postCard => {
+                    const userLink = postCard.querySelector('.user-link');
+                    if (userLink && userLink.href.includes(`/UserProfile/${userId}`)) {
+                        postCard.style.display = 'none';
+                    }
                 });
+                
+                // Refresh the page to ensure blocked user's content is filtered out
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
             } else {
                 this.showMessage(result.message || 'Failed to block user', 'error');
             }

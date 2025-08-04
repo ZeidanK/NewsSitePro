@@ -62,6 +62,9 @@ class AdminPanel {
 
         // Ban user modal
         document.getElementById('confirmBan').addEventListener('click', () => this.confirmBanUser());
+        // Resolve report modal confirm button
+        const resolveBtn = document.getElementById('confirmResolveReport');
+        if (resolveBtn) resolveBtn.addEventListener('click', () => this.confirmResolveReport());
 
         // Bulk actions
         document.getElementById('bulkDeactivate').addEventListener('click', () => this.bulkAction('deactivate'));
@@ -376,6 +379,55 @@ class AdminPanel {
         document.getElementById('banUserId').value = userId;
         const modal = new bootstrap.Modal(document.getElementById('banUserModal'));
         modal.show();
+    }
+
+    /**
+     * Opens resolve report modal for a given report
+     */
+    resolveReport(reportId) {
+        // Set report ID and open modal
+        document.getElementById('resolveReportId').value = reportId;
+        const modalEl = document.getElementById('resolveReportModal');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+    }
+
+    /**
+     * Confirms resolving a report and calls API
+     */
+    async confirmResolveReport() {
+        const reportId = parseInt(document.getElementById('resolveReportId').value);
+        const action = document.getElementById('resolveAction').value;
+        const notes = document.getElementById('resolveNotes').value;
+        if (!action) {
+            this.showError('Please select an action to resolve the report.');
+            return;
+        }
+        try {
+            const endpoint = `api/Admin/reports/${reportId}/resolve`;
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include',
+                body: JSON.stringify({ action: action, notes: notes })
+            });
+            const data = await response.json();
+            if (data.success) {
+                this.showSuccess(data.message || 'Report resolved successfully');
+                // Close modal and reload reports
+                bootstrap.Modal.getInstance(document.getElementById('resolveReportModal')).hide();
+                this.loadReports();
+            } else {
+                this.showError(data.message || 'Failed to resolve report');
+            }
+        } catch (error) {
+            this.showError('Error resolving report: ' + error.message);
+        }
     }
 
     async confirmBanUser() {

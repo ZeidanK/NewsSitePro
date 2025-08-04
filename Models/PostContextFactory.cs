@@ -12,6 +12,38 @@ namespace NewsSitePro.Models
         /// <summary>
         /// Creates a context for feed view (main homepage feed)
         /// </summary>
+        public static async Task<PostDisplayContext> CreateFeedContextAsync(User? currentUser, NewsArticle post, string feedType = "all", Dictionary<int, bool>? followStatusMap = null, Dictionary<int, bool>? blockStatusMap = null)
+        {
+            var context = new PostDisplayContext
+            {
+                ViewMode = PostViewMode.Feed,
+                Layout = PostLayout.Default,
+                ShowAuthorInfo = true,
+                ShowCategory = true,
+                ShowImage = true,
+                ShowSource = true,
+                ShowStats = true,
+                EnableInteractions = true,
+                ShowFullContent = false,
+                ContentPreviewLength = 200,
+                ContainerClass = "post-card"
+            };
+
+            await ApplyUserContextAsync(context, currentUser, post, followStatusMap, blockStatusMap);
+            ApplyInteractionContext(context, currentUser, post);
+
+            // Feed-specific logic
+            if (feedType == "following")
+            {
+                context.ShowFollowButton = false; // Already following
+            }
+
+            return context;
+        }
+
+        /// <summary>
+        /// Creates a context for feed view (main homepage feed) - Synchronous version for backward compatibility
+        /// </summary>
         public static PostDisplayContext CreateFeedContext(User? currentUser, NewsArticle post, string feedType = "all", Dictionary<int, bool>? followStatusMap = null)
         {
             var context = new PostDisplayContext
@@ -161,7 +193,66 @@ namespace NewsSitePro.Models
         }
 
         /// <summary>
-        /// Applies user-specific context (ownership, following, blocking)
+        /// Applies user-specific context (ownership, following, blocking) - Async version
+        /// </summary>
+        public static async Task ApplyUserContextAsync(PostDisplayContext context, User? currentUser, NewsArticle post, Dictionary<int, bool>? followStatusMap = null, Dictionary<int, bool>? blockStatusMap = null)
+        {
+            if (currentUser == null)
+            {
+                // Guest user
+                context.ShowFollowButton = false;
+                context.CanEdit = false;
+                context.CanDelete = false;
+                context.CanReport = false;
+                context.CanBlock = false;
+                return;
+            }
+
+            // Check if user owns the post
+            context.IsOwnPost = currentUser.Id == post.UserID;
+
+            if (context.IsOwnPost)
+            {
+                context.ShowFollowButton = false;
+                context.CanEdit = true;
+                context.CanDelete = true;
+                context.CanReport = false;
+                context.CanBlock = false;
+            }
+            else
+            {
+                // Use follow status from map if available
+                bool isFollowing = false;
+                if (followStatusMap != null && followStatusMap.ContainsKey(post.UserID))
+                {
+                    isFollowing = followStatusMap[post.UserID];
+                }
+                
+                context.IsFollowingAuthor = isFollowing;
+                
+                // Check blocking status from map
+                bool isAuthorBlocked = false;
+                if (blockStatusMap != null && blockStatusMap.ContainsKey(post.UserID))
+                {
+                    isAuthorBlocked = blockStatusMap[post.UserID];
+                }
+                context.IsAuthorBlocked = isAuthorBlocked;
+                
+                context.ShowFollowButton = !context.IsAuthorBlocked; // Show follow button unless blocked
+                context.CanReport = true;
+                context.CanBlock = !context.IsAuthorBlocked; // Can block if not already blocked
+            }
+
+            // Admin permissions
+            if (currentUser.IsAdmin)
+            {
+                context.CanModerate = true;
+                context.CanDelete = true;
+            }
+        }
+
+        /// <summary>
+        /// Applies user-specific context (ownership, following, blocking) - Synchronous version for backward compatibility
         /// </summary>
         public static void ApplyUserContext(PostDisplayContext context, User? currentUser, NewsArticle post, Dictionary<int, bool>? followStatusMap = null)
         {
@@ -197,7 +288,7 @@ namespace NewsSitePro.Models
                 }
                 
                 context.IsFollowingAuthor = isFollowing;
-                context.IsAuthorBlocked = false;   // TODO: Implement blocking system
+                context.IsAuthorBlocked = false;   // TODO: Implement blocking system in synchronous contexts
                 
                 context.ShowFollowButton = !context.IsAuthorBlocked; // Show follow button unless blocked
                 context.CanReport = true;
