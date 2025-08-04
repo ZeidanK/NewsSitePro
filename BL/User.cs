@@ -18,6 +18,10 @@ namespace NewsSite.BL
         private string? passwordHash;
         private bool isAdmin;
         private bool isLocked;
+        private bool isActive;
+        private bool isBanned;
+        private DateTime? bannedUntil;
+        private string? banReason;
         private string? bio;
         private DateTime joinDate;
         private string? profilePicture;
@@ -34,6 +38,10 @@ namespace NewsSite.BL
         public string? PasswordHash { get => passwordHash; set => passwordHash = value; }
         public bool IsAdmin { get => isAdmin; set => isAdmin = value; }
         public bool IsLocked { get => isLocked; set => isLocked = value; }
+        public bool IsActive { get => isActive; set => isActive = value; }
+        public bool IsBanned { get => isBanned; set => isBanned = value; }
+        public DateTime? BannedUntil { get => bannedUntil; set => bannedUntil = value; }
+        public string? BanReason { get => banReason; set => banReason = value; }
         public string? Bio { get => bio; set => bio = value; }
         public DateTime JoinDate { get => joinDate; set => joinDate = value; }
         public string? ProfilePicture { get => profilePicture; set => profilePicture = value; }
@@ -100,6 +108,18 @@ namespace NewsSite.BL
             if (user.IsLocked)
                 return null; // User is locked
 
+            // Check if user is inactive
+            if (!user.IsActive)
+                return null; // User is inactive
+
+            // Check if user is banned
+            if (user.IsBanned)
+            {
+                // Check if ban is still active (for temporary bans)
+                if (user.BannedUntil == null || user.BannedUntil > DateTime.Now)
+                    return null; // User is banned
+            }
+
             // Hash the provided password and compare
             var hashedInput = HashPassword(password);
             if (user.PasswordHash != hashedInput)
@@ -112,6 +132,10 @@ namespace NewsSite.BL
             this.PasswordHash = user.PasswordHash;
             this.IsAdmin = user.IsAdmin;
             this.IsLocked = user.IsLocked;
+            this.IsActive = user.IsActive;
+            this.IsBanned = user.IsBanned;
+            this.BannedUntil = user.BannedUntil;
+            this.BanReason = user.BanReason;
 
             // Generate JWT
             return GenerateJwtToken();

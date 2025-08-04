@@ -231,7 +231,7 @@ BEGIN
     IF @DurationDays != -1
         SET @BannedUntil = DATEADD(day, @DurationDays, GETDATE());
     UPDATE NewsSitePro2025_Users
-    SET IsBanned = 1, BannedUntil = @BannedUntil, BanReason = @Reason
+    SET IsBanned = 1, IsActive = 0, BannedUntil = @BannedUntil, BanReason = @Reason
     WHERE UserID = @UserID;
     INSERT INTO NewsSitePro2025_ActivityLogs (UserID, Action, Details, IpAddress, UserAgent)
     VALUES (@AdminID, 'BAN_USER', 'Banned user ' + CAST(@UserID AS NVARCHAR(10)) + ' for ' + CAST(@DurationDays AS NVARCHAR(10)) + ' days. Reason: ' + @Reason, 'Admin Panel', 'Admin Action');
@@ -240,16 +240,42 @@ END
 GO
 
 CREATE PROCEDURE NewsSitePro2025_sp_UnbanUser
-    @UserID INT,
+    @UserID INT, 
     @AdminID INT
 AS
 BEGIN
     SET NOCOUNT ON;
     UPDATE NewsSitePro2025_Users
-    SET IsBanned = 0, BannedUntil = NULL, BanReason = NULL
+    SET IsBanned = 0, IsActive = 1, BannedUntil = NULL, BanReason = NULL
     WHERE UserID = @UserID;
+    
     INSERT INTO NewsSitePro2025_ActivityLogs (UserID, Action, Details, IpAddress, UserAgent)
     VALUES (@AdminID, 'UNBAN_USER', 'Unbanned user ' + CAST(@UserID AS NVARCHAR(10)), 'Admin Panel', 'Admin Action');
+    SELECT @@ROWCOUNT AS RowsAffected;
+END
+GO
+
+-- Admin: Deactivate/Activate User
+CREATE PROCEDURE NewsSitePro2025_sp_DeactivateUser
+    @UserID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE NewsSitePro2025_Users
+    SET IsActive = 0
+    WHERE UserID = @UserID;
+    SELECT @@ROWCOUNT AS RowsAffected;
+END
+GO
+
+CREATE PROCEDURE NewsSitePro2025_sp_ActivateUser
+    @UserID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE NewsSitePro2025_Users
+    SET IsActive = 1
+    WHERE UserID = @UserID;
     SELECT @@ROWCOUNT AS RowsAffected;
 END
 GO 

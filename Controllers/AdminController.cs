@@ -156,17 +156,40 @@ namespace NewsSite.Controllers
         // GET: api/admin/users
         [HttpGet("users")]
         public async Task<IActionResult> GetUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 50, 
-            [FromQuery] string search = "", [FromQuery] string status = "", [FromQuery] string joinDate = "")
+            [FromQuery] string? search = null, [FromQuery] string? status = null, [FromQuery] string? joinDate = null)
         {
             try
             {
-                if (!(await IsCurrentUserAdminAsync()))
+                Console.WriteLine($"[AdminController] GetUsers called - Page: {page}, PageSize: {pageSize}");
+                Console.WriteLine($"[AdminController] Search: '{search}', Status: '{status}', JoinDate: '{joinDate}'");
+                
+                // Handle empty strings as null
+                search = string.IsNullOrWhiteSpace(search) ? null : search;
+                status = string.IsNullOrWhiteSpace(status) ? null : status;
+                joinDate = string.IsNullOrWhiteSpace(joinDate) ? null : joinDate;
+                
+                var currentUser = await GetCurrentUserFromJwt();
+                Console.WriteLine($"[AdminController] Current user: {currentUser?.Name}, IsAdmin: {currentUser?.IsAdmin}");
+                
+                if (currentUser == null)
                 {
+                    Console.WriteLine("[AdminController] No current user found");
+                    return StatusCode(401, new { success = false, message = "Authentication required" });
+                }
+                
+                if (!currentUser.IsAdmin)
+                {
+                    Console.WriteLine("[AdminController] User is not admin");
                     return StatusCode(403, new { success = false, message = "Admin access required" });
                 }
 
-                var users = await _adminService.GetFilteredUsersForAdminAsync(page, pageSize, search, status, joinDate);
-                var totalCount = await _adminService.GetFilteredUsersCountAsync(search, status, joinDate);
+                Console.WriteLine("[AdminController] Calling AdminService.GetFilteredUsersForAdminAsync");
+                var users = await _adminService.GetFilteredUsersForAdminAsync(page, pageSize, search ?? "", status ?? "", joinDate ?? "");
+                Console.WriteLine($"[AdminController] Got {users?.Count} users");
+                
+                var totalCount = await _adminService.GetFilteredUsersCountAsync(search ?? "", status ?? "", joinDate ?? "");
+                Console.WriteLine($"[AdminController] Total count: {totalCount}");
+                
                 var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
 
                 return Ok(new
@@ -180,6 +203,8 @@ namespace NewsSite.Controllers
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"[AdminController] Error in GetUsers: {ex.Message}");
+                Console.WriteLine($"[AdminController] Stack trace: {ex.StackTrace}");
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
@@ -210,6 +235,8 @@ namespace NewsSite.Controllers
         {
             try
             {
+                Console.WriteLine($"[AdminController] BanUser called - UserId: {id}, Reason: {request.Reason}, Duration: {request.Duration}");
+                
                 if (!(await IsCurrentUserAdminAsync()))
                 {
                     return StatusCode(403, new { success = false, message = "Admin access required" });
@@ -221,19 +248,24 @@ namespace NewsSite.Controllers
                     return Unauthorized(new { success = false, message = "Unable to identify admin user" });
                 }
 
+                Console.WriteLine($"[AdminController] Calling AdminService.BanUserAsync with AdminId: {currentUserId.Value}");
                 var success = await _adminService.BanUserAsync(id, request.Reason, request.Duration, currentUserId.Value);
                 
                 if (success)
                 {
+                    Console.WriteLine("[AdminController] Ban operation successful");
                     return Ok(new { success = true, message = "User banned successfully" });
                 }
                 else
                 {
+                    Console.WriteLine("[AdminController] Ban operation failed");
                     return BadRequest(new { success = false, message = "Failed to ban user" });
                 }
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"[AdminController] Ban operation exception: {ex.Message}");
+                Console.WriteLine($"[AdminController] Stack trace: {ex.StackTrace}");
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
@@ -249,7 +281,13 @@ namespace NewsSite.Controllers
                     return StatusCode(403, new { success = false, message = "Admin access required" });
                 }
 
-                var success = await _adminService.UnbanUserAsync(id);
+                var currentUserId = GetCurrentUserId();
+                if (currentUserId == null)
+                {
+                    return Unauthorized(new { success = false, message = "Unable to identify admin user" });
+                }
+
+                var success = await _adminService.UnbanUserAsync(id, currentUserId.Value);
                 
                 if (success)
                 {
@@ -294,9 +332,9 @@ namespace NewsSite.Controllers
             }
         }
 
-        // GET: api/admin/activity-logs
-        [HttpGet("activity-logs")]
-        public async Task<IActionResult> GetActivityLogs([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        // POST: api/admin/users/{id}/activate
+        [HttpPost("users/{id}/activate")]
+        public async Task<IActionResult> ActivateUser(int id)
         {
             try
             {
@@ -305,11 +343,50 @@ namespace NewsSite.Controllers
                     return StatusCode(403, new { success = false, message = "Admin access required" });
                 }
 
-                var logs = await _adminService.GetActivityLogsAsync(page, pageSize);
-                return Ok(new { success = true, data = logs });
+                var success = await _adminService.ActivateUserAsync(id);
+                
+                if (success)
+                {
+                    return Ok(new { success = true, message = "User activated successfully" });
+                }
+                else
+                {
+                    return BadRequest(new { success = false, message = "Failed to activate user" });
+                }
             }
             catch (Exception ex)
             {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        // GET: api/admin/activity-logs
+        [HttpGet("activity-logs")]
+        public async Task<IActionResult> GetActivityLogs([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        {
+            try
+            {
+                Console.WriteLine($"[AdminController] GetActivityLogs called - Page: {page}, PageSize: {pageSize}");
+                
+                var currentUser = await GetCurrentUserFromJwt();
+                Console.WriteLine($"[AdminController] Current user: {currentUser?.Name}, IsAdmin: {currentUser?.IsAdmin}");
+                
+                if (currentUser == null || !currentUser.IsAdmin)
+                {
+                    Console.WriteLine("[AdminController] Unauthorized for activity logs");
+                    return StatusCode(403, new { success = false, message = "Admin access required" });
+                }
+
+                Console.WriteLine("[AdminController] Calling AdminService.GetActivityLogsAsync");
+                var logs = await _adminService.GetActivityLogsAsync(page, pageSize);
+                Console.WriteLine($"[AdminController] Got {logs?.Count} logs");
+                
+                return Ok(new { success = true, logs = logs });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AdminController] Error in GetActivityLogs: {ex.Message}");
+                Console.WriteLine($"[AdminController] Stack trace: {ex.StackTrace}");
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
@@ -340,19 +417,29 @@ namespace NewsSite.Controllers
         {
             try
             {
-                if (!(await IsCurrentUserAdminAsync()))
+                Console.WriteLine($"[AdminController] GetReports called - PendingOnly: {pendingOnly}");
+                
+                var currentUser = await GetCurrentUserFromJwt();
+                Console.WriteLine($"[AdminController] Current user: {currentUser?.Name}, IsAdmin: {currentUser?.IsAdmin}");
+                
+                if (currentUser == null || !currentUser.IsAdmin)
                 {
+                    Console.WriteLine("[AdminController] Unauthorized for reports");
                     return StatusCode(403, new { success = false, message = "Admin access required" });
                 }
 
+                Console.WriteLine("[AdminController] Calling AdminService reports methods");
                 var reports = pendingOnly 
                     ? await _adminService.GetPendingReportsAsync()
                     : await _adminService.GetAllReportsAsync();
+                Console.WriteLine($"[AdminController] Got {reports?.Count} reports");
                 
-                return Ok(new { success = true, data = reports });
+                return Ok(new { success = true, reports = reports });
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"[AdminController] Error in GetReports: {ex.Message}");
+                Console.WriteLine($"[AdminController] Stack trace: {ex.StackTrace}");
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
@@ -458,7 +545,7 @@ namespace NewsSite.Controllers
                                 message = success ? "Banned successfully" : "Failed to ban";
                                 break;
                             case "unban":
-                                success = await _adminService.UnbanUserAsync(userId);
+                                success = await _adminService.UnbanUserAsync(userId, currentUserId.Value);
                                 message = success ? "Unbanned successfully" : "Failed to unban";
                                 break;
                             case "deactivate":

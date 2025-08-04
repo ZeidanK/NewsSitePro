@@ -10,8 +10,9 @@ namespace NewsSite.BL.Services
         Task<int> GetFilteredUsersCountAsync(string search, string status, string joinDate);
         Task<AdminUserDetails> GetUserDetailsForAdminAsync(int userId);
         Task<bool> BanUserAsync(int userId, string reason, int durationDays, int adminId);
-        Task<bool> UnbanUserAsync(int userId);
+        Task<bool> UnbanUserAsync(int userId, int adminId);
         Task<bool> DeactivateUserAsync(int userId);
+        Task<bool> ActivateUserAsync(int userId);
         Task<List<UserReport>> GetAllReportsAsync();
         Task<List<UserReport>> GetPendingReportsAsync();
         Task<bool> ResolveReportAsync(int reportId, string action, string notes, int adminId);

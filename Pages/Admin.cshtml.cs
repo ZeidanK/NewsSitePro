@@ -200,7 +200,7 @@ namespace NewsSite.Pages
                     return Unauthorized();
                 }
 
-                bool success = await dbService.UnbanUser(userId);
+                bool success = await dbService.UnbanUser(userId, adminId.Value);
 
                 if (success)
                 {

@@ -233,6 +233,10 @@ public class DBservices
                     PasswordHash = reader["PasswordHash"]?.ToString(),
                     IsAdmin = reader["IsAdmin"] != DBNull.Value && Convert.ToBoolean(reader["IsAdmin"]),
                     IsLocked = reader["IsLocked"] != DBNull.Value && Convert.ToBoolean(reader["IsLocked"]),
+                    IsActive = reader["IsActive"] != DBNull.Value && Convert.ToBoolean(reader["IsActive"]),
+                    IsBanned = reader["IsBanned"] != DBNull.Value && Convert.ToBoolean(reader["IsBanned"]),
+                    BannedUntil = reader["BannedUntil"] != DBNull.Value ? Convert.ToDateTime(reader["BannedUntil"]) : null,
+                    BanReason = reader["BanReason"]?.ToString(),
                     Bio = reader["Bio"]?.ToString(),
                     JoinDate = reader["JoinDate"] != DBNull.Value ? Convert.ToDateTime(reader["JoinDate"]) : DateTime.Now,
                     // Add ProfilePicture if needed
@@ -1536,8 +1540,9 @@ public class DBservices
             
             try
             {
-                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Admin_BanUser", con, paramDic);
-                var rowsAffected = await cmd.ExecuteNonQueryAsync();
+                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_BanUser", con, paramDic);
+                var result = await cmd.ExecuteScalarAsync();
+                var rowsAffected = Convert.ToInt32(result);
                 return rowsAffected > 0;
             }
             catch
@@ -1547,7 +1552,7 @@ public class DBservices
                 
                 var query = @"
                     UPDATE NewsSitePro2025_Users 
-                    SET IsBanned = 1, BannedUntil = @BannedUntil, BanReason = @Reason
+                    SET IsBanned = 1, IsActive = 0, BannedUntil = @BannedUntil, BanReason = @Reason
                     WHERE UserID = @UserId";
                 
                 cmd = new SqlCommand(query, con);
@@ -1569,7 +1574,7 @@ public class DBservices
         }
     }
 
-    public async Task<bool> UnbanUser(int userId)
+    public async Task<bool> UnbanUser(int userId, int adminId)
     {
         SqlConnection? con = null;
         SqlCommand? cmd = null;
@@ -1581,13 +1586,15 @@ public class DBservices
             // Try to use stored procedure first
             var paramDic = new Dictionary<string, object>
             {
-                { "@UserID", userId }
+                { "@UserID", userId },
+                { "@AdminID", adminId }
             };
             
             try
             {
-                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Admin_UnbanUser", con, paramDic);
-                var rowsAffected = await cmd.ExecuteNonQueryAsync();
+                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UnbanUser", con, paramDic);
+                var result = await cmd.ExecuteScalarAsync();
+                var rowsAffected = Convert.ToInt32(result);
                 return rowsAffected > 0;
             }
             catch
@@ -1595,7 +1602,7 @@ public class DBservices
                 // Fallback to direct SQL query
                 var query = @"
                     UPDATE NewsSitePro2025_Users 
-                    SET IsBanned = 0, BannedUntil = NULL, BanReason = NULL
+                    SET IsBanned = 0, IsActive = 1, BannedUntil = NULL, BanReason = NULL
                     WHERE UserID = @UserId";
                 
                 cmd = new SqlCommand(query, con);
@@ -1632,8 +1639,9 @@ public class DBservices
             
             try
             {
-                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Admin_DeactivateUser", con, paramDic);
-                var rowsAffected = await cmd.ExecuteNonQueryAsync();
+                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_DeactivateUser", con, paramDic);
+                var result = await cmd.ExecuteScalarAsync();
+                var rowsAffected = Convert.ToInt32(result);
                 return rowsAffected > 0;
             }
             catch
@@ -1651,6 +1659,50 @@ public class DBservices
         catch (Exception ex)
         {
             throw new Exception("Error deactivating user: " + ex.Message);
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
+
+    public async Task<bool> ActivateUser(int userId)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        
+        try
+        {
+            con = connect("myProjDB");
+            
+            // Try to use stored procedure first
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@UserID", userId }
+            };
+            
+            try
+            {
+                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_ActivateUser", con, paramDic);
+                var result = await cmd.ExecuteScalarAsync();
+                var rowsAffected = Convert.ToInt32(result);
+                return rowsAffected > 0;
+            }
+            catch
+            {
+                // Fallback to direct SQL query
+                var query = "UPDATE NewsSitePro2025_Users SET IsActive = 1 WHERE UserID = @UserId";
+                
+                cmd = new SqlCommand(query, con);
+                cmd.Parameters.AddWithValue("@UserId", userId);
+                
+                var rowsAffected = await cmd.ExecuteNonQueryAsync();
+                return rowsAffected > 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("Error activating user: " + ex.Message);
         }
         finally
         {
@@ -1684,7 +1736,7 @@ public class DBservices
                 {
                     logs.Add(new ActivityLog
                     {
-                        Id = reader.GetInt32("ID"),
+                        Id = reader.GetInt32("LogID"),
                         UserId = reader.GetInt32("UserID"),
                         Username = reader.GetString("Username"),
                         Action = reader.GetString("Action"),
@@ -1705,7 +1757,7 @@ public class DBservices
                 }
                 
                 var query = @"
-                    SELECT TOP (@Count) al.ID, al.UserID, u.Username AS Username, al.Action, 
+                    SELECT TOP (@Count) al.LogID, al.UserID, u.Username AS Username, al.Action, 
                            al.Details, al.Timestamp, al.IpAddress, al.UserAgent
                     FROM NewsSitePro2025_ActivityLogs al
                     INNER JOIN NewsSitePro2025_Users u ON al.UserID = u.UserID
@@ -1719,7 +1771,7 @@ public class DBservices
                 {
                     logs.Add(new ActivityLog
                     {
-                        Id = reader.GetInt32("ID"),
+                        Id = reader.GetInt32("LogID"),
                         UserId = reader.GetInt32("UserID"),
                         Username = reader.GetString("Username"),
                         Action = reader.GetString("Action"),
@@ -1760,7 +1812,7 @@ public class DBservices
             
             var offset = (page - 1) * pageSize;
             var query = @"
-                SELECT al.ID, al.UserID, u.Username AS Username, al.Action, 
+                SELECT al.LogID, al.UserID, u.Username AS Username, al.Action, 
                        al.Details, al.Timestamp, al.IpAddress, al.UserAgent
                 FROM NewsSitePro2025_ActivityLogs al
                 INNER JOIN NewsSitePro2025_Users u ON al.UserID = u.UserID
@@ -1776,7 +1828,7 @@ public class DBservices
             {
                 logs.Add(new ActivityLog
                 {
-                    Id = reader.GetInt32("ID"),
+                    Id = reader.GetInt32("LogID"),
                     UserId = reader.GetInt32("UserID"),
                     Username = reader.GetString("Username"),
                     Action = reader.GetString("Action"),
@@ -1814,12 +1866,12 @@ public class DBservices
                 await con.OpenAsync();
                 
                 var query = @"
-                    SELECT r.ID, r.ReporterID, ru.Name AS ReporterUsername, 
-                           r.ReportedUserID, rpu.Name AS ReportedUsername,
+                    SELECT r.ReportID, r.ReporterID, ru.Username AS ReporterUsername, 
+                           r.ReportedUserID, rpu.Username AS ReportedUsername,
                            r.Reason, r.Description, r.CreatedAt, r.Status
                     FROM NewsSitePro2025_Reports r
                     INNER JOIN NewsSitePro2025_Users ru ON r.ReporterID = ru.UserID
-                    INNER JOIN NewsSitePro2025_Users rpu ON r.ReportedUserID = rpu.UserID
+                    LEFT JOIN NewsSitePro2025_Users rpu ON r.ReportedUserID = rpu.UserID
                     WHERE r.Status = 'Pending'
                     ORDER BY r.CreatedAt DESC";
                 
@@ -1831,13 +1883,13 @@ public class DBservices
                         {
                             reports.Add(new UserReport
                             {
-                                Id = reader.GetInt32("ID"),
+                                Id = reader.GetInt32("ReportID"),
                                 ReporterId = reader.GetInt32("ReporterID"),
                                 ReporterUsername = reader.GetString("ReporterUsername"),
-                                ReportedUserId = reader.GetInt32("ReportedUserID"),
-                                ReportedUsername = reader.GetString("ReportedUsername"),
+                                ReportedUserId = reader.IsDBNull("ReportedUserID") ? 0 : reader.GetInt32("ReportedUserID"),
+                                ReportedUsername = reader.IsDBNull("ReportedUsername") ? "Unknown" : reader.GetString("ReportedUsername"),
                                 Reason = reader.GetString("Reason"),
-                                Description = reader.GetString("Description"),
+                                Description = reader.IsDBNull("Description") ? "" : reader.GetString("Description"),
                                 CreatedAt = reader.GetDateTime("CreatedAt"),
                                 Status = reader.GetString("Status")
                             });
@@ -1865,13 +1917,13 @@ public class DBservices
                 await con.OpenAsync();
                 
                 var query = @"
-                    SELECT r.ID, r.ReporterID, ru.Name AS ReporterUsername, 
-                           r.ReportedUserID, rpu.Name AS ReportedUsername,
+                    SELECT r.ReportID, r.ReporterID, ru.Username AS ReporterUsername, 
+                           r.ReportedUserID, rpu.Username AS ReportedUsername,
                            r.Reason, r.Description, r.CreatedAt, r.Status,
                            r.ResolvedBy, r.ResolvedAt, r.ResolutionNotes
                     FROM NewsSitePro2025_Reports r
                     INNER JOIN NewsSitePro2025_Users ru ON r.ReporterID = ru.UserID
-                    INNER JOIN NewsSitePro2025_Users rpu ON r.ReportedUserID = rpu.UserID
+                    LEFT JOIN NewsSitePro2025_Users rpu ON r.ReportedUserID = rpu.UserID
                     ORDER BY r.CreatedAt DESC";
                 
                 using (var cmd = new SqlCommand(query, con))
@@ -1882,13 +1934,13 @@ public class DBservices
                         {
                             reports.Add(new UserReport
                             {
-                                Id = reader.GetInt32("ID"),
+                                Id = reader.GetInt32("ReportID"),
                                 ReporterId = reader.GetInt32("ReporterID"),
                                 ReporterUsername = reader.GetString("ReporterUsername"),
-                                ReportedUserId = reader.GetInt32("ReportedUserID"),
-                                ReportedUsername = reader.GetString("ReportedUsername"),
+                                ReportedUserId = reader.IsDBNull("ReportedUserID") ? 0 : reader.GetInt32("ReportedUserID"),
+                                ReportedUsername = reader.IsDBNull("ReportedUsername") ? "Unknown" : reader.GetString("ReportedUsername"),
                                 Reason = reader.GetString("Reason"),
-                                Description = reader.GetString("Description"),
+                                Description = reader.IsDBNull("Description") ? "" : reader.GetString("Description"),
                                 CreatedAt = reader.GetDateTime("CreatedAt"),
                                 Status = reader.GetString("Status"),
                                 ResolvedBy = reader.IsDBNull("ResolvedBy") ? null : reader.GetInt32("ResolvedBy"),
@@ -1919,7 +1971,7 @@ public class DBservices
                 var query = @"
                     UPDATE NewsSitePro2025_Reports 
                     SET Status = @Status, ResolvedBy = @AdminId, ResolvedAt = GETDATE(), ResolutionNotes = @Notes
-                    WHERE ID = @ReportId";
+                    WHERE ReportID = @ReportId";
                 
                 using (var cmd = new SqlCommand(query, con))
                 {

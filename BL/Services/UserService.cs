@@ -145,10 +145,19 @@ namespace NewsSite.BL.Services
             return true; // Placeholder implementation
         }
 
-        public async Task<bool> UnbanUserAsync(int userId)
+        public async Task<bool> UnbanUserAsync(int userId, int adminId)
         {
-            // Simple implementation - assumes this functionality exists in DBservice
-            return true; // Placeholder implementation
+            if (userId <= 0)
+            {
+                throw new ArgumentException("Valid User ID is required");
+            }
+
+            if (adminId <= 0)
+            {
+                throw new ArgumentException("Valid Admin ID is required");
+            }
+
+            return await _dbService.UnbanUser(userId, adminId);
         }
 
         public async Task<FollowResult> ToggleUserFollowAsync(int currentUserId, int targetUserId)
