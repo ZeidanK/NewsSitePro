@@ -1,6 +1,14 @@
+/**
+ * FeedController.cs
+ * Purpose: Handles personalized feed generation, algorithm-based content delivery, and recommendation system
+ * Responsibilities: Feed algorithms (trending, popular, recent), personalized recommendations, user interest tracking
+ * Architecture: Uses NewsService and UserService from BL layer for content retrieval and user data
+ */
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NewsSite.BL;
+using NewsSite.BL.Services;
 using NewsSite.Services;
 using System.Security.Claims;
 
@@ -11,16 +19,20 @@ namespace NewsSite.Controllers
     public class FeedController : ControllerBase
     {
         private readonly IRecommendationService _recommendationService;
-        private readonly DBservices _dbServices;
+        private readonly INewsService _newsService;
+        private readonly IUserService _userService;
 
-        public FeedController(IRecommendationService recommendationService, DBservices dbServices)
+        public FeedController(IRecommendationService recommendationService, INewsService newsService, IUserService userService)
         {
             _recommendationService = recommendationService;
-            _dbServices = dbServices;
+            _newsService = newsService;
+            _userService = userService;
         }
 
         /// <summary>
         /// Get personalized feed for the authenticated user
+        /// Uses machine learning algorithms to recommend content based on user behavior and preferences
+        /// Requires user authentication to access personalized recommendation data
         /// </summary>
         [HttpGet("personalized")]
         [Authorize]
@@ -32,6 +44,7 @@ namespace NewsSite.Controllers
                 if (userId == null)
                     return Unauthorized("User not authenticated");
 
+                // Generate personalized feed using recommendation service with user's behavioral data
                 var feed = await _recommendationService.GetPersonalizedFeedAsync(userId.Value, request);
                 return Ok(feed);
             }
@@ -292,19 +305,19 @@ namespace NewsSite.Controllers
                 switch (request.SortOptions.SortBy)
                 {
                     case SortBy.Popular:
-                        articles = await _dbServices.GetPopularArticlesAsync(request.PageSize * 2);
+                        articles = await _newsService.GetPopularArticlesAsync(request.PageSize * 2);
                         break;
                     case SortBy.Trending:
-                        articles = await _dbServices.GetTrendingArticlesAsync(request.PageSize * 2);
+                        articles = await _newsService.GetTrendingArticlesAsync(request.PageSize * 2);
                         break;
                     case SortBy.MostLiked:
-                        articles = await _dbServices.GetMostLikedArticlesAsync(request.PageSize * 2);
+                        articles = await _newsService.GetMostLikedArticlesAsync(request.PageSize * 2);
                         break;
                     case SortBy.MostViewed:
-                        articles = await _dbServices.GetMostViewedArticlesAsync(request.PageSize * 2);
+                        articles = await _newsService.GetMostViewedArticlesAsync(request.PageSize * 2);
                         break;
                     case SortBy.Recent:
-                        articles = await _dbServices.GetRecentArticlesAsync(request.PageSize * 2);
+                        articles = await _newsService.GetRecentArticlesAsync(request.PageSize * 2);
                         break;
                     default:
                         var personalizedFeed = await _recommendationService.GetPersonalizedFeedAsync(userId, new FeedRequest 
@@ -438,12 +451,12 @@ namespace NewsSite.Controllers
                 var userId = GetCurrentUserId() ?? 0;
                 
                 // Get articles from the category
-                var articles = await _dbServices.GetArticlesByInterestAsync(userId, category, pageSize * 2);
+                var articles = await _newsService.GetArticlesByInterestAsync(userId, category, pageSize * 2);
                 
                 // If user is authenticated, personalize the category feed
                 if (userId > 0)
                 {
-                    var userInterests = await _dbServices.GetUserInterestsAsync(userId);
+                    var userInterests = await _userService.GetUserInterestsAsync(userId);
                     var categoryInterest = userInterests.FirstOrDefault(i => i.Category.Equals(category, StringComparison.OrdinalIgnoreCase));
                     
                     // Boost articles if user has shown interest in this category
@@ -500,7 +513,7 @@ namespace NewsSite.Controllers
         
         private int? GetCurrentUserId()
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userIdClaim = User.FindFirst("id")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             return int.TryParse(userIdClaim, out var userId) ? userId : null;
         }
 

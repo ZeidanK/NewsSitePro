@@ -1,0 +1,183 @@
+@using System.Linq
+@model dynamic
+@{
+    var post = Model.Post;
+    var comments = Model.Comments as IEnumerable<dynamic> ?? new List<dynamic>();
+    var currentUser = Model.CurrentUser;
+    var commentsList = comments.ToList();
+    var topLevelComments = commentsList.Where(c => c.ParentCommentID == null).ToList();
+}
+
+<!-- Comments Section -->
+<section class="comments-section">
+    <div class="comments-header">
+        <h3>Comments (@commentsList.Count)</h3>
+    </div>
+
+    <!-- Add Comment Form (Only for authenticated users) -->
+    @if (currentUser != null)
+    {
+        <div class="add-comment-form">
+            <div class="comment-input-area">
+                <div class="comment-avatar">
+                    <div class="avatar-small">
+                        @if (!string.IsNullOrEmpty(currentUser.ProfilePicture))
+                        {
+                            <img src="@currentUser.ProfilePicture" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" alt="@currentUser.Name" />
+                        }
+                        else
+                        {
+                            @(currentUser.Name?.Substring(0, 1).ToUpper() ?? "U")
+                        }
+                    </div>
+                </div>
+                <div class="comment-input-container">
+                    <textarea id="commentContent" class="comment-input" placeholder="Add a comment..." maxlength="1000"></textarea>
+                    <div class="comment-actions">
+                        <span class="char-counter">0/1000</span>
+                        <button id="submitComment" class="btn btn-primary" onclick="addComment(@post.ArticleID)">
+                            <i class="fas fa-paper-plane"></i> Comment
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="login-prompt">
+            <p>Please <a href="~/Login">log in</a> to add a comment.</p>
+        </div>
+    }
+
+    <!-- Comments List -->
+    <div class="comments-list" id="commentsList">
+        @if (commentsList != null && commentsList.Count > 0)
+        {
+            @foreach (var comment in topLevelComments)
+            {
+                <div class="comment" data-comment-id="@comment.ID">
+                    <div class="comment-content">
+                        <div class="comment-header">
+                            <a href="~/UserProfile/@comment.UserID" class="comment-user-link">
+                                <div class="comment-avatar">
+                                    @if (!string.IsNullOrEmpty(comment.UserAvatar))
+                                    {
+                                        <img src="@comment.UserAvatar" alt="@comment.UserName" />
+                                    }
+                                    else
+                                    {
+                                        <div class="avatar-placeholder">
+                                            @((comment.UserName ?? "U").Substring(0, 1).ToUpper())
+                                        </div>
+                                    }
+                                </div>
+                                <div class="comment-user-info">
+                                    <span class="comment-username">@(comment.UserName ?? "Anonymous")</span>
+                                    <span class="comment-date">@comment.CreatedAt.ToString("MMM dd, yyyy")</span>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="comment-text">
+                            @Html.Raw(Html.Encode(comment.Content).Replace("\n", "<br />"))
+                        </div>
+                        <div class="comment-actions">
+                            <button class="comment-action-btn like-btn" data-comment-id="@comment.ID" data-target-type="comment">
+                                <i class="fas fa-heart @(comment.IsLikedByCurrentUser ? "liked" : "")"></i>
+                                <span>@comment.LikesCount</span>
+                            </button>
+                            <button class="comment-action-btn reply-btn" data-comment-id="@comment.ID">
+                                <i class="fas fa-reply"></i>
+                                Reply
+                            </button>
+                        </div>
+                        
+                        <!-- Reply form container -->
+                        <div class="reply-form-container"></div>
+                    </div>
+
+                    <!-- Replies -->
+                    @if (comment.Replies != null && comment.Replies.Count > 0)
+                    {
+                        <div class="replies">
+                            @foreach (var reply in comment.Replies)
+                            {
+                                <div class="comment reply" data-comment-id="@reply.ID">
+                                    <div class="comment-content">
+                                        <div class="comment-header">
+                                            <a href="~/UserProfile/@reply.UserID" class="comment-user-link">
+                                                <div class="comment-avatar">
+                                                    @if (!string.IsNullOrEmpty(reply.UserAvatar))
+                                                    {
+                                                        <img src="@reply.UserAvatar" alt="@reply.UserName" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="avatar-placeholder">
+                                                            @((reply.UserName ?? "U").Substring(0, 1).ToUpper())
+                                                        </div>
+                                                    }
+                                                </div>
+                                                <div class="comment-user-info">
+                                                    <span class="comment-username">@(reply.UserName ?? "Anonymous")</span>
+                                                    <span class="comment-date">@reply.CreatedAt.ToString("MMM dd, yyyy")</span>
+                                                </div>
+                                            </a>
+                                        </div>
+                                        <div class="comment-text">
+                                            @Html.Raw(Html.Encode(reply.Content).Replace("\n", "<br />"))
+                                        </div>
+                                        <div class="comment-actions">
+                                            <button class="comment-action-btn like-btn" data-comment-id="@reply.ID" data-target-type="comment">
+                                                <i class="fas fa-heart @(reply.IsLikedByCurrentUser ? "liked" : "")"></i>
+                                                <span>@reply.LikesCount</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <!-- Reply Form (Hidden by default) -->
+                    @if (currentUser != null)
+                    {
+                        <div class="reply-form" id="replyForm-@comment.ID" style="display: none;">
+                            <div class="comment-input-area">
+                                <div class="comment-avatar">
+                                    <div class="avatar-small">
+                                        @if (!string.IsNullOrEmpty(currentUser.ProfilePicture))
+                                        {
+                                            <img src="@currentUser.ProfilePicture" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" alt="@currentUser.Name" />
+                                        }
+                                        else
+                                        {
+                                            @(currentUser.Name?.Substring(0, 1).ToUpper() ?? "U")
+                                        }
+                                    </div>
+                                </div>
+                                <div class="comment-input-container">
+                                    <textarea id="replyContent-@comment.ID" class="comment-input reply-input" placeholder="Reply to @comment.UserName..." maxlength="1000"></textarea>
+                                    <div class="comment-actions">
+                                        <span class="char-counter">0/1000</span>
+                                        <button class="btn btn-sm btn-secondary" onclick="hideReplyForm(@comment.ID)">Cancel</button>
+                                        <button class="btn btn-sm btn-primary" onclick="submitReply(@comment.ID)">
+                                            <i class="fas fa-paper-plane"></i> Reply
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            <div class="no-comments">
+                <i class="fas fa-comments"></i>
+                <p>No comments yet. Be the first to comment!</p>
+            </div>
+        }
+    </div>
+</section>

@@ -1,5 +1,5 @@
 using NewsSite.BL;
-
+ 
 namespace NewsSite.BL.Services
 {
     public interface IAdminService
@@ -7,7 +7,12 @@ namespace NewsSite.BL.Services
         Task<AdminDashboardStats> GetAdminDashboardStatsAsync();
         Task<List<AdminUserView>> GetAllUsersForAdminAsync(int page, int pageSize);
         Task<List<AdminUserView>> GetFilteredUsersForAdminAsync(int page, int pageSize, string search, string status, string joinDate);
+        Task<int> GetFilteredUsersCountAsync(string search, string status, string joinDate);
         Task<AdminUserDetails> GetUserDetailsForAdminAsync(int userId);
+        Task<bool> BanUserAsync(int userId, string reason, int durationDays, int adminId);
+        Task<bool> UnbanUserAsync(int userId, int adminId);
+        Task<bool> DeactivateUserAsync(int userId);
+        Task<bool> ActivateUserAsync(int userId);
         Task<List<UserReport>> GetAllReportsAsync();
         Task<List<UserReport>> GetPendingReportsAsync();
         Task<bool> ResolveReportAsync(int reportId, string action, string notes, int adminId);

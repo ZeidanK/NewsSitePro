@@ -1,6 +1,14 @@
+/**
+ * PostsController.cs
+ * Purpose: Handles post operations, content management, and post-related functionality
+ * Responsibilities: Post CRUD operations, post interactions (like/save), post management, content moderation
+ * Architecture: Uses PostService and UserService from BL layer for post business logic and data operations
+ */
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NewsSite.BL;
+using NewsSite.BL.Services;
 using NewsSite.Models;
 using NewsSite.Services;
 using System.Security.Claims;
@@ -12,26 +20,28 @@ namespace NewsSite.Controllers
     [ApiController]
     public class PostsController : ControllerBase
     {
-        private readonly DBservices _dbService;
+        private readonly INewsService _newsService;
+        private readonly IUserService _userService;
         private readonly INewsApiService _newsApiService;
         private readonly ILogger<PostsController> _logger;
 
-        public PostsController(DBservices dbService, INewsApiService newsApiService, ILogger<PostsController> logger)
+        public PostsController(INewsService newsService, IUserService userService, INewsApiService newsApiService, ILogger<PostsController> logger)
         {
-            _dbService = dbService;
+            _newsService = newsService;
+            _userService = userService;
             _newsApiService = newsApiService;
             _logger = logger;
         }
 
         [HttpGet]
-        public IActionResult GetPosts([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string? filter = null)
+        public async Task<IActionResult> GetPosts([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string? filter = null)
         {
             try
             {
                 // Get current user ID from session/token (for now using mock ID)
                 int? currentUserId = GetCurrentUserId(); // You'll need to implement this based on your auth
 
-                var articles = _dbService.GetAllNewsArticles(page, limit, filter, currentUserId);
+                var articles = await _newsService.GetAllNewsArticlesAsync(page, limit, filter, currentUserId);
                 
                 // Calculate total pages (you might want to modify the stored procedure to return this)
                 var totalPages = Math.Max(1, (int)Math.Ceiling(articles.Count / (double)limit));
@@ -64,7 +74,7 @@ namespace NewsSite.Controllers
 
         [HttpPost("Like/{id}")]
         // [Authorize] // Temporarily removed
-        public IActionResult LikePost(int id)
+        public async Task<IActionResult> LikePost(int id)
         {
             try
             {
@@ -74,7 +84,7 @@ namespace NewsSite.Controllers
                     return Unauthorized(new { message = "User not authenticated" });
                 }
 
-                var result = _dbService.ToggleArticleLike(id, userId.Value);
+                var result = await _newsService.ToggleArticleLikeAsync(id, userId.Value);
                 return Ok(new { message = $"Post {result} successfully", action = result });
             }
             catch (Exception ex)
@@ -85,7 +95,7 @@ namespace NewsSite.Controllers
 
         [HttpPost("Report/{id}")]
         // [Authorize] // Temporarily removed
-        public IActionResult ReportPost(int id, [FromBody] ReportRequest? request = null)
+        public async Task<IActionResult> ReportPost(int id, [FromBody] ReportRequest? request = null)
         {
             try
             {
@@ -95,7 +105,7 @@ namespace NewsSite.Controllers
                     return Unauthorized(new { message = "User not authenticated" });
                 }
 
-                var success = _dbService.ReportArticle(id, userId.Value, request?.Reason);
+                var success = await _newsService.ReportArticleAsync(id, userId.Value, request?.Reason);
                 if (success)
                 {
                     return Ok(new { message = "Post reported successfully" });
@@ -110,7 +120,7 @@ namespace NewsSite.Controllers
 
         [HttpPost("Save/{id}")]
         // [Authorize] // Temporarily removed
-        public IActionResult SavePost(int id)
+        public async Task<IActionResult> SavePost(int id)
         {
             try
             {
@@ -120,7 +130,7 @@ namespace NewsSite.Controllers
                     return Unauthorized(new { message = "User not authenticated" });
                 }
 
-                var result = _dbService.ToggleSaveArticle(id, userId.Value);
+                var result = await _newsService.ToggleSaveArticleAsync(id, userId.Value);
                 return Ok(new { message = $"Post {result} successfully", action = result });
             }
             catch (Exception ex)
@@ -130,12 +140,12 @@ namespace NewsSite.Controllers
         }
 
         [HttpPost("View/{id}")]
-        public IActionResult RecordView(int id)
+        public async Task<IActionResult> RecordView(int id)
         {
             try
             {
                 var userId = GetCurrentUserId(); // Can be null for anonymous users
-                var success = _dbService.RecordArticleView(id, userId);
+                var success = await _newsService.RecordArticleViewAsync(id, userId);
                 return Ok(new { message = "View recorded" });
             }
             catch (Exception ex)
@@ -146,7 +156,7 @@ namespace NewsSite.Controllers
 
         [HttpPost("Create")]
         // [Authorize] // Temporarily removed
-        public IActionResult CreatePost([FromBody] CreatePostRequest request)
+        public async Task<IActionResult> CreatePost([FromBody] CreatePostRequest request)
         {
             try
             {
@@ -173,7 +183,7 @@ namespace NewsSite.Controllers
                     PublishDate = DateTime.Now
                 };
 
-                var articleId = _dbService.CreateNewsArticle(article);
+                var articleId = await _newsService.CreateNewsArticleAsync(article);
                 return Ok(new { message = "Post created successfully", postId = articleId });
             }
             catch (Exception ex)
@@ -183,11 +193,11 @@ namespace NewsSite.Controllers
         }
 
         [HttpGet("User/{userId}")]
-        public IActionResult GetUserPosts(int userId, [FromQuery] int page = 1, [FromQuery] int limit = 10)
+        public async Task<IActionResult> GetUserPosts(int userId, [FromQuery] int page = 1, [FromQuery] int limit = 10)
         {
             try
             {
-                var articles = _dbService.GetArticlesByUser(userId, page, limit);
+                                var articles = await _newsService.GetArticlesByUserAsync(userId, page, limit);
                 
                 var response = articles.Select(a => new
                 {
@@ -280,7 +290,7 @@ namespace NewsSite.Controllers
                 }
 
                 // Get the post to check ownership
-                var post = await _dbService.GetNewsArticleById(id);
+                var post = await _newsService.GetNewsArticleByIdAsync(id);
                 if (post == null)
                 {
                     return NotFound(new { success = false, message = "Post not found" });
@@ -293,7 +303,7 @@ namespace NewsSite.Controllers
                 }
 
                 // Delete the post
-                bool success = await _dbService.DeleteNewsArticle(id);
+                bool success = await _newsService.DeleteNewsArticleAsync(id);
                 if (success)
                 {
                     return Ok(new { success = true, message = "Post deleted successfully" });
@@ -503,7 +513,7 @@ namespace NewsSite.Controllers
         /// Add a News API article to the database as a new post
         /// </summary>
         [HttpPost("save-live-article")]
-        public IActionResult SaveLiveArticle([FromBody] NewsApiArticle article)
+        public async Task<IActionResult> SaveLiveArticle([FromBody] NewsApiArticle article)
         {
             try
             {
@@ -527,7 +537,7 @@ namespace NewsSite.Controllers
                     Username = User?.Identity?.Name ?? "User"
                 };
 
-                var articleId = _dbService.CreateNewsArticle(newsArticle);
+                var articleId = await _newsService.CreateNewsArticleAsync(newsArticle);
                 if (articleId > 0)
                 {
                     return Ok(new { 

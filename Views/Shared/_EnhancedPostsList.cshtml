@@ -1,0 +1,153 @@
+@model NewsSitePro.Models.EnhancedPostsListViewModel
+@using NewsSite.BL
+@using NewsSitePro.Models
+
+<!--
+    Enhanced PostsList view that uses the new context-driven rendering system.
+    This view automatically determines the appropriate context based on the ContextType
+    and applies real user relationship data for accurate post rendering.
+    
+    Features:
+    - Context-aware rendering (feed, profile, admin, etc.)
+    - Real-time relationship data integration
+    - Dynamic context switching support
+    - Enhanced interaction capabilities
+-->
+
+@foreach (var post in Model.Posts)
+{
+    PostDisplayContext context;
+    
+    if (Model.UseEnhancedContext)
+    {
+        context = PostContextFactoryExtensions.CreateContextByType(
+            Model.ContextType, 
+            Model.CurrentUser, 
+            post, 
+            Model.ProfileUserId ?? Model.ContextParameters
+        );
+    }
+    else
+    {
+        context = PostContextFactory.CreateFeedContext(Model.CurrentUser, post, Model.FeedType);
+    }
+    
+    @await Component.InvokeAsync("PostCard", new PostCardViewModel 
+    { 
+        Post = post, 
+        Context = context,
+        CurrentUser = Model.CurrentUser
+    })
+}
+
+@if (!Model.Posts.Any())
+{
+    <div class="empty-state">
+        @switch (Model.ContextType.ToLower())
+        {
+            case "profile":
+                <div class="empty-content">
+                    <i class="fas fa-user-circle"></i>
+                    <h3>No posts yet</h3>
+                    <p>This user hasn't shared any posts yet.</p>
+                </div>
+                break;
+            case "saved":
+                <div class="empty-content">
+                    <i class="fas fa-bookmark"></i>
+                    <h3>No saved posts</h3>
+                    <p>You haven't saved any posts yet. Save posts to read them later!</p>
+                </div>
+                break;
+            case "following":
+                <div class="empty-content">
+                    <i class="fas fa-users"></i>
+                    <h3>No posts from following</h3>
+                    <p>Follow users to see their posts in your feed.</p>
+                </div>
+                break;
+            case "search":
+                <div class="empty-content">
+                    <i class="fas fa-search"></i>
+                    <h3>No results found</h3>
+                    <p>Try adjusting your search terms or browse all posts.</p>
+                </div>
+                break;
+            default:
+                <div class="empty-content">
+                    <i class="fas fa-newspaper"></i>
+                    <h3>No posts available</h3>
+                    <p>Be the first to share some news!</p>
+                    @if (Model.CurrentUser != null)
+                    {
+                        <a href="~/Post" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Create Post
+                        </a>
+                    }
+                </div>
+                break;
+        }
+    </div>
+}
+
+<style>
+/* Enhanced posts list styles */
+.posts-container.enhanced {
+    position: relative;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #6c757d;
+}
+
+.empty-content i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: #dee2e6;
+}
+
+.empty-content h3 {
+    margin-bottom: 0.5rem;
+    color: #495057;
+}
+
+.empty-content p {
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+}
+
+/* Context-specific styling */
+.posts-container[data-context="profile"] .post-card {
+    border-left: 3px solid var(--bs-primary, #007bff);
+}
+
+.posts-container[data-context="saved"] .post-card {
+    border-left: 3px solid var(--bs-warning, #ffc107);
+}
+
+.posts-container[data-context="admin"] .post-card {
+    border-left: 3px solid var(--bs-danger, #dc3545);
+}
+
+.posts-container[data-context="following"] .post-card {
+    border-left: 3px solid var(--bs-success, #28a745);
+}
+
+/* Enhanced transitions */
+.post-card {
+    transition: all 0.3s ease;
+}
+
+.post-card.context-updated {
+    animation: contextUpdate 0.5s ease;
+}
+
+/* Animation keyframes */
+@@keyframes contextUpdate {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+</style>

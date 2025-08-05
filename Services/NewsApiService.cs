@@ -144,7 +144,7 @@ namespace NewsSite.Services
             {
                 _logger.LogInformation("Starting news sync process...");
                 
-                // Ensure system user exists
+                // Ensure system user exists 
                 var systemUserExists = await CreateSystemUserIfNotExists();
                 if (!systemUserExists)
                 {

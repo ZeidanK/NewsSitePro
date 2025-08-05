@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using NewsSite.BL;
+using NewsSitePro.Models;
 
 namespace NewsSite.Pages
 {
@@ -18,6 +19,7 @@ namespace NewsSite.Pages
             this.configuration = configuration;
         }
 
+        public HeaderViewModel HeaderData { get; set; } = new HeaderViewModel();
         public List<Notification> Notifications { get; set; } = new List<Notification>();
         public NotificationSummary Summary { get; set; } = new NotificationSummary();
         public int CurrentPage { get; set; } = 1;
@@ -39,8 +41,28 @@ namespace NewsSite.Pages
 
             try
             {
+                // Get current user for header
+                User? currentUser = null;
+                var jwtToken = Request.Cookies["jwtToken"];
+                if (!string.IsNullOrEmpty(jwtToken))
+                {
+                    currentUser = new User().ExtractUserFromJWT(jwtToken);
+                }
+
+                // Set up header data
+                HeaderData = new HeaderViewModel
+                {
+                    UserName = currentUser?.Name ?? "Guest",
+                    NotificationCount = 0, // Will be updated after getting summary
+                    CurrentPage = "Notifications",
+                    user = currentUser
+                };
+
                 // Get notification summary
                 Summary = await dbService.GetNotificationSummary(userId.Value);
+                
+                // Update notification count in header
+                HeaderData.NotificationCount = Summary.TotalUnread;
 
                 // Get paginated notifications
                 Notifications = await dbService.GetUserNotifications(userId.Value, CurrentPage, PageSize);
@@ -123,18 +145,23 @@ namespace NewsSite.Pages
         public async Task<IActionResult> OnGetUnreadCountAsync()
         {
             var userId = GetCurrentUserId();
+            Console.WriteLine($"[NotificationsModel] OnGetUnreadCountAsync called for user: {userId}");
+            
             if (userId == null)
             {
+                Console.WriteLine($"[NotificationsModel] User ID is null - unauthorized");
                 return new JsonResult(new { count = 0 });
             }
 
             try
             {
                 var summary = await dbService.GetNotificationSummary(userId.Value);
+                Console.WriteLine($"[NotificationsModel] Unread count for user {userId}: {summary.UnreadCount}");
                 return new JsonResult(new { count = summary.UnreadCount });
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"[NotificationsModel] Error getting unread count: {ex.Message}");
                 return new JsonResult(new { count = 0, error = ex.Message });
             }
         }
@@ -149,21 +176,31 @@ namespace NewsSite.Pages
 
             try
             {
+                Console.WriteLine($"[NotificationsModel] Loading recent notifications for user {userId.Value}");
                 var notifications = await dbService.GetUserNotifications(userId.Value, 1, 10);
-                return new JsonResult(new
+                Console.WriteLine($"[NotificationsModel] Found {notifications.Count} notifications");
+                
+                var result = new
                 {
                     success = true,
                     notifications = notifications.Take(10).Select(n => new {
                         id = n.NotificationID,
                         title = n.Title,
                         message = n.Message,
+                        type = n.Type,
                         isRead = n.IsRead,
-                        createdAt = n.CreatedAt
+                        createdAt = n.CreatedAt,
+                        fromUserName = n.FromUserName,
+                        actionUrl = n.ActionUrl
                     })
-                });
+                };
+                
+                Console.WriteLine($"[NotificationsModel] Returning {result.notifications.Count()} notifications");
+                return new JsonResult(result);
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"[NotificationsModel] Error loading recent notifications: {ex.Message}");
                 return new JsonResult(new { success = false, message = ex.Message });
             }
         }
@@ -179,7 +216,7 @@ namespace NewsSite.Pages
                     var token = authHeader.Substring("Bearer ".Length).Trim();
                     var handler = new JwtSecurityTokenHandler();
                     var jsonToken = handler.ReadJwtToken(token);
-                    var userIdClaim = jsonToken.Claims.FirstOrDefault(c => c.Type == "userId" || c.Type == ClaimTypes.NameIdentifier);
+                    var userIdClaim = jsonToken.Claims.FirstOrDefault(c => c.Type == "id");
                     if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int jwtUserId))
                     {
                         return jwtUserId;
@@ -191,7 +228,7 @@ namespace NewsSite.Pages
                 {
                     var handler = new JwtSecurityTokenHandler();
                     var jsonToken = handler.ReadJwtToken(cookieToken);
-                    var userIdClaim = jsonToken.Claims.FirstOrDefault(c => c.Type == "userId" || c.Type == ClaimTypes.NameIdentifier);
+                    var userIdClaim = jsonToken.Claims.FirstOrDefault(c => c.Type == "id");
                     if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int cookieUserId))
                     {
                         return cookieUserId;
@@ -200,8 +237,9 @@ namespace NewsSite.Pages
 
                 return null;
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"[NotificationsModel] Error getting current user ID: {ex.Message}");
                 return null;
             }
         }

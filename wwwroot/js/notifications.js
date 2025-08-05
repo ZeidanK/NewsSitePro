@@ -31,7 +31,11 @@ class NotificationManager {
         // Auto-refresh notifications every 30 seconds
         setInterval(() => {
             this.refreshNotificationCount();
+            this.updateNotificationBadge();
         }, 30000);
+
+        // Initialize badge update
+        this.updateNotificationBadge();
     }
 
     async markAsRead(notificationId) {
@@ -216,7 +220,7 @@ class NotificationManager {
         if (token) {
             try {
                 const payload = JSON.parse(atob(token.split('.')[1]));
-                return parseInt(payload.userId || payload.sub || payload.nameid);
+                return parseInt(payload.id || payload.userId || payload.sub || payload.nameid);
             } catch (error) {
                 console.error('Error parsing JWT token:', error);
             }
@@ -277,6 +281,57 @@ class NotificationManager {
                 }
             }, 300);
         }, 3000);
+    }
+
+    // Update notification badge in sidebar
+    async updateNotificationBadge() {
+        try {
+            const response = await fetch('/Notifications?handler=UnreadCount', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.count !== undefined) {
+                    this.setBadgeCount(data.count);
+                }
+            }
+        } catch (error) {
+            console.error('Error updating notification badge:', error);
+        }
+    }
+
+    // Set badge count display
+    setBadgeCount(count) {
+        const badges = document.querySelectorAll('.notification-badge');
+        
+        badges.forEach(badge => {
+            if (count > 0) {
+                badge.textContent = count > 99 ? '99+' : count.toString();
+                badge.style.display = 'inline-block';
+                badge.classList.add('has-notifications');
+            } else {
+                badge.style.display = 'none';
+                badge.classList.remove('has-notifications');
+            }
+        });
+
+        // Update document title
+        this.updateDocumentTitle(count);
+    }
+
+    // Update document title with notification count
+    updateDocumentTitle(count) {
+        const originalTitle = document.title.replace(/^\(\d+\)\s*/, '');
+        if (count > 0) {
+            document.title = `(${count}) ${originalTitle}`;
+        } else {
+            document.title = originalTitle;
+        }
     }
 }
 

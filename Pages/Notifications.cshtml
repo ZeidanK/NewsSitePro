@@ -1,7 +1,9 @@
 @page
 @model NewsSite.Pages.NotificationsModel
 @{
+    Layout = "~/Pages/Shared/_Layout.cshtml";
     ViewData["Title"] = "Notifications";
+    ViewData["HeaderData"] = Model.HeaderData;
 }
 
 <div class="notifications-container">

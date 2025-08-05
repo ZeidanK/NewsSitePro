@@ -63,7 +63,7 @@ namespace NewsSite.Pages
                         {
                             var handler = new JwtSecurityTokenHandler();
                             var token = handler.ReadJwtToken(jwtToken);
-                            var userIdClaim = token.Claims.FirstOrDefault(c => c.Type == "nameid");
+                            var userIdClaim = token.Claims.FirstOrDefault(c => c.Type == "id" || c.Type == "nameid");
                             if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
                             {
                                 currentUserId = userId;

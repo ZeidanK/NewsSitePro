@@ -1,0 +1,140 @@
+/* Mobile-specific responsive fixes for NewsitePro */
+
+/* Small screen optimizations */
+@media (max-width: 480px) {
+    /* Post card mobile optimizations */
+    .post-card {
+        margin: 0.5rem;
+        padding: 0.75rem;
+        border-radius: 8px;
+    }
+    
+    /* Ensure text doesn't overflow */
+    .post-title {
+        font-size: 1rem;
+        line-height: 1.2;
+        word-break: break-word;
+        hyphens: auto;
+    }
+    
+    .post-text {
+        font-size: 0.85rem;
+        line-height: 1.4;
+        word-break: break-word;
+    }
+    
+    /* Mobile button layout - 4 essential buttons + dropdown */
+    .post-buttons {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.15rem;
+        width: 100%;
+    }
+    
+    /* Essential buttons (Like, Comment, Save, Share) */
+    .post-buttons .action-btn.like-btn,
+    .post-buttons .action-btn.comment-btn,
+    .post-buttons .action-btn.save-btn,
+    .post-buttons .action-btn.share-btn {
+        flex: 1;
+        max-width: 55px;
+        min-width: 45px;
+        padding: 0.35rem 0.15rem;
+        font-size: 0.7rem;
+    }
+    
+    /* Mobile menu toggle styling */
+    .mobile-post-menu {
+        flex-shrink: 0;
+        margin-left: 0.25rem;
+    }
+    
+    .mobile-menu-toggle {
+        min-width: 35px;
+        max-width: 35px;
+        height: 35px;
+        padding: 0.35rem;
+        font-size: 0.9rem;
+    }
+    
+    .mobile-menu-dropdown {
+        min-width: 160px;
+        right: -10px;
+        font-size: 0.85rem;
+    }
+    
+    .mobile-menu-dropdown .action-btn {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.85rem;
+    }
+    
+    /* Container spacing */
+    .home-container {
+        padding: 0.25rem;
+    }
+    
+    .posts-container {
+        gap: 0.75rem;
+    }
+}
+
+/* Extra small screens */
+@media (max-width: 360px) {
+    .post-card {
+        margin: 0.25rem;
+        padding: 0.5rem;
+    }
+    
+    .post-title {
+        font-size: 0.9rem;
+    }
+    
+    .post-text {
+        font-size: 0.8rem;
+    }
+    
+    /* Even more compact buttons for very small screens */
+    .post-buttons .action-btn.like-btn,
+    .post-buttons .action-btn.comment-btn,
+    .post-buttons .action-btn.save-btn,
+    .post-buttons .action-btn.share-btn {
+        max-width: 45px;
+        min-width: 40px;
+        padding: 0.3rem 0.1rem;
+        font-size: 0.65rem;
+    }
+    
+    .mobile-menu-toggle {
+        min-width: 30px;
+        max-width: 30px;
+        height: 30px;
+        font-size: 0.8rem;
+    }
+    
+    .mobile-menu-dropdown {
+        min-width: 140px;
+        font-size: 0.8rem;
+    }
+    
+    .mobile-menu-dropdown .action-btn {
+        padding: 0.5rem 0.6rem;
+        font-size: 0.8rem;
+    }
+}
+
+/* Landscape phone optimization */
+@media (max-height: 500px) and (orientation: landscape) {
+    .post-card {
+        padding: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .post-actions {
+        padding-top: 0.5rem;
+    }
+    
+    .mobile-menu-dropdown {
+        max-height: 200px;
+    }
+}

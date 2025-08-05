@@ -1,0 +1,109 @@
+@model NewsSitePro.Models.PostCardViewModel
+@{
+    var post = Model.Post;
+    var context = Model.EffectiveContext;
+    var publishDate = post.PublishDate.ToString("MMM dd, yyyy");
+    var currentUser = Model.CurrentUser;
+}
+
+<!-- List PostCard layout for admin panels, search results, or table-like displays -->
+<div class="@context.ContainerClass @context.CssClass post-list-item" data-post-id="@post.ArticleID">
+    <div class="list-row">
+        @if (context.ShowImage && !string.IsNullOrEmpty(post.ImageURL))
+        {
+            <div class="list-image">
+                <img src="@post.ImageURL" alt="@post.Title" loading="lazy" />
+            </div>
+        }
+        
+        <div class="list-content" onclick="openPost(@post.ArticleID)">
+            <div class="list-title">@post.Title</div>
+            
+            @if (context.ShowAuthorInfo)
+            {
+                <div class="list-meta">
+                    <span class="list-author">@(post.Username ?? "Anonymous")</span>
+                    <span class="list-separator">•</span>
+                    <span class="list-date">@publishDate</span>
+                    
+                    @if (context.ShowCategory)
+                    {
+                        <span class="list-separator">•</span>
+                        <span class="list-category">@post.Category</span>
+                    }
+                </div>
+            }
+            
+            @if (!context.ShowFullContent && !string.IsNullOrEmpty(post.Content))
+            {
+                <div class="list-excerpt">
+                    @((post.Content?.Length ?? 0) > context.ContentPreviewLength ? 
+                      post.Content?.Substring(0, context.ContentPreviewLength) + "..." : 
+                      post.Content)
+                </div>
+            }
+        </div>
+        
+        @if (context.ShowStats)
+        {
+            <div class="list-stats">
+                <div class="list-stat">
+                    <i class="fas fa-heart @(context.IsLiked ? "liked" : "")"></i>
+                    <span>@post.LikesCount</span>
+                </div>
+                <div class="list-stat">
+                    <i class="fas fa-eye"></i>
+                    <span>@post.ViewsCount</span>
+                </div>
+            </div>
+        }
+        
+        @if (context.EnableInteractions || context.ShowAdminActions)
+        {
+            <div class="list-actions">
+                @if (context.EnableInteractions)
+                {
+                    @if (context.ShowLikeButton)
+                    {
+                        <button class="list-action-btn like-btn @(context.IsLiked ? "active" : "")" 
+                                onclick="toggleLike(@post.ArticleID, this)" data-post-id="@post.ArticleID">
+                            <i class="fas fa-heart"></i>
+                        </button>
+                    }
+                    
+                    @if (context.ShowSaveButton)
+                    {
+                        <button class="list-action-btn save-btn @(context.IsSaved ? "active" : "")" 
+                                onclick="toggleSave(@post.ArticleID, this)">
+                            <i class="fas fa-bookmark"></i>
+                        </button>
+                    }
+                }
+                
+                @if (context.ShowAdminActions && currentUser?.IsAdmin == true)
+                {
+                    @if (context.CanModerate)
+                    {
+                        <button class="list-action-btn moderate-btn" onclick="moderatePost(@post.ArticleID)">
+                            <i class="fas fa-gavel"></i>
+                        </button>
+                    }
+                    
+                    @if (context.CanDelete)
+                    {
+                        <button class="list-action-btn delete-btn" onclick="deletePost(@post.ArticleID)">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    }
+                }
+                
+                @if (context.CanEdit)
+                {
+                    <button class="list-action-btn edit-btn" onclick="editPost(@post.ArticleID)">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                }
+            </div>
+        }
+    </div>
+</div>

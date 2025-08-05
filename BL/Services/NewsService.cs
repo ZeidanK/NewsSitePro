@@ -5,14 +5,17 @@ namespace NewsSite.BL.Services
     /// <summary>
     /// News Service - Business Logic Layer
     /// Implements news article-related business operations and validation
+    /// Integrated with NotificationService for like and share notifications
     /// </summary>
     public class NewsService : INewsService
     {
         private readonly DBservices _dbService;
+        private readonly NotificationService _notificationService;
 
-        public NewsService(DBservices dbService)
+        public NewsService(DBservices dbService, NotificationService notificationService)
         {
             _dbService = dbService;
+            _notificationService = notificationService;
         }
 
         public async Task<List<NewsArticle>> GetAllNewsArticlesAsync(int pageNumber = 1, int pageSize = 10, string? category = null, int? currentUserId = null)
@@ -21,7 +24,15 @@ namespace NewsSite.BL.Services
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1 || pageSize > 100) pageSize = 10; // Limit page size
 
-            return await Task.FromResult(_dbService.GetAllNewsArticles(pageNumber, pageSize, category, currentUserId));
+            // Use block filtering when currentUserId is provided
+            if (currentUserId.HasValue)
+            {
+                return await Task.FromResult(_dbService.GetAllNewsArticlesWithBlockFilter(pageNumber, pageSize, category, currentUserId));
+            }
+            else
+            {
+                return await Task.FromResult(_dbService.GetAllNewsArticles(pageNumber, pageSize, category, currentUserId));
+            }
         }
 
         public async Task<NewsArticle?> GetNewsArticleByIdAsync(int articleId, int? currentUserId = null)
@@ -75,7 +86,34 @@ namespace NewsSite.BL.Services
                 throw new ArgumentException("Content cannot exceed 4000 characters");
             }
 
-            return await Task.FromResult(_dbService.CreateNewsArticle(article));
+            var articleId = await Task.FromResult(_dbService.CreateNewsArticle(article));
+            
+            // Create new post notifications for followers
+            if (articleId > 0)
+            {
+                try
+                {
+                    // Get author details
+                    var author = _dbService.GetUserById(article.UserID);
+                    if (author != null)
+                    {
+                        // Create notifications for all followers
+                        await _notificationService.CreateNewPostNotificationsForFollowersAsync(
+                            articleId,
+                            article.UserID,
+                            author.Name ?? "Unknown User",
+                            article.Title
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log the notification error but don't fail the article creation
+                    Console.WriteLine($"Failed to create new post notifications for followers: {ex.Message}");
+                }
+            }
+            
+            return articleId;
         }
 
         public async Task<bool> UpdateNewsArticleAsync(NewsArticle article)
@@ -129,12 +167,67 @@ namespace NewsSite.BL.Services
 
         public async Task<string> ToggleArticleLikeAsync(int articleId, int userId)
         {
+            Console.WriteLine($"[NewsService] ToggleArticleLikeAsync called - ArticleId: {articleId}, UserId: {userId}");
+            
             if (articleId <= 0 || userId <= 0)
             {
                 throw new ArgumentException("Valid Article ID and User ID are required");
             }
 
-            return await Task.FromResult(_dbService.ToggleArticleLike(articleId, userId));
+            var result = await Task.FromResult(_dbService.ToggleArticleLike(articleId, userId));
+            Console.WriteLine($"[NewsService] ToggleArticleLike result: {result}");
+            
+            // Create like notification if article was liked (not unliked)
+            if (result == "liked")
+            {
+                Console.WriteLine($"[NewsService] Article was liked, creating notification...");
+                try
+                {
+                    // Get article details to find the article author
+                    var article = await _dbService.GetNewsArticleById(articleId);
+                    if (article != null)
+                    {
+                        Console.WriteLine($"[NewsService] Article found - AuthorId: {article.UserID}, Title: {article.Title}");
+                        
+                        // Get liker details
+                        var liker = _dbService.GetUserById(userId);
+                        if (liker != null)
+                        {
+                            Console.WriteLine($"[NewsService] Liker found - Name: {liker.Name}");
+                            
+                            // Create notification for article author
+                            var notificationId = await _notificationService.CreateLikeNotificationAsync(
+                                articleId,
+                                userId,
+                                article.UserID,
+                                liker.Name ?? "Unknown User"
+                            );
+                            
+                            Console.WriteLine($"[NewsService] Notification created with ID: {notificationId}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[NewsService] Liker not found for UserId: {userId}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[NewsService] Article not found for ArticleId: {articleId}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log the notification error but don't fail the like action
+                    Console.WriteLine($"[NewsService] Failed to create like notification: {ex.Message}");
+                    Console.WriteLine($"[NewsService] Stack trace: {ex.StackTrace}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"[NewsService] Article was not liked (result: {result}), skipping notification");
+            }
+            
+            return result;
         }
 
         public async Task<string> ToggleSaveArticleAsync(int articleId, int userId)
@@ -180,6 +273,97 @@ namespace NewsSite.BL.Services
             }
 
             return await _dbService.GetSavedArticlesByUser(userId, pageNumber, pageSize);
+        }
+
+        public async Task<List<NewsArticle>> GetSavedArticlesWithFiltersAsync(int userId, int pageNumber = 1, int pageSize = 10, string? category = null, string? search = null)
+        {
+            if (userId <= 0)
+            {
+                throw new ArgumentException("Valid User ID is required");
+            }
+
+            // Business logic validation
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+
+            // Use the existing SearchSavedArticlesAsync method from DBservices
+            return await _dbService.SearchSavedArticlesAsync(userId, search, category, pageNumber, pageSize);
+        }
+
+        public async Task<List<NewsArticle>> GetFollowingPostsAsync(int userId, int pageNumber = 1, int pageSize = 10, string? category = null)
+        {
+            if (userId <= 0)
+            {
+                throw new ArgumentException("Valid User ID is required");
+            }
+
+            // Business logic validation
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+
+            // Use the efficient database method to get following feed
+            // Calculate how many articles to fetch to support pagination
+            int articlesToFetch = pageNumber * pageSize; // Get enough articles for pagination
+            
+            var allFollowingPosts = await _dbService.GetFollowingFeedAsync(userId, articlesToFetch);
+            
+            // Apply category filter if specified
+            if (!string.IsNullOrEmpty(category) && category != "all")
+            {
+                allFollowingPosts = allFollowingPosts
+                    .Where(a => string.Equals(a.Category, category, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+            
+            // Apply pagination
+            var pagedPosts = allFollowingPosts
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+                
+            return pagedPosts;
+        }
+
+        // Feed algorithm methods
+        public async Task<List<NewsArticle>> GetPopularArticlesAsync(int pageSize = 10)
+        {
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+            return await _dbService.GetPopularArticlesAsync(pageSize);
+        }
+
+        public async Task<List<NewsArticle>> GetTrendingArticlesAsync(int pageSize = 10)
+        {
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+            return await _dbService.GetTrendingArticlesAsync(pageSize);
+        }
+
+        public async Task<List<NewsArticle>> GetMostLikedArticlesAsync(int pageSize = 10)
+        {
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+            return await _dbService.GetMostLikedArticlesAsync(pageSize);
+        }
+
+        public async Task<List<NewsArticle>> GetMostViewedArticlesAsync(int pageSize = 10)
+        {
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+            return await _dbService.GetMostViewedArticlesAsync(pageSize);
+        }
+
+        public async Task<List<NewsArticle>> GetRecentArticlesAsync(int pageSize = 10)
+        {
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+            return await _dbService.GetRecentArticlesAsync(pageSize);
+        }
+
+        public async Task<List<NewsArticle>> GetArticlesByInterestAsync(int userId, string category, int pageSize = 10)
+        {
+            if (userId <= 0)
+            {
+                throw new ArgumentException("Valid User ID is required");
+            }
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+            
+            return await _dbService.GetArticlesByInterestAsync(userId, category, pageSize);
         }
     }
 }

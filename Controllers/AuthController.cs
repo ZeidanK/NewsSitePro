@@ -1,6 +1,14 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿/**
+ * AuthController.cs
+ * Purpose: Handles user authentication, authorization, and security operations
+ * Responsibilities: User login, registration, JWT token management, password operations
+ * Architecture: Uses UserService from BL layer for user data and authentication business logic
+ */
+
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NewsSite.BL;
+using NewsSite.BL.Services;
 using NewsSite.Models;
 namespace NewsSite.Controllers
 {
@@ -9,10 +17,12 @@ namespace NewsSite.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IConfiguration _config;
+        private readonly IUserService _userService;
 
-        public AuthController(IConfiguration config)
+        public AuthController(IConfiguration config, IUserService userService)
         {
             _config = config;
+            _userService = userService;
         }
 
 
@@ -55,7 +65,7 @@ namespace NewsSite.Controllers
 
         
         [HttpPost("validate")]
-        public IActionResult Validate([FromHeader(Name = "Authorization")] string authHeader)
+        public async Task<IActionResult> Validate([FromHeader(Name = "Authorization")] string authHeader)
         {
             if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
                 return Unauthorized("Missing or invalid Authorization header.");
@@ -69,8 +79,7 @@ namespace NewsSite.Controllers
                     return Unauthorized("Invalid token.");
 
                 // Get full user data from database including profile picture
-                var dbService = new DBservices();
-                var fullUser = dbService.GetUserById(user.Id);
+                var fullUser = await _userService.GetUserByIdAsync(user.Id);
                 if (fullUser == null)
                     return Unauthorized("User not found.");
         

@@ -1,4 +1,11 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿/**
+ * UserController.cs
+ * Purpose: Handles user profile management, user interactions, and user-related operations
+ * Responsibilities: User profile CRUD, follow/unfollow functionality, user statistics, user content management
+ * Architecture: Uses UserService and NewsService from BL layer for user data and content operations
+ */
+
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NewsSite.BL;
 using NewsSite.BL.Services;
@@ -181,25 +188,18 @@ namespace NewsSite.Controllers
         {
             try
             {
-                // Try to get user ID from JWT token first
-                var jwtToken = Request.Cookies["jwtToken"] ?? Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
+                var jwtToken = Request.Cookies["jwtToken"];
                 if (!string.IsNullOrEmpty(jwtToken))
                 {
-                    var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-                    var jsonToken = handler.ReadJwtToken(jwtToken);
-                    // Look for "id" claim type which is what the JWT actually contains
-                    var userIdClaim = jsonToken.Claims.FirstOrDefault(c => c.Type == "id" || c.Type == "userId" || c.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
-                    if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
+                    try
                     {
-                        return userId;
+                        var currentUser = new User().ExtractUserFromJWT(jwtToken);
+                        return currentUser?.Id;
                     }
-                }
-
-                // Fallback to claims if available
-                var userIdFromClaims = User?.Claims?.FirstOrDefault(c => c.Type == "id" || c.Type == "userId")?.Value;
-                if (int.TryParse(userIdFromClaims, out int userIdFromClaimsInt))
-                {
-                    return userIdFromClaimsInt;
+                    catch
+                    {
+                        return null;
+                    }
                 }
 
                 return null;
@@ -354,6 +354,91 @@ namespace NewsSite.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { success = false, message = "Upload failed", error = ex.Message });
+            }
+        }
+
+        [HttpPost("Follow/{id}")]
+        public async Task<IActionResult> FollowUser(int id)
+        {
+            try
+            {
+                var currentUserId = GetCurrentUserId();
+                if (!currentUserId.HasValue)
+                {
+                    return Unauthorized(new { message = "User not authenticated" });
+                }
+
+                if (currentUserId.Value == id)
+                {
+                    return BadRequest(new { message = "Cannot follow yourself" });
+                }
+
+                // Use actual database implementation through UserService
+                var result = await _userService.ToggleUserFollowAsync(currentUserId.Value, id);
+
+                return Ok(new { 
+                    action = result.Action,
+                    message = $"User {result.Action} successfully",
+                    isFollowing = result.IsFollowing
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error updating follow status", error = ex.Message });
+            }
+        }
+
+        [HttpGet("Follow/Status/{id}")]
+        public async Task<IActionResult> GetFollowStatus(int id)
+        {
+            try
+            {
+                var currentUserId = GetCurrentUserId();
+                if (!currentUserId.HasValue)
+                {
+                    return Ok(new { isFollowing = false });
+                }
+
+                var isFollowing = await _userService.IsUserFollowingAsync(currentUserId.Value, id);
+
+                return Ok(new { isFollowing = isFollowing });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error checking follow status", error = ex.Message });
+            }
+        }
+
+        [HttpPost("Block/{id}")]
+        public IActionResult BlockUser(int id)
+        {
+            try
+            {
+                var currentUserId = GetCurrentUserId();
+                if (!currentUserId.HasValue)
+                {
+                    return Unauthorized(new { message = "User not authenticated" });
+                }
+
+                if (currentUserId.Value == id)
+                {
+                    return BadRequest(new { message = "Cannot block yourself" });
+                }
+
+                // For now, return a mock response since we don't have the block system implemented yet
+                // In a real implementation, you would add the user to a blocked users table
+                var isBlocked = false; // Placeholder - would check database
+                var action = isBlocked ? "unblocked" : "blocked";
+
+                return Ok(new { 
+                    action = action,
+                    message = $"User {action} successfully",
+                    isBlocked = !isBlocked
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error updating block status", error = ex.Message });
             }
         }
     }

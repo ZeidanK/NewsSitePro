@@ -1,4 +1,31 @@
 // Admin Panel JavaScript
+
+// API Configuration - ensure consistency with auth-service.js
+if (!window.ApiConfig) {
+    window.ApiConfig = {
+        getBaseUrl: function() {
+            const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+            const port = isLocalhost ? ":7128" : "";
+            const address = isLocalhost ? "https://localhost" : "https://proj.ruppin.ac.il/cgroup4/test2/tar1";
+            
+            return `${address}${port}`;
+        },
+        
+        getApiUrl: function(endpoint) {
+            const baseUrl = this.getBaseUrl();
+            console.log(`DEBUG - Raw baseUrl: ${baseUrl}`);
+            console.log(`DEBUG - Raw endpoint: ${endpoint}`);
+            // Ensure endpoint starts with slash for absolute path
+            const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+            console.log(`DEBUG - Clean endpoint: ${cleanEndpoint}`);
+            // Return complete absolute URL
+            const finalUrl = `${baseUrl}${cleanEndpoint}`;
+            console.log(`DEBUG - Final constructed URL: ${finalUrl}`);
+            return finalUrl;
+        }
+    };
+}
+
 class AdminPanel {
     constructor() {
         this.currentPage = 1;
@@ -35,6 +62,9 @@ class AdminPanel {
 
         // Ban user modal
         document.getElementById('confirmBan').addEventListener('click', () => this.confirmBanUser());
+        // Resolve report modal confirm button
+        const resolveBtn = document.getElementById('confirmResolveReport');
+        if (resolveBtn) resolveBtn.addEventListener('click', () => this.confirmResolveReport());
 
         // Bulk actions
         document.getElementById('bulkDeactivate').addEventListener('click', () => this.bulkAction('deactivate'));
@@ -43,6 +73,7 @@ class AdminPanel {
     }
 
     async loadUsers(page = 1) {
+        console.log('Loading users for page:', page);
         try {
             this.showLoading('usersTable');
             
@@ -50,13 +81,32 @@ class AdminPanel {
             const status = document.getElementById('statusFilter').value;
             const joinDate = document.getElementById('joinDateFilter').value;
 
-            const response = await fetch(`/Admin?handler=Users&page=${page}&pageSize=${this.pageSize}&search=${encodeURIComponent(search)}&status=${status}&joinDate=${joinDate}`);
+            const endpoint = `api/Admin/users?page=${page}&pageSize=${this.pageSize}&search=${encodeURIComponent(search)}&status=${status}&joinDate=${joinDate}`;
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            
+            // Get JWT token for authentication
+            const token = localStorage.getItem('jwtToken') || getCookie('jwtToken');
+            console.log('[AdminPanel] Using token:', token ? 'Token present' : 'No token');
+            
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include'
+            });
+            
+            console.log('[AdminPanel] LoadUsers response status:', response.status);
             
             if (!response.ok) {
-                throw new Error('Failed to load users');
+                const errorText = await response.text();
+                console.error('[AdminPanel] LoadUsers error response:', errorText);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
 
             const data = await response.json();
+            console.log('[AdminPanel] LoadUsers response data:', data);
             
             if (data.success) {
                 this.renderUsers(data.users);
@@ -71,6 +121,14 @@ class AdminPanel {
         } finally {
             this.hideLoading('usersTable');
         }
+    }
+
+    // Helper function to get cookie
+    getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
     }
 
     renderUsers(users) {
@@ -90,8 +148,18 @@ class AdminPanel {
                 <td>${user.id}</td>
                 <td>
                     <div class="user-info">
-                        <img src="${user.profilePicture || '/images/default-avatar.png'}" 
-                             alt="${user.username}" class="user-avatar">
+                        <div class="user-avatar">
+                            ${user.profilePicture ? 
+                                `<img src="${user.profilePicture}" alt="${user.username}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                                 <div class="avatar-placeholder" style="display:none;width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;">
+                                     ${(user.username || 'U').substring(0, 1).toUpperCase()}
+                                 </div>` 
+                                : 
+                                `<div class="avatar-placeholder" style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;">
+                                     ${(user.username || 'U').substring(0, 1).toUpperCase()}
+                                 </div>`
+                            }
+                        </div>
                         <div class="user-details">
                             <h6>${user.username}</h6>
                             <small>${user.fullName || 'N/A'}</small>
@@ -117,6 +185,14 @@ class AdminPanel {
                         </button>
                         <button class="action-btn action-btn-deactivate" onclick="adminPanel.deactivateUser(${user.id})" title="Deactivate">
                             <i class="fas fa-user-slash"></i>
+                        </button>` : 
+                        user.status === 'Banned' ?
+                        `<button class="action-btn action-btn-unban" onclick="adminPanel.unbanUser(${user.id})" title="Unban User">
+                            <i class="fas fa-user-check"></i>
+                        </button>` :
+                        user.status === 'Inactive' ?
+                        `<button class="action-btn action-btn-activate" onclick="adminPanel.activateUser(${user.id})" title="Activate User">
+                            <i class="fas fa-user-check"></i>
                         </button>` :
                         `<button class="action-btn action-btn-unban" onclick="adminPanel.unbanUser(${user.id})" title="Unban User">
                             <i class="fas fa-user-check"></i>
@@ -179,11 +255,28 @@ class AdminPanel {
 
     async loadActivityLogs(page = 1) {
         try {
-            const response = await fetch(`/Admin?handler=ActivityLogs&page=${page}&pageSize=20`);
-            const data = await response.json();
+            const endpoint = `api/Admin/activity-logs?page=${page}&pageSize=20`;
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
             
-            if (data.success) {
-                this.renderActivityLogs(data.logs);
+            // Get JWT token for authentication
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.renderActivityLogs(data.logs);
+                }
+            } else {
+                console.error('Failed to load activity logs:', response.status);
             }
         } catch (error) {
             console.error('Error loading activity logs:', error);
@@ -211,11 +304,28 @@ class AdminPanel {
 
     async loadReports() {
         try {
-            const response = await fetch('/Admin?handler=Reports');
-            const data = await response.json();
+            const endpoint = 'api/Admin/reports';
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
             
-            if (data.success) {
-                this.renderReports(data.reports);
+            // Get JWT token for authentication
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.renderReports(data.reports);
+                }
+            } else {
+                console.error('Failed to load reports:', response.status);
             }
         } catch (error) {
             console.error('Error loading reports:', error);
@@ -271,10 +381,61 @@ class AdminPanel {
         modal.show();
     }
 
+    /**
+     * Opens resolve report modal for a given report
+     */
+    resolveReport(reportId) {
+        // Set report ID and open modal
+        document.getElementById('resolveReportId').value = reportId;
+        const modalEl = document.getElementById('resolveReportModal');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+    }
+
+    /**
+     * Confirms resolving a report and calls API
+     */
+    async confirmResolveReport() {
+        const reportId = parseInt(document.getElementById('resolveReportId').value);
+        const action = document.getElementById('resolveAction').value;
+        const notes = document.getElementById('resolveNotes').value;
+        if (!action) {
+            this.showError('Please select an action to resolve the report.');
+            return;
+        }
+        try {
+            const endpoint = `api/Admin/reports/${reportId}/resolve`;
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include',
+                body: JSON.stringify({ action: action, notes: notes })
+            });
+            const data = await response.json();
+            if (data.success) {
+                this.showSuccess(data.message || 'Report resolved successfully');
+                // Close modal and reload reports
+                bootstrap.Modal.getInstance(document.getElementById('resolveReportModal')).hide();
+                this.loadReports();
+            } else {
+                this.showError(data.message || 'Failed to resolve report');
+            }
+        } catch (error) {
+            this.showError('Error resolving report: ' + error.message);
+        }
+    }
+
     async confirmBanUser() {
         const userId = parseInt(document.getElementById('banUserId').value);
         const reason = document.getElementById('banReason').value;
         const duration = document.getElementById('banDuration').value;
+        
+        console.log('[AdminPanel] confirmBanUser called with:', { userId, reason, duration });
 
         if (!reason.trim() || !duration) {
             this.showError('Please provide a reason and duration for the ban');
@@ -282,20 +443,29 @@ class AdminPanel {
         }
 
         try {
-            const response = await fetch('/Admin?handler=BanUser', {
+            const endpoint = `api/Admin/users/${userId}/ban`;
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            console.log('[AdminPanel] Banning user with URL:', apiUrl);
+            
+            // Get JWT token for authentication
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'RequestVerificationToken': this.getAntiForgeryToken()
+                    'Authorization': `Bearer ${token}`
                 },
+                credentials: 'include',
                 body: JSON.stringify({
-                    userId: userId,
                     reason: reason,
                     duration: duration === 'permanent' ? -1 : parseInt(duration)
                 })
             });
 
+            console.log('[AdminPanel] Ban response status:', response.status);
             const data = await response.json();
+            console.log('[AdminPanel] Ban response data:', data);
             
             if (data.success) {
                 this.showSuccess('User banned successfully');
@@ -306,6 +476,7 @@ class AdminPanel {
                 this.showError(data.message);
             }
         } catch (error) {
+            console.error('[AdminPanel] Error banning user:', error);
             this.showError('Error banning user: ' + error.message);
         }
     }
@@ -316,13 +487,19 @@ class AdminPanel {
         }
 
         try {
-            const response = await fetch('/Admin?handler=UnbanUser', {
+            const endpoint = `api/Admin/users/${userId}/unban`;
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            
+            // Get JWT token for authentication
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'RequestVerificationToken': this.getAntiForgeryToken()
+                    'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify(userId)
+                credentials: 'include'
             });
 
             const data = await response.json();
@@ -339,21 +516,31 @@ class AdminPanel {
     }
 
     async deactivateUser(userId) {
+        console.log('[AdminPanel] deactivateUser called with userId:', userId);
         if (!confirm('Are you sure you want to deactivate this user?')) {
             return;
         }
 
         try {
-            const response = await fetch('/Admin?handler=DeactivateUser', {
+            const endpoint = `api/Admin/users/${userId}/deactivate`;
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            console.log('[AdminPanel] Deactivating user with URL:', apiUrl);
+            
+            // Get JWT token for authentication
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'RequestVerificationToken': this.getAntiForgeryToken()
+                    'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify(userId)
+                credentials: 'include'
             });
 
+            console.log('[AdminPanel] Deactivate response status:', response.status);
             const data = await response.json();
+            console.log('[AdminPanel] Deactivate response data:', data);
             
             if (data.success) {
                 this.showSuccess('User deactivated successfully');
@@ -362,13 +549,67 @@ class AdminPanel {
                 this.showError(data.message);
             }
         } catch (error) {
+            console.error('[AdminPanel] Error deactivating user:', error);
             this.showError('Error deactivating user: ' + error.message);
+        }
+    }
+
+    async activateUser(userId) {
+        console.log('[AdminPanel] activateUser called with userId:', userId);
+        if (!confirm('Are you sure you want to activate this user?')) {
+            return;
+        }
+
+        try {
+            const endpoint = `api/Admin/users/${userId}/activate`;
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            console.log('[AdminPanel] Activating user with URL:', apiUrl);
+            
+            // Get JWT token for authentication
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include'
+            });
+
+            console.log('[AdminPanel] Activate response status:', response.status);
+            const data = await response.json();
+            console.log('[AdminPanel] Activate response data:', data);
+            
+            if (data.success) {
+                this.showSuccess('User activated successfully');
+                this.loadUsers(this.currentPage);
+            } else {
+                this.showError(data.message);
+            }
+        } catch (error) {
+            console.error('[AdminPanel] Error activating user:', error);
+            this.showError('Error activating user: ' + error.message);
         }
     }
 
     async viewUserDetails(userId) {
         try {
-            const response = await fetch(`/Admin?handler=UserDetails&userId=${userId}`);
+            const endpoint = `api/Admin/users/${userId}/details`;
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            
+            // Get JWT token for authentication
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include'
+            });
+            
             const data = await response.json();
             
             if (data.success) {
@@ -389,8 +630,18 @@ class AdminPanel {
             <div class="user-details-content">
                 <div class="row">
                     <div class="col-md-4 text-center">
-                        <img src="${user.profilePicture || '/images/default-avatar.png'}" 
-                             alt="${user.username}" class="img-fluid rounded-circle mb-3" style="max-width: 150px;">
+                        <div class="user-avatar-large" style="width:150px;height:150px;margin:0 auto 1rem;">
+                            ${user.profilePicture ? 
+                                `<img src="${user.profilePicture}" alt="${user.username}" class="img-fluid rounded-circle" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                                 <div class="avatar-placeholder" style="display:none;width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:4rem;">
+                                     ${(user.username || 'U').substring(0, 1).toUpperCase()}
+                                 </div>` 
+                                : 
+                                `<div class="avatar-placeholder" style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:4rem;">
+                                     ${(user.username || 'U').substring(0, 1).toUpperCase()}
+                                 </div>`
+                            }
+                        </div>
                         <h4>${user.username}</h4>
                         <p class="text-muted">${user.fullName || 'N/A'}</p>
                         <span class="status-badge status-${user.status.toLowerCase()}">${user.status}</span>
@@ -506,6 +757,14 @@ class AdminPanel {
             clearTimeout(timeout);
             timeout = setTimeout(later, wait);
         };
+    }
+
+    // Helper function to get cookie
+    getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
     }
 
     formatDate(dateString) {

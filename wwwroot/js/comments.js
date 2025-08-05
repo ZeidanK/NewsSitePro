@@ -1,4 +1,13 @@
 // Enhanced Comments System with Guest User Restrictions
+
+// Helper function to get cookie value
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+}
+
 class CommentsManager {
     constructor() {
         this.currentPostId = null;
@@ -13,10 +22,12 @@ class CommentsManager {
     }
 
     async checkAuthStatus() {
-        const token = localStorage.getItem('jwtToken');
+        const token = getCookie('jwtToken');
         if (token) {
             try {
-                const response = await fetch('/api/Auth/validate', {
+                // Use centralized API URL generation to avoid relative path issues
+                const apiUrl = window.ApiConfig.getApiUrl('api/Auth/validate');
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`
@@ -233,7 +244,7 @@ class CommentsManager {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                    'Authorization': `Bearer ${getCookie('jwtToken')}`
                 },
                 body: JSON.stringify({
                     postID: postId,
@@ -299,8 +310,8 @@ class CommentsManager {
                 <div class="login-prompt-content">
                     <p>You need to be logged in to ${action}.</p>
                     <div class="login-prompt-actions">
-                        <a href="/Login" class="btn btn-primary">Login</a>
-                        <a href="/Register" class="btn btn-secondary">Register</a>
+                        <a href="./Login" class="btn btn-primary">Login</a>
+                        <a href="./Register" class="btn btn-secondary">Register</a>
                         <button class="btn btn-cancel close-login-prompt">Cancel</button>
                     </div>
                 </div>
@@ -362,7 +373,7 @@ class CommentsManager {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                    'Authorization': `Bearer ${getCookie('jwtToken')}`
                 },
                 body: JSON.stringify({
                     commentID: parseInt(commentId),
@@ -392,7 +403,7 @@ class CommentsManager {
             const response = await fetch(`/api/Comments/${commentId}`, {
                 method: 'DELETE',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
+                    'Authorization': `Bearer ${getCookie('jwtToken')}`
                 }
             });
 
@@ -410,12 +421,48 @@ class CommentsManager {
     }
 
     async handleLike(button) {
-        // This would connect to your existing like system
-        // For now, just toggle the visual state
-        button.classList.toggle('liked');
-        const countSpan = button.querySelector('span');
-        let count = parseInt(countSpan.textContent) || 0;
-        countSpan.textContent = button.classList.contains('liked') ? count + 1 : count - 1;
+        const targetType = button.dataset.targetType;
+        
+        if (targetType === 'comment') {
+            // Handle comment like
+            const commentId = button.dataset.commentId;
+            if (!commentId) return;
+            
+            try {
+                const response = await fetch(`/api/Comments/like/${commentId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    // Toggle visual state
+                    const icon = button.querySelector('i');
+                    const countSpan = button.querySelector('span');
+                    let count = parseInt(countSpan.textContent) || 0;
+                    
+                    if (result.action === 'liked') {
+                        icon.classList.add('liked');
+                        countSpan.textContent = count + 1;
+                    } else {
+                        icon.classList.remove('liked');
+                        countSpan.textContent = Math.max(0, count - 1);
+                    }
+                } else {
+                    console.error('Failed to toggle comment like');
+                }
+            } catch (error) {
+                console.error('Error toggling comment like:', error);
+            }
+        } else {
+            // Handle post like (existing logic)
+            button.classList.toggle('liked');
+            const countSpan = button.querySelector('span');
+            let count = parseInt(countSpan.textContent) || 0;
+            countSpan.textContent = button.classList.contains('liked') ? count + 1 : count - 1;
+        }
     }
 
     updateCommentCount(postId, count) {
@@ -436,7 +483,7 @@ class CommentsManager {
     }
 
     getCurrentUserId() {
-        const token = localStorage.getItem('jwtToken');
+        const token = getCookie('jwtToken');
         if (!token) return null;
 
         try {
@@ -486,6 +533,76 @@ class CommentsManager {
         container.className = 'toast-container';
         document.body.appendChild(container);
         return container;
+    }
+}
+
+// Global function for backward compatibility with onclick handlers
+async function addComment(postId) {
+    const commentInput = document.getElementById('commentContent');
+    const content = commentInput?.value?.trim();
+    
+    if (!content) {
+        alert('Please enter a comment');
+        return;
+    }
+
+    // Get JWT token from cookie instead of localStorage
+    const token = getCookie('jwtToken');
+    if (!token) {
+        alert('Please log in to comment');
+        window.location.href = '/Login';
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/Comments', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                postID: postId,
+                content: content,
+                parentCommentID: null
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            // Clear the input
+            commentInput.value = '';
+            
+            // Show success message
+            const toast = document.createElement('div');
+            toast.className = 'alert alert-success alert-dismissible fade show position-fixed';
+            toast.style.top = '20px';
+            toast.style.right = '20px';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `
+                <span>Comment posted successfully!</span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(toast);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+            
+            // Reload comments if CommentsManager is available
+            if (window.commentsManager) {
+                await window.commentsManager.loadComments(postId);
+            } else {
+                // Fallback: reload the page to show new comment
+                window.location.reload();
+            }
+        } else {
+            alert(result.message || 'Failed to post comment');
+        }
+    } catch (error) {
+        console.error('Error posting comment:', error);
+        alert('Failed to post comment. Please try again.');
     }
 }
 

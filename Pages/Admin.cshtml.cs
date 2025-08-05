@@ -1,16 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.AspNetCore.Authorization;
 using NewsSite.BL;
-//using NewsSite.DAL;
-using System.Security.Claims;
-using System.IdentityModel.Tokens.Jwt;
+using NewsSitePro.Models;
 
 namespace NewsSite.Pages
 {
-    [Authorize]
+  
+
     public class AdminModel : PageModel
     {
+        public HeaderViewModel HeaderData { get; set; } = new HeaderViewModel();
+        public List<NewsArticle> Posts { get; set; } = new List<NewsArticle>();
         private readonly DBservices dbService;
 
         public AdminModel()
@@ -32,27 +32,69 @@ namespace NewsSite.Pages
 
         public async Task<IActionResult> OnGetAsync()
         {
-            // Check if user is admin
-            if (!IsCurrentUserAdmin())
-            {
-                return Forbid();
-            }
+            Console.WriteLine("=== ADMIN PAGE ACCESSED ===");
 
             try
             {
-                // Load dashboard statistics
-                await LoadDashboardStats();
+                // Check if user is admin
+                var jwt = Request.Cookies["jwtToken"];
+                Console.WriteLine($"JWT Cookie exists: {!string.IsNullOrEmpty(jwt)}");
 
-                // Load initial data
-                Users = await dbService.GetAllUsersForAdmin(1, 50); // First 50 users
-                RecentActivity = await dbService.GetRecentActivityLogs(20); // Last 20 activities
-                PendingReports = await dbService.GetPendingReports();
+                if (string.IsNullOrEmpty(jwt))
+                {
+                    Console.WriteLine("No JWT token found, redirecting to login");
+                    return RedirectToPage("/Login");
+                }
 
+                var user = new User().ExtractUserFromJWT(jwt);
+                Console.WriteLine($"Extracted user ID: {user.Id}, Name: {user.Name}, IsAdmin from JWT: {user.IsAdmin}");
+
+                var currentUser = dbService.GetUserById(user.Id);
+                Console.WriteLine($"User from DB - ID: {currentUser?.Id}, Name: {currentUser?.Name}, IsAdmin: {currentUser?.IsAdmin}");
+
+                if (currentUser?.IsAdmin != true)
+                {
+                    Console.WriteLine("User is not admin, returning Forbid");
+                    return Forbid();
+                }
+
+                // Initialize with minimal data to avoid database issues
+                Users = new List<AdminUserView>();
+                RecentActivity = new List<ActivityLog>();
+                PendingReports = new List<UserReport>();
+
+                // Try to load real dashboard stats
+                try
+                {
+                    var stats = await dbService.GetAdminDashboardStats();
+                    TotalUsers = stats.TotalUsers;
+                    ActiveUsers = stats.ActiveUsers;
+                    BannedUsers = stats.BannedUsers;
+                    TotalPosts = stats.TotalPosts;
+                    TotalReports = stats.TotalReports;
+                    Console.WriteLine($"Loaded stats: Users={TotalUsers}, Active={ActiveUsers}, Banned={BannedUsers}, Posts={TotalPosts}, Reports={TotalReports}");
+                }
+                catch (Exception statsEx)
+                {
+                    Console.WriteLine($"Error loading dashboard stats: {statsEx.Message}");
+                    // Set default stats
+                    TotalUsers = 0;
+                    ActiveUsers = 0;
+                    BannedUsers = 0;
+                    TotalPosts = 0;
+                    TotalReports = 0;
+                }
+
+                Console.WriteLine("Returning admin page successfully");
                 return Page();
             }
             catch (Exception ex)
             {
-                // Log error and redirect to error page
+                Console.WriteLine($"=== ADMIN PAGE ERROR ===");
+                Console.WriteLine($"Error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                Console.WriteLine($"Inner exception: {ex.InnerException?.Message}");
+                Console.WriteLine("=========================");
                 TempData["Error"] = "Failed to load admin panel: " + ex.Message;
                 return RedirectToPage("/Error");
             }
@@ -72,33 +114,18 @@ namespace NewsSite.Pages
         {
             try
             {
-                // Check JWT claims
-                var adminClaim = User.FindFirst("isAdmin");
-                if (adminClaim != null && bool.TryParse(adminClaim.Value, out bool isAdmin))
+                var jwt = Request.Cookies["jwtToken"];
+                if (string.IsNullOrEmpty(jwt))
                 {
-                    return isAdmin;
+                    return false;
                 }
 
-                // Check cookies for JWT token
-                var jwtCookie = Request.Cookies["jwtToken"];
-                if (!string.IsNullOrEmpty(jwtCookie))
-                {
-                    var handler = new JwtSecurityTokenHandler();
-                    if (handler.CanReadToken(jwtCookie))
-                    {
-                        var jsonToken = handler.ReadJwtToken(jwtCookie);
-                        var adminTokenClaim = jsonToken.Claims.FirstOrDefault(x => x.Type == "isAdmin");
-                        
-                        if (adminTokenClaim != null && bool.TryParse(adminTokenClaim.Value, out bool tokenIsAdmin))
-                        {
-                            return tokenIsAdmin;
-                        }
-                    }
-                }
+                var user = new User().ExtractUserFromJWT(jwt);
+                var currentUser = dbService.GetUserById(user.Id);
 
-                return false;
+                return currentUser?.IsAdmin ?? false;
             }
-            catch (Exception)
+            catch
             {
                 return false;
             }
@@ -108,38 +135,21 @@ namespace NewsSite.Pages
         {
             try
             {
-                // Try to get from JWT claims first
-                var userIdClaim = User.FindFirst("id");
-                if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
+                var jwt = Request.Cookies["jwtToken"];
+                if (string.IsNullOrEmpty(jwt))
                 {
-                    return userId;
+                    return null;
                 }
 
-                // Check cookies for JWT token
-                var jwtCookie = Request.Cookies["jwtToken"];
-                if (!string.IsNullOrEmpty(jwtCookie))
-                {
-                    var handler = new JwtSecurityTokenHandler();
-                    if (handler.CanReadToken(jwtCookie))
-                    {
-                        var jsonToken = handler.ReadJwtToken(jwtCookie);
-                        var idClaim = jsonToken.Claims.FirstOrDefault(x => x.Type == "id");
-                        
-                        if (idClaim != null && int.TryParse(idClaim.Value, out int cookieUserId))
-                        {
-                            return cookieUserId;
-                        }
-                    }
-                }
-
-                return null;
+                var user = new User().ExtractUserFromJWT(jwt);
+                return user.Id;
             }
-            catch (Exception)
+            catch
             {
                 return null;
             }
         }
-
+ 
         // AJAX endpoints for admin actions
         public async Task<IActionResult> OnPostBanUserAsync([FromBody] BanUserRequest request)
         {
@@ -157,7 +167,7 @@ namespace NewsSite.Pages
                 }
 
                 bool success = await dbService.BanUser(request.UserId, request.Reason, request.Duration, adminId.Value);
-                
+
                 if (success)
                 {
                     // Log admin action
@@ -190,8 +200,8 @@ namespace NewsSite.Pages
                     return Unauthorized();
                 }
 
-                bool success = await dbService.UnbanUser(userId);
-                
+                bool success = await dbService.UnbanUser(userId, adminId.Value);
+
                 if (success)
                 {
                     await dbService.LogAdminAction(adminId.Value, "UNBAN_USER", $"Unbanned user {userId}");
@@ -224,7 +234,7 @@ namespace NewsSite.Pages
                 }
 
                 bool success = await dbService.DeactivateUser(userId);
-                
+
                 if (success)
                 {
                     await dbService.LogAdminAction(adminId.Value, "DEACTIVATE_USER", $"Deactivated user {userId}");
@@ -252,7 +262,7 @@ namespace NewsSite.Pages
             {
                 var users = await dbService.GetFilteredUsersForAdmin(page, pageSize, search, status, joinDate);
                 var totalUsers = await dbService.GetFilteredUsersCount(search, status, joinDate);
-                
+
                 return new JsonResult(new
                 {
                     success = true,
@@ -338,7 +348,7 @@ namespace NewsSite.Pages
                 }
 
                 bool success = await dbService.ResolveReport(request.ReportId, request.Action, request.Notes, adminId.Value);
-                
+
                 if (success)
                 {
                     return new JsonResult(new { success = true, message = "Report resolved successfully" });

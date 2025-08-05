@@ -26,7 +26,7 @@ namespace NewsSite.BL.Services
             if (page < 1) page = 1;
             if (pageSize < 1 || pageSize > 100) pageSize = 20; // Limit page size
 
-            return await _dbService.GetAllUsersForAdmin(page, pageSize);
+            return await Task.FromResult(_dbService.GetAllUsersForAdmin(page, pageSize));
         }
 
         public async Task<List<AdminUserView>> GetFilteredUsersForAdminAsync(int page, int pageSize, string search, string status, string joinDate)
@@ -66,55 +66,74 @@ namespace NewsSite.BL.Services
                 throw new ArgumentException("Ban reason is required");
             }
 
-            if (durationDays < 0)
+            if (durationDays < -1)
             {
-                throw new ArgumentException("Ban duration must be positive");
+                throw new ArgumentException("Ban duration must be positive or -1 for permanent");
             }
 
-            // Business rule: Cannot ban admin users
-            var userDetails = await GetUserDetailsForAdminAsync(userId);
-            if (userDetails.IsAdmin)
+            try 
             {
-                throw new InvalidOperationException("Cannot ban admin users");
+                // Business rule: Cannot ban admin users
+                var userDetails = await GetUserDetailsForAdminAsync(userId);
+                if (userDetails.IsAdmin)
+                {
+                    throw new InvalidOperationException("Cannot ban admin users");
+                }
+
+                // Business rule: Cannot ban yourself
+                if (userId == adminId)
+                {
+                    throw new InvalidOperationException("Cannot ban yourself");
+                }
+
+                // Log admin action
+                await LogAdminActionAsync(adminId, "Ban User", $"Banned user {userId} for {durationDays} days. Reason: {reason}");
+
+                return await _dbService.BanUser(userId, reason, durationDays, adminId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AdminService] BanUserAsync error: {ex.Message}");
+                throw;
+            }
+        }
+
+        public async Task<bool> UnbanUserAsync(int userId, int adminId)
+        {
+            if (userId <= 0)
+            {
+                throw new ArgumentException("Valid User ID is required");
             }
 
-            // Business rule: Cannot ban yourself
-            if (userId == adminId)
+            if (adminId <= 0)
             {
-                throw new InvalidOperationException("Cannot ban yourself");
+                throw new ArgumentException("Valid Admin ID is required");
             }
 
             // Log admin action
-            await LogAdminActionAsync(adminId, "Ban User", $"Banned user {userId} for {durationDays} days. Reason: {reason}");
+            await LogAdminActionAsync(adminId, "Unban User", $"Unbanned user {userId}");
 
-            return await _dbService.BanUser(userId, reason, durationDays, adminId);
-        }
-
-        public async Task<bool> UnbanUserAsync(int userId)
-        {
-            if (userId <= 0)
-            {
-                throw new ArgumentException("Valid User ID is required");
-            }
-
-            return await _dbService.UnbanUser(userId);
+            return await _dbService.UnbanUser(userId, adminId);
         }
 
         public async Task<bool> DeactivateUserAsync(int userId)
-        {
+        { 
             if (userId <= 0)
             {
                 throw new ArgumentException("Valid User ID is required");
             }
 
-            // Business rule: Cannot deactivate admin users
-            var userDetails = await GetUserDetailsForAdminAsync(userId);
-            if (userDetails.IsAdmin)
+            return await _dbService.DeactivateUser(userId);
+        }
+
+        public async Task<bool> ActivateUserAsync(int userId)
+        { 
+            if (userId <= 0)
             {
-                throw new InvalidOperationException("Cannot deactivate admin users");
+                throw new ArgumentException("Valid User ID is required");
             }
 
-            return await _dbService.DeactivateUser(userId);
+            return await _dbService.ActivateUser(userId);
         }
 
         public async Task<List<ActivityLog>> GetActivityLogsAsync(int page, int pageSize)
@@ -130,7 +149,7 @@ namespace NewsSite.BL.Services
         {
             if (count < 1 || count > 50) count = 10; // Limit count
 
-            return await _dbService.GetRecentActivityLogs(count);
+            return await Task.FromResult(_dbService.GetRecentActivityLogs(count));
         }
 
         public async Task<List<UserReport>> GetPendingReportsAsync()

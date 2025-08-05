@@ -17,5 +17,15 @@ namespace NewsSite.BL.Services
         Task<bool> ReportArticleAsync(int articleId, int userId, string? reason = null);
         Task<List<NewsArticle>> GetLikedArticlesByUserAsync(int userId, int pageNumber = 1, int pageSize = 10);
         Task<List<NewsArticle>> GetSavedArticlesByUserAsync(int userId, int pageNumber = 1, int pageSize = 10);
+        Task<List<NewsArticle>> GetSavedArticlesWithFiltersAsync(int userId, int pageNumber = 1, int pageSize = 10, string? category = null, string? search = null);
+        Task<List<NewsArticle>> GetFollowingPostsAsync(int userId, int pageNumber = 1, int pageSize = 10, string? category = null);
+        
+        // Feed algorithm methods
+        Task<List<NewsArticle>> GetPopularArticlesAsync(int pageSize = 10);
+        Task<List<NewsArticle>> GetTrendingArticlesAsync(int pageSize = 10);
+        Task<List<NewsArticle>> GetMostLikedArticlesAsync(int pageSize = 10);
+        Task<List<NewsArticle>> GetMostViewedArticlesAsync(int pageSize = 10);
+        Task<List<NewsArticle>> GetRecentArticlesAsync(int pageSize = 10);
+        Task<List<NewsArticle>> GetArticlesByInterestAsync(int userId, string category, int pageSize = 10);
     }
 }

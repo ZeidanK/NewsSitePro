@@ -1,3 +1,8 @@
+// Helper function for API URL generation - use centralized config
+function getApiUrl(endpoint) {
+    return window.ApiConfig ? window.ApiConfig.getApiUrl(endpoint) : `/${endpoint}`;
+}
+
 // AI-powered content recommendation engine with machine learning
 class AIRecommendationEngine {
     constructor() {
@@ -19,7 +24,8 @@ class AIRecommendationEngine {
 
     async loadUserProfile() {
         try {
-            const response = await fetch('/api/user/profile/insights', {
+            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl('api/user/profile/insights') : getApiUrl('api/user/profile/insights');
+            const response = await fetch(apiUrl, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
                 }
@@ -36,7 +42,8 @@ class AIRecommendationEngine {
 
     async loadReadingHistory() {
         try {
-            const response = await fetch('/api/user/reading-history', {
+            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl('api/user/reading-history') : getApiUrl('api/user/reading-history');
+            const response = await fetch(apiUrl, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
                 }

@@ -1,0 +1,104 @@
+@page
+@model NewsSite.Pages.SavedArticlesModel
+@{
+    Layout = "~/Pages/Shared/_Layout.cshtml";
+    ViewData["Title"] = "Saved Articles";
+    ViewData["HeaderData"] = Model.HeaderData;
+}
+
+<link rel="stylesheet" href="~/css/site.css" />
+<link rel="stylesheet" href="~/css/post-card.css" />
+<link rel="stylesheet" href="~/css/mobile-responsive.css" />
+<link rel="stylesheet" href="~/css/saved-articles.css" />
+
+<div class="saved-articles-container">
+    <!-- Header Section -->
+    <div class="page-header">
+        <div class="header-content">
+            <h1><i class="fas fa-bookmark"></i> My Saved Articles</h1>
+            <p class="header-description">Your personal collection of bookmarked articles</p>
+            <div class="results-count">
+                <span class="count-badge" id="resultsCount">Loading...</span> saved articles
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Controls -->
+    <div class="controls-section">
+        <div class="search-controls">
+            <!-- Search Bar -->
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Search your saved articles..." class="search-input">
+                <button type="button" id="searchBtn" class="search-btn">
+                    <i class="fas fa-search"></i>
+                </button>
+                <button type="button" id="clearSearchBtn" class="clear-btn" title="Clear search" style="display: none;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Category Filter -->
+            <div class="filter-dropdown">
+                <select id="categoryFilter" class="filter-select">
+                    <option value="all">All Categories</option>
+                    <option value="Technology">Technology</option>
+                    <option value="Sports">Sports</option>
+                    <option value="Politics">Politics</option>
+                    <option value="Entertainment">Entertainment</option>
+                    <option value="Health">Health</option>
+                    <option value="Business">Business</option>
+                    <option value="Science">Science</option>
+                </select>
+            </div>
+
+            <!-- Sort Options -->
+            <div class="sort-dropdown">
+                <select id="sortFilter" class="filter-select">
+                    <option value="recent">Most Recent</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="title">Title A-Z</option>
+                    <option value="category">By Category</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Display Type Toggle -->
+        <div class="display-controls">
+            <div class="display-toggle">
+                <button type="button" class="display-btn active" data-display="grid" title="Grid View">
+                    <i class="fas fa-th"></i>
+                </button>
+                <button type="button" class="display-btn" data-display="list" title="List View">
+                    <i class="fas fa-list"></i>
+                </button>
+                <button type="button" class="display-btn" data-display="compact" title="Compact View">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading" class="loading-state" style="display: none;">
+        <i class="fas fa-spinner fa-spin"></i> Loading articles...
+    </div>
+
+    <!-- Articles Container -->
+    <div class="articles-container" id="articlesContainer">
+        <!-- Articles will be loaded here via API -->
+        <div class="loading-placeholder">
+            <div class="loading-spinner"></div>
+            <p>Loading your saved articles...</p>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination-container" id="paginationContainer" style="display: none;">
+        <!-- Pagination will be added dynamically -->
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/saved-articles.js"></script>
+    <script src="~/js/post-interactions.js"></script>
+}

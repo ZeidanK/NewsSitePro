@@ -617,8 +617,9 @@ CREATE PROCEDURE sp_ArticleViews_Insert
 AS
 BEGIN
     SET NOCOUNT ON;
-    -- This would require an ArticleViews table
-    -- For now, just return success
+    -- Insert a view record into the existing ArticleViews table
+    INSERT INTO NewsSitePro2025_ArticleViews (ArticleID, UserID, ViewDate)
+    VALUES (@ArticleID, @UserID, GETDATE());
     SELECT 'View recorded' as Message;
 END
 GO
@@ -632,8 +633,25 @@ CREATE PROCEDURE sp_Reports_Insert
 AS
 BEGIN
     SET NOCOUNT ON;
-    -- This would require a Reports table
-    -- For now, just return success
+    -- Insert the report using the correct schema
+    INSERT INTO NewsSitePro2025_Reports (
+        ArticleID,
+        ReporterID,
+        ReportedUserID,
+        Reason,
+        Description,
+        CreatedAt,
+        Status
+    )
+    VALUES (
+        @ArticleID,
+        @UserID,
+        NULL, -- You may want to pass ReportedUserID as a parameter if available
+        @Reason,
+        @Description,
+        GETDATE(),
+        'Pending'
+    );
     SELECT 'Report submitted' as Message;
 END
 GO
@@ -652,8 +670,8 @@ BEGIN
          WHERE na.UserID = @UserID) as LikesReceived,
         (SELECT COUNT(*) FROM NewsSitePro2025_ArticleLikes WHERE UserID = @UserID) as LikesGiven,
         (SELECT COUNT(*) FROM NewsSitePro2025_SavedArticles WHERE UserID = @UserID) as SavedCount,
-        0 as FollowersCount, -- Placeholder for future follow system
-        0 as FollowingCount  -- Placeholder for future follow system
+        (SELECT COUNT(*) FROM NewsSitePro2025_Follows WHERE FollowedUserID = @UserID) as FollowersCount,
+        (SELECT COUNT(*) FROM NewsSitePro2025_Follows WHERE FollowerUserID = @UserID) as FollowingCount
 END
 GO
 

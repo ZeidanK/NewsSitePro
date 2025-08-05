@@ -54,12 +54,14 @@ class SearchManager {
             });
         }
         
-        // Follow buttons
-        document.querySelectorAll('.follow-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                this.handleFollowClick(e);
+        // Follow buttons - only handle if follow manager isn't available
+        if (!window.followStatusManager) {
+            document.querySelectorAll('.follow-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    this.handleFollowClick(e);
+                });
             });
-        });
+        }
         
         // Close suggestions when clicking outside
         document.addEventListener('click', (e) => {
@@ -283,7 +285,8 @@ class SearchManager {
             btn.textContent = 'Following...';
             
             // TODO: Implement actual follow API call
-            const response = await fetch(`/api/User/Follow`, {
+            const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl('api/User/Follow') : '/api/User/Follow';
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

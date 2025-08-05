@@ -29,7 +29,7 @@
             }
             <hr>
             <div class="d-flex gap-2">
-                <a href="/" class="btn btn-primary">
+                <a href="~/" class="btn btn-primary">
                     <i class="fas fa-home"></i> Go Home
                 </a>
                 <button onclick="window.history.back()" class="btn btn-outline-secondary">
@@ -45,66 +45,42 @@ else
 <div class="user-profile-container">
     <div class="profile-header">
         <div class="user-avatar">
-            <div class="avatar-circle">
-                @if (!string.IsNullOrEmpty(Model.UserProfile?.ProfilePicture))
-                {
-                    <img src="@Model.UserProfile.ProfilePicture" alt="Profile Picture" class="profile-pic-img" style="width:120px;height:120px;border-radius:50%;object-fit:cover;" />
-                }
-                else
-                {
-                    <i class="fas fa-user"></i>
-                }
-            </div>
-            @* Only show upload if this is the logged-in user's profile *@
-                @if (User.Identity?.IsAuthenticated == true && Model.UserProfile?.UserID == int.Parse(User.FindFirst("userId")?.Value ?? "0"))
+            @if (!string.IsNullOrEmpty(Model.UserProfile?.ProfilePicture))
             {
-                <form id="profilePicForm" enctype="multipart/form-data">
-                    <input type="file" id="profilePicInput" name="file" accept="image/*" style="margin-top:10px;" />
-                    <button type="button" id="uploadPicBtn" class="btn btn-sm btn-primary" style="margin-top:5px;">Upload</button>
-                    <div id="profilePicPreview" style="margin-top:10px;"></div>
-                </form>
+                <img src="@Model.UserProfile.ProfilePicture" alt="@Model.UserProfile.Username" class="avatar-circle profile-image" />
+            }
+            else
+            {
+                <div class="avatar-circle">
+                    @(Model.UserProfile?.Username?.Substring(0,1).ToUpper() ?? "?")
+                </div>
             }
         </div>
         <div class="user-info">
             <h1 class="username">@Model.UserProfile?.Username</h1>
-            <p class="user-bio">@(Model.UserProfile?.Bio ?? "No bio available")</p>
-            <p class="join-date">
-                <i class="fas fa-calendar-alt"></i>
-                Joined @Model.UserProfile?.JoinDate.ToString("MMMM yyyy")
-            </p>
-            @if (Model.UserProfile?.IsAdmin == true)
-            {
-                <span class="admin-badge">
-                    <i class="fas fa-star"></i> Admin
-                </span>
+            @if (!string.IsNullOrEmpty(Model.UserProfile?.Bio)) {
+                <p class="user-bio">@Model.UserProfile.Bio</p>
             }
-            
-            @* Action buttons *@
-            <div class="profile-actions mt-3">
-                @if (Model.IsOwnProfile)
-                {
-                    <a href="/Profile" class="btn btn-primary">
-                        <i class="fas fa-edit"></i> Edit Profile
-                    </a>
-                }
-                else
-                {
-                    <button type="button" class="btn btn-outline-primary btn-follow"
-                                data-user-id="@(Model.UserProfile?.UserID ?? 0)"
-                            data-following="@Model.IsFollowing.ToString().ToLower()">
+            <p class="join-date">
+                <i class="fas fa-calendar-alt"></i> Joined @Model.UserProfile?.JoinDate.ToString("MMMM dd, yyyy")
+            </p>
+            @if (Model.UserProfile?.IsAdmin == true) {
+                <span class="admin-badge"><i class="fas fa-user-shield"></i> Admin</span>
+            }
+            @if (!Model.IsOwnProfile) {
+                <div class="profile-actions">
+                    <button class="btn btn-outline-primary btn-follow" data-user-id="@Model.UserProfile?.UserID" data-following="@Model.IsFollowing.ToString().ToLower()" data-username="@(Model.UserProfile?.Username ?? "User")">
                         <i class="fas @(Model.IsFollowing ? "fa-user-minus" : "fa-user-plus")"></i>
-                        @(Model.IsFollowing ? "Unfollow" : "Follow")
+                        @(Model.IsFollowing ? " Unfollow" : " Follow")
                     </button>
-                }
-            </div>
+                    <button class="btn btn-outline-danger btn-block-user" data-user-id="@Model.UserProfile?.UserID" data-username="@(Model.UserProfile?.Username ?? "User")">
+                        <i class="fas fa-user-slash"></i> Block
+                    </button>
+                </div>
+            }
         </div>
     </div>
-
     <div class="profile-stats">
-        <div class="stat-item">
-            <span class="stat-number">@(Model.UserProfile?.Activity?.PostsCount ?? 0)</span>
-            <span class="stat-label">Posts</span>
-        </div>
         <div class="stat-item">
             <span class="stat-number">@(Model.UserProfile?.Activity?.LikesCount ?? 0)</span>
             <span class="stat-label">Likes Given</span>
@@ -113,9 +89,13 @@ else
             <span class="stat-number">@(Model.UserProfile?.Activity?.SavedCount ?? 0)</span>
             <span class="stat-label">Saved Articles</span>
         </div>
-        <div class="stat-item">
+        <div class="stat-item stat-clickable" data-stat="followers" style="cursor: pointer;">
             <span class="stat-number">@(Model.UserProfile?.Activity?.FollowersCount ?? 0)</span>
             <span class="stat-label">Followers</span>
+        </div>
+        <div class="stat-item stat-clickable" data-stat="following" style="cursor: pointer;">
+            <span class="stat-number">@(Model.UserProfile?.Activity?.FollowingCount ?? 0)</span>
+            <span class="stat-label">Following</span>
         </div>
     </div>
 
@@ -136,6 +116,12 @@ else
             <button class="tab-btn" data-tab="activity">
                 <i class="fas fa-chart-line"></i> Activity
             </button>
+            @if (Model.IsOwnProfile)
+            {
+                <button class="tab-btn" data-tab="blocked">
+                    <i class="fas fa-user-slash"></i> Blocked Users
+                </button>
+            }
         </div>
 
         <!-- My Posts Tab -->
@@ -144,6 +130,19 @@ else
                 <!-- Posts will be loaded dynamically using unified template -->
             </div>
         </div>
+        @if (Model.IsOwnProfile)
+        {
+            <div class="tab-content" id="blocked-tab">
+                <div id="blockedUsersContainer" class="blocked-users-container">
+                    <!-- Blocked users will be loaded here -->
+                </div>
+                <div id="noBlockedMessage" class="no-activity-message" style="display: none;">
+                    <i class="fas fa-user-slash"></i>
+                    <h4>No Blocked Users</h4>
+                    <p>You have not blocked any users.</p>
+                </div>
+            </div>
+        }
 
         <!-- Liked Posts Tab (Only for own profile) -->
         @if (Model.IsOwnProfile)
@@ -198,1158 +197,626 @@ else
                     </div>
                 </div>
             </div>
+
+            <!-- Recent Activity Section -->
+            <div class="recent-activity-section">
+                <h3>Recent Activity</h3>
+                <p class="activity-description">
+                    @if (Model.IsOwnProfile)
+                    {
+                        @:Your recent interactions with articles (likes and comments)
+                    }
+                    else
+                    {
+                        @:@Model.UserProfile?.Username's recent interactions with articles (likes and comments)
+                    }
+                </p>
+                
+                <div id="recentActivityContainer" class="recent-activity-container">
+                    <div class="loading-placeholder">
+                        <i class="fas fa-spinner fa-spin"></i> Loading recent activity...
+                    </div>
+                </div>
+
+                <div id="noActivityMessage" class="no-activity-message" style="display: none;">
+                    <i class="fas fa-chart-line"></i>
+                    <h4>No Recent Activity</h4>
+                    <p>Start engaging with articles by liking and commenting to see your activity here.</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
 }
 
+<!-- Followers Modal -->
+<div class="modal fade" id="followersModal" tabindex="-1" aria-labelledby="followersModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="followersModalLabel">Followers</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="followersContainer" class="users-list-container">
+                    <div class="loading-placeholder">
+                        <i class="fas fa-spinner fa-spin"></i> Loading followers...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Following Modal -->
+<div class="modal fade" id="followingModal" tabindex="-1" aria-labelledby="followingModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="followingModalLabel">Following</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="followingContainer" class="users-list-container">
+                    <div class="loading-placeholder">
+                        <i class="fas fa-spinner fa-spin"></i> Loading following...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Include required CSS -->
+<link rel="stylesheet" href="~/css/userprofile.css" />
+
 @section Scripts {
-<script>
-    // Tab switching functionality
-    document.addEventListener('DOMContentLoaded', function() {
-        // Initialize unified post template system
-        initializeUserProfile();
-        
-        const tabBtns = document.querySelectorAll('.tab-btn');
-        const tabContents = document.querySelectorAll('.tab-content');
-        
-        tabBtns.forEach(btn => {
-            btn.addEventListener('click', function() {
-                const targetTab = this.dataset.tab;
-                tabBtns.forEach(b => b.classList.remove('active'));
-                tabContents.forEach(c => c.classList.remove('active'));
-                this.classList.add('active');
-                document.getElementById(targetTab + '-tab').classList.add('active');
-                
-                // Load content for specific tabs
-                if (targetTab === 'liked') {
-                    loadLikedPosts();
-                } else if (targetTab === 'saved') {
-                    loadSavedPosts();
-                } else if (targetTab === 'posts') {
-                    loadUserPosts();
-                }
-            });
+    <!-- Required JS files are already included in _Layout.cshtml -->
+    <script src="~/js/userprofile.js"></script>
+    <script src="~/js/post-interactions.js"></script>
+    
+    <script>
+        // Initialize user profile functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up profile context for other scripts
+            window.profileContext = {
+                currentUserId: '@(Model.HeaderData?.user?.Id ?? 0)',
+                profileUserId: '@(Model.UserProfile?.UserID ?? 0)',
+                isOwnProfile: @Model.IsOwnProfile.ToString().ToLower(),
+                username: '@(Model.UserProfile?.Username ?? "")'
+            };
+            
+            // Initialize unified post template system if available
+            if (window.postTemplateHelpers && window.profileContext.currentUserId !== '0') {
+                window.postTemplateHelpers.setCurrentUser(window.profileContext.currentUserId);
+            }
+            
+            // Set up tab switching
+            initializeTabs();
+            
+            // Load initial posts
+            loadUserPosts();
+            
+            // Set up follow functionality if available
+            if (window.followStatusManager) {
+                setupFollowHandler();
+            }
+            
+            // Set up stats click handlers for followers/following
+            setupStatsClickHandlers();
         });
 
-        // Post management functionality
-        setupPostManagement();
-        
-        // Comment functionality
-        setupCommentHandlers();
-        
-        // Follow/Unfollow functionality
-        setupFollowHandler();
-        
-        // Profile picture functionality
-        setupProfilePictureHandler();
-        
-        // Load initial posts
-        loadUserPosts();
-    });
-
-    // Initialize user profile with unified template system
-    function initializeUserProfile() {
-        const currentUserId = '@(Model.HeaderData?.user?.Id ?? 0)';
-        const profileUserId = '@(Model.UserProfile?.UserID ?? 0)';
-        const isOwnProfile = @Model.IsOwnProfile.ToString().ToLower();
-        
-        if (currentUserId && currentUserId !== '0') {
-            window.postTemplateHelpers.setCurrentUser(currentUserId);
+        function setupStatsClickHandlers() {
+            document.querySelectorAll('.stat-clickable').forEach(statElement => {
+                statElement.addEventListener('click', function() {
+                    const statType = this.dataset.stat;
+                    const profileUserId = window.profileContext?.profileUserId || '@(Model.UserProfile?.UserID ?? 0)';
+                    
+                    if (statType === 'followers') {
+                        showFollowersModal(profileUserId);
+                    } else if (statType === 'following') {
+                        showFollowingModal(profileUserId);
+                    }
+                });
+            });
         }
         
-        // Store profile context
-        window.profileContext = {
-            currentUserId: currentUserId,
-            profileUserId: profileUserId,
-            isOwnProfile: isOwnProfile,
-            username: '@(Model.UserProfile?.Username ?? "")'
-        };
-    }
-
-    // Load user posts using unified template
-    async function loadUserPosts() {
-        const container = document.getElementById('userPostsContainer');
-        if (!container) return;
-        
-            const profileUserId = window.profileContext?.profileUserId || '@(Model.UserProfile?.UserID ?? 0)';
-        
-        try {
-            container.innerHTML = '<div class="posts-loading">Loading posts...</div>';
+        async function showFollowersModal(userId) {
+            const modal = new bootstrap.Modal(document.getElementById('followersModal'));
+            const container = document.getElementById('followersContainer');
             
-            const response = await fetch(`/api/Users/${profileUserId}/posts`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + (localStorage.getItem('jwtToken') || '')
-                }
-            });
+            modal.show();
+            container.innerHTML = '<div class="loading-placeholder"><i class="fas fa-spinner fa-spin"></i> Loading followers...</div>';
             
-            if (response.ok) {
-                const data = await response.json();
+            try {
+                const apiUrl = window.ApiConfig.getApiUrl(`/UserProfile?handler=GetFollowers&userId=${userId}`);
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
                 
-                if (data && data.length > 0) {
-                    // Determine template context
-                    const context = window.profileContext?.isOwnProfile ? 'ownProfile' : 'profile';
-                    const options = {
-                        isOwnPost: window.profileContext?.isOwnProfile,
-                        isProfileView: true
-                    };
+                const result = await response.json();
+                
+                if (result.success && result.followers && result.followers.length > 0) {
+                    const followersHTML = result.followers.map(user => `
+                        <div class="user-item">
+                            ${user.profilePicture ? 
+                                `<img src="${user.profilePicture}" alt="${user.username}" class="user-avatar-small profile-image" />` :
+                                `<div class="user-avatar-small">
+                                    ${user.username ? user.username.charAt(0).toUpperCase() : '?'}
+                                </div>`
+                            }
+                            <div class="user-info-small">
+                                <div class="user-name">${user.username || 'Unknown User'}</div>
+                                ${user.bio ? `<div class="user-bio-small">${user.bio}</div>` : ''}
+                            </div>
+                            <div class="user-actions">
+                                <a href="/UserProfile/${user.userId}" class="btn btn-outline-primary btn-sm">View Profile</a>
+                                ${!window.profileContext?.isOwnProfile && user.userId !== parseInt(window.profileContext?.currentUserId) ? 
+                                    `<button class="btn btn-outline-primary btn-follow-small btn-follow" data-user-id="${user.userId}" data-username="${user.username}">
+                                        <i class="fas fa-user-plus"></i> Follow
+                                    </button>` : ''}
+                            </div>
+                        </div>
+                    `).join('');
                     
-                    // Convert posts to expected format
-                    const formattedPosts = data.map(post => ({
-                        articleID: post.ArticleID || post.articleID,
-                        title: post.Title || post.title,
-                        content: post.Content || post.content,
-                        category: post.Category || post.category,
-                        publishDate: post.PublishDate || post.publishDate,
-                        imageURL: post.ImageURL || post.imageURL,
-                        sourceURL: post.SourceURL || post.sourceURL,
-                        sourceName: post.SourceName || post.sourceName,
-                        likes: post.LikesCount || post.likes || 0,
-                        views: post.ViewsCount || post.views || 0,
-                        comments: post.CommentsCount || post.comments || 0,
-                        user: {
-                            username: window.profileContext?.username || 'Unknown User',
-                            userId: window.profileContext?.profileUserId
-                        }
-                    }));
-                    
-                    window.postTemplateHelpers.renderPosts(formattedPosts, 'userPostsContainer', context, options);
+                    container.innerHTML = followersHTML;
                 } else {
                     container.innerHTML = `
-                        <div class="no-posts">
-                            <i class="fas fa-file-alt"></i>
-                            <h4>No Posts Yet</h4>
-                            <p>${window.profileContext?.isOwnProfile ? "You haven't" : window.profileContext?.username + " hasn't"} posted anything yet.</p>
-                            ${window.profileContext?.isOwnProfile ? '<a href="/Post" class="btn btn-primary"><i class="fas fa-plus"></i> Create Your First Post</a>' : ''}
+                        <div class="empty-state text-center py-4">
+                            <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                            <h5>No Followers Yet</h5>
+                            <p class="text-muted">This user doesn't have any followers yet.</p>
                         </div>
                     `;
                 }
-            } else {
-                throw new Error('Failed to load posts');
+            } catch (error) {
+                console.error('Error loading followers:', error);
+                container.innerHTML = `
+                    <div class="error-state text-center py-4">
+                        <i class="fas fa-exclamation-triangle fa-2x text-danger mb-3"></i>
+                        <h5>Failed to Load Followers</h5>
+                        <p class="text-muted">There was an error loading the followers list.</p>
+                        <button onclick="showFollowersModal(${userId})" class="btn btn-primary">Try Again</button>
+                    </div>
+                `;
             }
-        } catch (error) {
-            console.error('Error loading user posts:', error);
-            container.innerHTML = `
-                <div class="error-state">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h4>Failed to Load Posts</h4>
-                    <p>There was an error loading the posts. Please try again.</p>
-                    <button onclick="loadUserPosts()" class="btn btn-primary">Retry</button>
-                </div>
-            `;
         }
-    }
-
-    function setupPostManagement() {
-        // Set up global post interaction handlers for unified template
-        window.editPost = function(postId) {
-            window.location.href = `/Posts/Edit/${postId}`;
-        };
         
-        window.deletePost = async function(postId) {
-            if (!confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
-                return;
-            }
+        async function showFollowingModal(userId) {
+            const modal = new bootstrap.Modal(document.getElementById('followingModal'));
+            const container = document.getElementById('followingContainer');
+            
+            modal.show();
+            container.innerHTML = '<div class="loading-placeholder"><i class="fas fa-spinner fa-spin"></i> Loading following...</div>';
             
             try {
-                const response = await fetch(`/api/Posts/${postId}`, {
-                    method: 'DELETE',
+                const apiUrl = window.ApiConfig.getApiUrl(`/UserProfile?handler=GetFollowing&userId=${userId}`);
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
                     headers: {
-                        'Authorization': 'Bearer ' + (localStorage.getItem('jwtToken') || ''),
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success && result.following && result.following.length > 0) {
+                    const followingHTML = result.following.map(user => `
+                        <div class="user-item">
+                            ${user.profilePicture ? 
+                                `<img src="${user.profilePicture}" alt="${user.username}" class="user-avatar-small profile-image" />` :
+                                `<div class="user-avatar-small">
+                                    ${user.username ? user.username.charAt(0).toUpperCase() : '?'}
+                                </div>`
+                            }
+                            <div class="user-info-small">
+                                <div class="user-name">${user.username || 'Unknown User'}</div>
+                                ${user.bio ? `<div class="user-bio-small">${user.bio}</div>` : ''}
+                            </div>
+                            <div class="user-actions">
+                                <a href="/UserProfile/${user.userId}" class="btn btn-outline-primary btn-sm">View Profile</a>
+                                ${!window.profileContext?.isOwnProfile && user.userId !== parseInt(window.profileContext?.currentUserId) ? 
+                                    `<button class="btn btn-outline-primary btn-follow-small btn-follow" data-user-id="${user.userId}" data-username="${user.username}">
+                                        <i class="fas fa-user-plus"></i> Follow
+                                    </button>` : ''}
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    container.innerHTML = followingHTML;
+                } else {
+                    container.innerHTML = `
+                        <div class="empty-state text-center py-4">
+                            <i class="fas fa-user-friends fa-3x text-muted mb-3"></i>
+                            <h5>Not Following Anyone</h5>
+                            <p class="text-muted">This user isn't following anyone yet.</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading following:', error);
+                container.innerHTML = `
+                    <div class="error-state text-center py-4">
+                        <i class="fas fa-exclamation-triangle fa-2x text-danger mb-3"></i>
+                        <h5>Failed to Load Following</h5>
+                        <p class="text-muted">There was an error loading the following list.</p>
+                        <button onclick="showFollowingModal(${userId})" class="btn btn-primary">Try Again</button>
+                    </div>
+                `;
+            }
+        }
+
+        function initializeTabs() {
+            const tabBtns = document.querySelectorAll('.tab-btn');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const targetTab = this.dataset.tab;
+                    
+                    // Update active states
+                    tabBtns.forEach(b => b.classList.remove('active'));
+                    tabContents.forEach(c => c.classList.remove('active'));
+                    this.classList.add('active');
+                    document.getElementById(targetTab + '-tab').classList.add('active');
+                    
+                    // Load content for specific tabs
+                    switch(targetTab) {
+                        case 'liked':
+                            loadLikedPosts();
+                            break;
+                        case 'saved':
+                            loadSavedPosts();
+                            break;
+                        case 'posts':
+                            loadUserPosts();
+                            break;
+                        case 'activity':
+                            loadUserActivity();
+                            break;
+                        case 'blocked':
+                            if (window.profileContext.isOwnProfile) {
+                                loadBlockedUsers();
+                            }
+                            break;
+                    }
+                });
+            });
+        }
+
+        // Load user posts using API config
+        async function loadUserPosts() {
+            const container = document.getElementById('userPostsContainer');
+            if (!container) return;
+            
+            const profileUserId = window.profileContext?.profileUserId || '@(Model.UserProfile?.UserID ?? 0)';
+            
+            try {
+                container.innerHTML = '<div class="posts-loading">Loading posts...</div>';
+                
+                const apiUrl = window.ApiConfig.getApiUrl(`/api/User/${profileUserId}/posts`);
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + (localStorage.getItem('jwtToken') || '')
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data && data.length > 0) {
+                        // Use unified template if available, otherwise fallback to basic rendering
+                        if (window.postTemplateHelpers) {
+                            const context = window.profileContext?.isOwnProfile ? 'ownProfile' : 'profile';
+                            const options = {
+                                isOwnPost: window.profileContext?.isOwnProfile,
+                                isProfileView: true
+                            };
+                            
+                            const formattedPosts = data.map(post => ({
+                                articleID: post.ArticleID || post.articleID,
+                                title: post.Title || post.title,
+                                content: post.Content || post.content,
+                                category: post.Category || post.category,
+                                publishDate: post.PublishDate || post.publishDate,
+                                imageURL: post.ImageURL || post.imageURL,
+                                sourceURL: post.SourceURL || post.sourceURL,
+                                sourceName: post.SourceName || post.sourceName,
+                                likes: post.LikesCount || post.likes || 0,
+                                views: post.ViewsCount || post.views || 0,
+                                comments: post.CommentsCount || post.comments || 0,
+                                user: {
+                                    username: window.profileContext?.username || '@Model.UserProfile?.Username',
+                                    userId: window.profileContext?.profileUserId
+                                }
+                            }));
+                            
+                            window.postTemplateHelpers.renderPosts(formattedPosts, 'userPostsContainer', context, options);
+                        } else {
+                            // Fallback basic rendering
+                            container.innerHTML = data.map(post => `
+                                <div class="post-card">
+                                    <h3>${post.Title || post.title}</h3>
+                                    <p>${(post.Content || post.content).substring(0, 200)}...</p>
+                                    <small>by ${window.profileContext?.username || '@Model.UserProfile?.Username'}</small>
+                                </div>
+                            `).join('');
+                        }
+                    } else {
+                        container.innerHTML = `
+                            <div class="empty-state">
+                                <i class="fas fa-file-alt"></i>
+                                <h4>No Posts Yet</h4>
+                                <p>${window.profileContext?.isOwnProfile ? "You haven't" : window.profileContext?.username + " hasn't"} posted anything yet.</p>
+                                ${window.profileContext?.isOwnProfile ? '<a href="/Post" class="btn btn-primary"><i class="fas fa-plus"></i> Create Your First Post</a>' : ''}
+                            </div>
+                        `;
+                    }
+                } else {
+                    throw new Error('Failed to load posts');
+                }
+            } catch (error) {
+                console.error('Error loading user posts:', error);
+                container.innerHTML = `
+                    <div class="error-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h4>Failed to Load Posts</h4>
+                        <p>There was an error loading the posts. Please try again.</p>
+                        <button onclick="loadUserPosts()" class="btn btn-primary">Retry</button>
+                    </div>
+                `;
+            }
+        }
+
+        // Placeholder functions for other tabs - implement as needed
+        function loadLikedPosts() {
+            const container = document.getElementById('liked-posts-container');
+            if (container) {
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-heart"></i><h3>Liked posts feature coming soon</h3></div>';
+            }
+        }
+
+        function loadSavedPosts() {
+            const container = document.getElementById('saved-posts-container');
+            if (container) {
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-bookmark"></i><h3>Saved posts feature coming soon</h3></div>';
+            }
+        }
+
+        function loadUserActivity() {
+            const container = document.getElementById('recentActivityContainer');
+            if (!container) return;
+            
+            const profileUserId = window.profileContext?.profileUserId || '@(Model.UserProfile?.UserID ?? 0)';
+            
+            try {
+                container.innerHTML = '<div class="loading-placeholder"><i class="fas fa-spinner fa-spin"></i> Loading recent activity...</div>';
+                
+                const apiUrl = window.ApiConfig.getApiUrl(`/UserProfile?handler=GetUserActivity&userId=${profileUserId}`);
+                fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.activities && data.activities.length > 0) {
+                        const activitiesHTML = data.activities.map(activity => `
+                            <div class="activity-item">
+                                <div class="activity-icon">
+                                    <i class="fas ${activity.activityType === 'like' ? 'fa-heart' : 'fa-comment'}"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <div class="activity-header">
+                                        <span class="activity-action">
+                                            ${activity.activityType === 'like' ? 'Liked' : 'Commented on'} an article
+                                        </span>
+                                        <span class="activity-date">${new Date(activity.activityDate).toLocaleDateString()}</span>
+                                    </div>
+                                    <div class="activity-article">
+                                        <a href="/Post/${activity.articleID}" class="activity-article-link">
+                                            ${activity.imageURL ? `<div class="activity-article-image"><img src="${activity.imageURL}" alt="Article image"></div>` : ''}
+                                            <div class="activity-article-info">
+                                                <h4 class="activity-article-title">${activity.title}</h4>
+                                                <div class="activity-article-meta">
+                                                    <span class="activity-category">${activity.category}</span>
+                                                    ${activity.sourceName ? `<span class="activity-source">${activity.sourceName}</span>` : ''}
+                                                </div>
+                                            </div>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('');
+                        
+                        container.innerHTML = activitiesHTML;
+                    } else {
+                        const noActivityEl = document.getElementById('noActivityMessage');
+                        if (noActivityEl) {
+                            noActivityEl.style.display = 'block';
+                        }
+                        container.innerHTML = '';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading user activity:', error);
+                    container.innerHTML = `
+                        <div class="error-state">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <h4>Failed to Load Activity</h4>
+                            <p>There was an error loading the activity. Please try again.</p>
+                            <button onclick="loadUserActivity()" class="btn btn-primary">Retry</button>
+                        </div>
+                    `;
+                });
+            } catch (error) {
+                console.error('Error loading user activity:', error);
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-chart-line"></i><h3>Activity unavailable</h3></div>';
+            }
+        }
+
+        function setupFollowHandler() {
+            const followButton = document.querySelector('.btn-follow');
+            if (followButton && window.followStatusManager) {
+                followButton.addEventListener('click', function() {
+                    const username = this.dataset.username || '@Model.UserProfile?.Username' || 'User';
+                    if (!this.dataset.username) {
+                        this.dataset.username = username;
+                    }
+                    
+                    // Add callback to refresh stats after follow action
+                    const originalHandler = window.followStatusManager.handleFollowClick.bind(window.followStatusManager);
+                    window.followStatusManager.handleFollowClick = async function(button) {
+                        await originalHandler(button);
+                        // Refresh stats after follow action
+                        await refreshUserStats();
+                    };
+                    
+                    window.followStatusManager.handleFollowClick(this);
+                });
+            }
+            
+            // Set up block/unblock functionality
+            const blockButton = document.querySelector('.btn-block-user');
+            if (blockButton) {
+                blockButton.addEventListener('click', function() {
+                    const userId = this.dataset.userId;
+                    const username = this.dataset.username || '@Model.UserProfile?.Username' || 'User';
+                    handleBlockUser(userId, username, this);
+                });
+            }
+        }
+        
+        async function refreshUserStats() {
+            try {
+                const profileUserId = window.profileContext?.profileUserId || '@(Model.UserProfile?.UserID ?? 0)';
+                const apiUrl = window.ApiConfig.getApiUrl(`/api/User/${profileUserId}/stats`);
+                
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
                         'Content-Type': 'application/json'
                     }
                 });
                 
                 if (response.ok) {
-                    // Remove post from UI using unified template helper
-                    window.postTemplateHelpers.removePost(postId, 'userPostsContainer');
-                    window.postInteractions.showToast('Post deleted successfully', 'success');
-                } else {
-                    throw new Error('Failed to delete post');
+                    const data = await response.json();
+                    
+                    // Update followers count
+                    const followersCount = document.querySelector('[data-stat="followers"] .stat-number');
+                    if (followersCount && data.followersCount !== undefined) {
+                        followersCount.textContent = data.followersCount;
+                    }
+                    
+                    // Update following count  
+                    const followingCount = document.querySelector('[data-stat="following"] .stat-number');
+                    if (followingCount && data.followingCount !== undefined) {
+                        followingCount.textContent = data.followingCount;
+                    }
                 }
             } catch (error) {
-                console.error('Error deleting post:', error);
-                window.postInteractions.showToast('Failed to delete post. Please try again.', 'error');
+                console.error('Error refreshing user stats:', error);
             }
-        };
+        }
         
-        window.commentPost = function(postId) {
-            // Toggle comment section for own posts
-            const commentSection = document.getElementById(`comment-section-${postId}`);
-            if (commentSection) {
-                commentSection.style.display = commentSection.style.display === 'none' ? 'block' : 'none';
-            } else {
-                // Redirect to post detail page for commenting
-                window.location.href = `/Post/${postId}`;
+        async function handleBlockUser(userId, username, button) {
+            if (!userId) {
+                console.error('No user ID found for block action');
+                return;
             }
-        };
-        
-        // Legacy event handlers for any remaining old-style elements
-        document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('edit-post')) {
-                const postId = e.target.dataset.postId;
-                window.editPost(postId);
-            } else if (e.target.classList.contains('delete-post')) {
-                const postId = e.target.dataset.postId;
-                window.deletePost(postId);
-            } else if (e.target.classList.contains('comment-post')) {
-                const postId = e.target.dataset.postId;
-                window.commentPost(postId);
-            }
-        });
-    }
-
-    function setupCommentHandlers() {
-        // Toggle comment sections
-        document.querySelectorAll('.comment-own-post').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const postId = this.dataset.postId;
-                const commentSection = document.getElementById(`comment-section-${postId}`);
-                if (commentSection) {
-                    commentSection.style.display = commentSection.style.display === 'none' ? 'block' : 'none';
-                }
-            });
-        });
-
-        // Submit comments
-        document.querySelectorAll('.submit-comment').forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const postId = this.dataset.postId;
-                const textarea = document.querySelector(`.comment-input[data-post-id="${postId}"]`);
-                const comment = textarea.value.trim();
-                
-                if (!comment) {
-                    showMessage('Please enter a comment', 'error');
-                    return;
-                }
-
-                try {
-                    const response = await fetch('/api/comments', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'RequestVerificationToken': getAntiForgeryToken()
-                        },
-                        body: JSON.stringify({
-                            postId: parseInt(postId),
-                            content: comment
-                        })
-                    });
-                    
-                    const result = await response.json();
-                    if (result.success) {
-                        textarea.value = '';
-                        showMessage('Comment added successfully', 'success');
-                        // Optionally reload comments or update UI
-                    } else {
-                        showMessage(result.message || 'Failed to add comment', 'error');
-                    }
-                } catch (error) {
-                    showMessage('An error occurred while adding the comment', 'error');
-                }
-            });
-        });
-    }
-
-    async function loadLikedPosts() {
-        const container = document.getElementById('liked-posts-container');
-        const loading = document.getElementById('liked-loading');
-        
-        if (container.innerHTML.trim() !== '') return; // Already loaded
-        
-        loading.style.display = 'block';
-        
-        try {
-            const response = await fetch('/UserProfile?handler=GetLikedPosts', {
-                method: 'GET',
-                headers: {
-                    'RequestVerificationToken': getAntiForgeryToken()
-                }
-            });
             
-            const result = await response.json();
-            if (result.success && result.posts) {
-                container.innerHTML = renderPosts(result.posts, 'liked');
-            } else {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-heart"></i>
-                        <h3>No liked posts</h3>
-                        <p>You haven't liked any posts yet. Start exploring and like posts you find interesting!</p>
-                    </div>
-                `;
-            }
-        } catch (error) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h3>Error loading liked posts</h3>
-                    <p>Please try again later.</p>
-                </div>
-            `;
-        } finally {
-            loading.style.display = 'none';
-        }
-    }
-
-    async function loadSavedPosts() {
-        const container = document.getElementById('saved-posts-container');
-        const loading = document.getElementById('saved-loading');
-        
-        if (container.innerHTML.trim() !== '') return; // Already loaded
-        
-        loading.style.display = 'block';
-        
-        try {
-            const response = await fetch('/UserProfile?handler=GetSavedPosts', {
-                method: 'GET',
-                headers: {
-                    'RequestVerificationToken': getAntiForgeryToken()
-                }
-            });
+            const isCurrentlyBlocked = button.classList.contains('btn-danger');
+            const action = isCurrentlyBlocked ? 'unblock' : 'block';
+            const confirmMessage = isCurrentlyBlocked 
+                ? `Are you sure you want to unblock ${username}?`
+                : `Are you sure you want to block ${username}? This will prevent them from interacting with your content.`;
             
-            const result = await response.json();
-            if (result.success && result.posts) {
-                container.innerHTML = renderPosts(result.posts, 'saved');
-            } else {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-bookmark"></i>
-                        <h3>No saved posts</h3>
-                        <p>You haven't saved any posts yet. Save posts to read them later!</p>
-                    </div>
-                `;
+            if (!confirm(confirmMessage)) {
+                return;
             }
-        } catch (error) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h3>Error loading saved posts</h3>
-                    <p>Please try again later.</p>
-                </div>
-            `;
-        } finally {
-            loading.style.display = 'none';
-        }
-    }
-
-    function renderPosts(posts, type) {
-        if (!posts || posts.length === 0) {
-            return `
-                <div class="empty-state">
-                    <i class="fas fa-${type === 'liked' ? 'heart' : 'bookmark'}"></i>
-                    <h3>No ${type} posts</h3>
-                    <p>You haven't ${type} any posts yet.</p>
-                </div>
-            `;
-        }
-
-        return posts.map(post => `
-            <div class="post-card">
-                <div class="post-header">
-                    <h3 class="post-title">${post.title}</h3>
-                    <div class="post-meta">
-                        <span class="post-category">${post.category}</span>
-                        <span class="post-date">${new Date(post.publishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                        <span class="post-author">by ${post.username}</span>
-                    </div>
-                </div>
-                
-                ${post.imageURL ? `
-                    <div class="post-image">
-                        <img src="${post.imageURL}" alt="${post.title}" loading="lazy">
-                    </div>
-                ` : ''}
-                
-                <div class="post-content">
-                    <p>${post.content.substring(0, 200)}${post.content.length > 200 ? '...' : ''}</p>
-                </div>
-
-                ${post.sourceURL ? `
-                    <div class="post-source">
-                        <i class="fas fa-external-link-alt"></i>
-                        <span>Source: 
-                            <a href="${post.sourceURL}" target="_blank" rel="noopener">
-                                ${post.sourceName || 'External Link'}
-                            </a>
-                        </span>
-                    </div>
-                ` : ''}
-                
-                <div class="post-stats">
-                    <span class="stat">
-                        <i class="fas fa-heart"></i> ${post.likesCount} likes
-                    </span>
-                    <span class="stat">
-                        <i class="fas fa-eye"></i> ${post.viewsCount} views
-                    </span>
-                    <a href="/Post/${post.articleID}" class="btn btn-sm btn-outline-primary">
-                        <i class="fas fa-external-link-alt"></i> Read More
-                    </a>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    function setupFollowHandler() {
-        const followButton = document.querySelector('.btn-follow');
-        if (followButton) {
-            followButton.addEventListener('click', async function() {
-                const userId = this.dataset.userId;
-                const isFollowing = this.dataset.following === 'true';
-                
-                try {
-                    const response = await fetch('/UserProfile?handler=ToggleFollow', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'RequestVerificationToken': getAntiForgeryToken()
-                        },
-                        body: JSON.stringify({ userId: parseInt(userId) })
-                    });
-                    
-                    const result = await response.json();
-                    if (result.success) {
-                        // Update button state
-                        const newFollowing = result.isFollowing;
-                        this.dataset.following = newFollowing.toString();
-                        
-                        const icon = this.querySelector('i');
-                        icon.className = newFollowing ? 'fas fa-user-minus' : 'fas fa-user-plus';
-                        
-                        const text = this.childNodes[this.childNodes.length - 1];
-                        text.textContent = newFollowing ? ' Unfollow' : ' Follow';
-                        
-                        // Show success message
-                        showMessage(result.message, 'success');
-                    } else {
-                        showMessage(result.message || 'An error occurred', 'error');
-                    }
-                } catch (error) {
-                    showMessage('An error occurred', 'error');
-                }
-            });
-        }
-    }
-
-    function setupProfilePictureHandler() {
-        const input = document.getElementById('profilePicInput');
-        const preview = document.getElementById('profilePicPreview');
-        const uploadBtn = document.getElementById('uploadPicBtn');
-        
-        if (input && preview && uploadBtn) {
-            input.addEventListener('change', function() {
-                preview.innerHTML = '';
-                if (input.files && input.files[0]) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        preview.innerHTML = `<img src='${e.target.result}' style='width:80px;height:80px;border-radius:50%;object-fit:cover;' />`;
-                    };
-                    reader.readAsDataURL(input.files[0]);
-                }
-            });
             
-            uploadBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                if (!input.files || !input.files[0]) {
-                    showMessage('Please select an image.', 'error');
-                    return;
-                }
-                
-                const formData = new FormData();
-                formData.append('file', input.files[0]);
-                
-                fetch('/api/user/UploadProfilePic', {
+            const originalContent = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            
+            try {
+                const apiUrl = window.ApiConfig.getApiUrl(`/api/UserBlock/${action}/${userId}`);
+                const response = await fetch(apiUrl, {
                     method: 'POST',
-                    body: formData,
                     headers: {
-                        'RequestVerificationToken': getAntiForgeryToken()
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + (localStorage.getItem('jwtToken') || '')
                     }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success && data.path) {
-                        // Update the avatar image
-                        const profileImg = document.querySelector('.profile-pic-img');
-                        if (profileImg) {
-                            profileImg.src = data.path;
-                        }
-                        showMessage('Profile picture updated!', 'success');
-                    } else {
-                        showMessage(data.message || 'Upload failed.', 'error');
-                    }
-                })
-                .catch(error => {
-                    showMessage('Upload failed.', 'error');
                 });
-            });
-        }
-    }
-    
-    function getAntiForgeryToken() {
-        return document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
-    }
-    
-    function showMessage(message, type) {
-        // Create toast notification
-        const toast = document.createElement('div');
-        toast.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
-        toast.style.top = '20px';
-        toast.style.right = '20px';
-        toast.style.zIndex = '9999';
-        toast.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        
-        document.body.appendChild(toast);
-        
-        // Auto remove after 3 seconds
-        setTimeout(() => {
-            if (toast.parentNode) {
-                toast.parentNode.removeChild(toast);
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    // Update button appearance
+                    if (action === 'block') {
+                        button.classList.remove('btn-outline-danger');
+                        button.classList.add('btn-danger');
+                        button.innerHTML = '<i class="fas fa-user-check"></i> Unblock';
+                        showMessage(`Successfully blocked ${username}`, 'success');
+                    } else {
+                        button.classList.remove('btn-danger');
+                        button.classList.add('btn-outline-danger');
+                        button.innerHTML = '<i class="fas fa-user-slash"></i> Block';
+                        showMessage(`Successfully unblocked ${username}`, 'success');
+                    }
+                } else {
+                    showMessage(result.message || `Failed to ${action} user`, 'error');
+                    button.innerHTML = originalContent;
+                }
+            } catch (error) {
+                console.error('Error blocking/unblocking user:', error);
+                showMessage(`Failed to ${action} user`, 'error');
+                button.innerHTML = originalContent;
+            } finally {
+                button.disabled = false;
             }
-        }, 3000);
-    }
-</script>
+        }
+        
+        function showMessage(message, type = 'info') {
+            // Check if we have a message container
+            let messageContainer = document.getElementById('message-container');
+            if (!messageContainer) {
+                // Create one if it doesn't exist
+                messageContainer = document.createElement('div');
+                messageContainer.id = 'message-container';
+                messageContainer.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    z-index: 10000;
+                    max-width: 300px;
+                `;
+                document.body.appendChild(messageContainer);
+            }
+
+            // Create message element
+            const messageElement = document.createElement('div');
+            messageElement.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show`;
+            messageElement.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+
+            messageContainer.appendChild(messageElement);
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (messageElement.parentNode) {
+                    messageElement.remove();
+                }
+            }, 5000);
+        }
+    </script>
 }
-
-<style>
-.user-profile-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 2rem;
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.profile-header {
-    display: flex;
-    align-items: center;
-    gap: 2rem;
-    margin-bottom: 2rem;
-    padding-bottom: 2rem;
-    border-bottom: 2px solid #e9ecef;
-}
-
-.user-avatar .avatar-circle {
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 3rem;
-}
-
-.user-info {
-    flex: 1;
-}
-
-.username {
-    font-size: 2.5rem;
-    font-weight: bold;
-    margin-bottom: 0.5rem;
-    color: #333;
-}
-
-.user-bio {
-    font-size: 1.1rem;
-    color: #666;
-    margin-bottom: 1rem;
-}
-
-.join-date {
-    color: #888;
-    font-size: 0.9rem;
-}
-
-.admin-badge {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    color: white;
-    padding: 0.25rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: bold;
-    display: inline-block;
-    margin-top: 0.5rem;
-}
-
-.profile-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 1rem;
-    margin-bottom: 2rem;
-}
-
-.stat-item {
-    text-align: center;
-    padding: 1rem;
-    background: #f8f9fa;
-    border-radius: 8px;
-    transition: transform 0.2s;
-}
-
-.stat-item:hover {
-    transform: translateY(-2px);
-}
-
-.stat-number {
-    display: block;
-    font-size: 2rem;
-    font-weight: bold;
-    color: #007bff;
-}
-
-.stat-label {
-    font-size: 0.9rem;
-    color: #666;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.content-tabs {
-    display: flex;
-    border-bottom: 2px solid #e9ecef;
-    margin-bottom: 2rem;
-    gap: 0.5rem;
-}
-
-.tab-btn {
-    background: none;
-    border: none;
-    padding: 1rem 1.5rem;
-    font-size: 1rem;
-    color: #666;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all 0.3s;
-}
-
-.tab-btn:hover,
-.tab-btn.active {
-    color: #007bff;
-    border-bottom-color: #007bff;
-}
-
-.tab-content {
-    display: none;
-}
-
-.tab-content.active {
-    display: block;
-}
-
-.post-card {
-    background: #fff;
-    border: 1px solid #e9ecef;
-    border-radius: 8px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-    transition: box-shadow 0.3s;
-}
-
-.post-card:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.post-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 1rem;
-}
-
-.post-title {
-    font-size: 1.3rem;
-    font-weight: bold;
-    margin: 0;
-    color: #333;
-}
-
-.post-meta {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    font-size: 0.9rem;
-    color: #666;
-}
-
-.post-actions {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.post-category {
-    background: #e3f2fd;
-    color: #1976d2;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.8rem;
-}
-
-.post-image img {
-    width: 100%;
-    max-height: 300px;
-    object-fit: cover;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-}
-
-.post-content p {
-    line-height: 1.6;
-    margin-bottom: 1rem;
-}
-
-.post-source {
-    margin-bottom: 1rem;
-    font-size: 0.9rem;
-    color: #666;
-}
-
-.post-source a {
-    color: #007bff;
-    text-decoration: none;
-}
-
-.post-source a:hover {
-    text-decoration: underline;
-}
-
-.post-stats {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-top: 1px solid #e9ecef;
-    padding-top: 1rem;
-}
-
-.post-stats .stat {
-    color: #666;
-    font-size: 0.9rem;
-}
-
-.post-actions-inline {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.comment-section {
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid #e9ecef;
-}
-
-.comment-input {
-    resize: vertical;
-    min-height: 80px;
-}
-
-.empty-state {
-    text-align: center;
-    padding: 3rem 1rem;
-    color: #666;
-}
-
-.empty-state i {
-    font-size: 4rem;
-    margin-bottom: 1rem;
-    color: #ccc;
-}
-
-.empty-state h3 {
-    margin-bottom: 1rem;
-}
-
-.loading-placeholder {
-    text-align: center;
-    padding: 2rem;
-    color: #666;
-    font-size: 1.1rem;
-}
-
-.loading-placeholder i {
-    margin-right: 0.5rem;
-}
-
-.activity-overview h3 {
-    margin-bottom: 1.5rem;
-    color: #333;
-}
-
-.activity-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1rem;
-}
-
-.activity-card {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1.5rem;
-    background: #f8f9fa;
-    border-radius: 8px;
-    border-left: 4px solid #007bff;
-}
-
-.activity-card i {
-    font-size: 2rem;
-    color: #007bff;
-}
-
-.activity-card h4 {
-    margin: 0 0 0.5rem 0;
-    font-size: 1.1rem;
-    color: #333;
-}
-
-.activity-card p {
-    margin: 0;
-    color: #666;
-    font-size: 0.9rem;
-}
-
-@@media (max-width: 768px) {
-    .user-profile-container {
-        padding: 1rem;
-    }
-    
-    .profile-header {
-        flex-direction: column;
-        text-align: center;
-        gap: 1rem;
-    }
-    
-    .content-tabs {
-        flex-wrap: wrap;
-    }
-    
-    .tab-btn {
-        flex: 1;
-        min-width: 120px;
-    }
-    
-    .post-header {
-        flex-direction: column;
-        gap: 1rem;
-    }
-    
-    .post-meta {
-        flex-wrap: wrap;
-    }
-    
-    .post-stats {
-        flex-direction: column;
-        gap: 1rem;
-        align-items: stretch;
-    }
-    
-    .post-actions-inline {
-        justify-content: center;
-    }
-}
-
-.username {
-    font-size: 2.5rem;
-    font-weight: 700;
-    margin: 0 0 0.5rem 0;
-    color: #2c3e50;
-}
-
-.user-bio {
-    font-size: 1.1rem;
-    color: #666;
-    margin: 0 0 1rem 0;
-    line-height: 1.5;
-}
-
-.join-date {
-    color: #888;
-    margin: 0 0 1rem 0;
-}
-
-.join-date i {
-    margin-right: 0.5rem;
-}
-
-.admin-badge {
-    display: inline-block;
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    color: white;
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
-    font-weight: 600;
-    font-size: 0.9rem;
-}
-
-.admin-badge i {
-    margin-right: 0.5rem;
-}
-
-.profile-actions {
-    margin-top: 1rem;
-}
-
-.profile-actions .btn {
-    margin-right: 0.5rem;
-    margin-bottom: 0.5rem;
-}
-
-.btn-follow {
-    min-width: 120px;
-    transition: all 0.3s ease;
-}
-
-.btn-follow:hover {
-    transform: translateY(-1px);
-}
-
-.profile-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
-}
-
-.stat-item {
-    text-align: center;
-    padding: 1.5rem;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 12px;
-    color: white;
-}
-
-.stat-number {
-    display: block;
-    font-size: 2rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-}
-
-.stat-label {
-    font-size: 0.9rem;
-    opacity: 0.9;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.content-tabs {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 2rem;
-    border-bottom: 2px solid #e9ecef;
-}
-
-.tab-btn {
-    background: none;
-    border: none;
-    padding: 1rem 1.5rem;
-    font-size: 1rem;
-    color: #666;
-    cursor: pointer;
-    border-bottom: 3px solid transparent;
-    transition: all 0.3s ease;
-}
-
-.tab-btn:hover, .tab-btn.active {
-    color: #007bff;
-    border-bottom-color: #007bff;
-}
-
-.tab-btn i {
-    margin-right: 0.5rem;
-}
-
-.tab-content {
-    display: none;
-}
-
-.tab-content.active {
-    display: block;
-}
-
-.post-card {
-    background: #f8f9fa;
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-    border-left: 4px solid #007bff;
-}
-
-.post-header {
-    margin-bottom: 1rem;
-}
-
-.post-title {
-    font-size: 1.3rem;
-    font-weight: 600;
-    margin: 0 0 0.5rem 0;
-    color: #2c3e50;
-}
-
-.post-meta {
-    display: flex;
-    gap: 1rem;
-    font-size: 0.9rem;
-    color: #666;
-}
-
-.post-category {
-    background: #007bff;
-    color: white;
-    padding: 0.25rem 0.75rem;
-    border-radius: 12px;
-    font-weight: 500;
-}
-
-.post-image {
-    margin: 1rem 0;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.post-image img {
-    width: 100%;
-    height: 200px;
-    object-fit: cover;
-}
-
-.post-content p {
-    line-height: 1.6;
-    color: #555;
-    margin: 0;
-}
-
-.post-source {
-    margin: 1rem 0;
-    padding: 0.75rem;
-    background: rgba(0, 123, 255, 0.1);
-    border-radius: 8px;
-    font-size: 0.9rem;
-}
-
-.post-source i {
-    color: #007bff;
-    margin-right: 0.5rem;
-}
-
-.post-source a {
-    color: #007bff;
-    text-decoration: none;
-}
-
-.post-source a:hover {
-    text-decoration: underline;
-}
-
-.post-stats {
-    display: flex;
-    gap: 1.5rem;
-    margin-top: 1rem;
-    font-size: 0.9rem;
-    color: #666;
-}
-
-.post-stats .stat i {
-    margin-right: 0.25rem;
-    color: #007bff;
-}
-
-.empty-state {
-    text-align: center;
-    padding: 3rem;
-    color: #666;
-}
-
-.empty-state i {
-    font-size: 3rem;
-    color: #ddd;
-    margin-bottom: 1rem;
-}
-
-.empty-state h3 {
-    margin: 1rem 0 0.5rem 0;
-    color: #888;
-}
-
-.activity-overview h3 {
-    margin-bottom: 1.5rem;
-    color: #2c3e50;
-}
-
-.activity-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.5rem;
-}
-
-.activity-card {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1.5rem;
-    background: #f8f9fa;
-    border-radius: 12px;
-    border-left: 4px solid #28a745;
-}
-
-.activity-card i {
-    font-size: 2rem;
-    color: #28a745;
-}
-
-.activity-card h4 {
-    margin: 0 0 0.5rem 0;
-    color: #2c3e50;
-    font-size: 1.1rem;
-}
-
-.activity-card p {
-    margin: 0;
-    color: #666;
-    font-size: 0.9rem;
-}
-
-@@media (max-width: 768px) {
-    .user-profile-container {
-        padding: 1rem;
-        margin: 1rem;
-    }
-    
-    .profile-header {
-        flex-direction: column;
-        text-align: center;
-        gap: 1rem;
-    }
-    
-    .user-avatar .avatar-circle {
-        width: 80px;
-        height: 80px;
-        font-size: 2rem;
-    }
-    
-    .username {
-        font-size: 2rem;
-    }
-    
-    .profile-stats {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1rem;
-    }
-    
-    .content-tabs {
-        flex-wrap: wrap;
-    }
-    
-    .activity-grid {
-        grid-template-columns: 1fr;
-    }
-}
-</style>
