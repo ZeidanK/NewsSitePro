@@ -17,6 +17,8 @@
         public int ViewsCount { get; set; }
         public bool IsLiked { get; set; }
         public bool IsSaved { get; set; }
+        public int RepostCount { get; set; }
+        public bool IsReposted { get; set; }
     }
 
     public class UserActivity

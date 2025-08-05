@@ -82,6 +82,37 @@ namespace NewsSite.Controllers
         }
 
         /// <summary>
+        /// Toggles repost on an article (repost/unrepost)
+        /// </summary>
+        /// <param name="articleId">Article ID to repost/unrepost</param>
+        /// <returns>JSON result with action performed</returns>
+        [HttpPost]
+        [Route("api/repost/toggle")]
+        public IActionResult Toggle([FromBody] int articleId)
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                if (userId <= 0)
+                {
+                    return Json(new { success = false, message = "User not authenticated" });
+                }
+
+                var result = _dbService.ToggleRepost(articleId, userId);
+                
+                return Json(new { 
+                    success = true, 
+                    action = result,
+                    message = result == "reposted" ? "Article reposted successfully" : "Repost removed successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Gets repost details with comments
         /// </summary>
         /// <param name="id">Repost ID</param>

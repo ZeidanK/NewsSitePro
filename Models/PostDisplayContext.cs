@@ -38,7 +38,7 @@ namespace NewsSitePro.Models
         public bool CanReport { get; set; } = false;
         public bool CanBlock { get; set; } = false;
 
-        // Interaction context
+        // Interaction context - These should reflect the actual NewsArticle properties
         public bool IsLiked { get; set; } = false;
         public bool IsSaved { get; set; } = false;
         public bool ShowLikeButton { get; set; } = true;

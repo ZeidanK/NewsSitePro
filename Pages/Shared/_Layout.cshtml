@@ -78,9 +78,9 @@
         // Logout functionality
         var logoutBtn = document.getElementById('logoutBtn');
         if (logoutBtn) {
-            console.log("Logout button found");
+            //console.log("Logout button found");
             logoutBtn.addEventListener('click', function (e) {
-                alert("Logout button clicked!");
+                //alert("Logout button clicked!");
                 e.preventDefault();
                 localStorage.removeItem('jwtToken');
                 document.cookie = 'jwtToken=; Max-Age=0; path=/;';

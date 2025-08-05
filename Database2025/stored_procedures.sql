@@ -106,17 +106,42 @@ BEGIN
         na.UserID,
         u.Username,
         u.ProfilePicture,
-        -- Like information
-        (SELECT COUNT(*) FROM NewsSitePro2025_ArticleLikes al WHERE al.ArticleID = na.ArticleID) as LikesCount,
-        CASE WHEN @CurrentUserID IS NOT NULL AND EXISTS(SELECT 1 FROM NewsSitePro2025_ArticleLikes al WHERE al.ArticleID = na.ArticleID AND al.UserID = @CurrentUserID) 
-             THEN 1 ELSE 0 END as IsLiked,
+        -- Like information with proper aggregation
+        COALESCE(lc.LikesCount, 0) as LikesCount,
+        CASE WHEN al.UserID IS NOT NULL THEN 1 ELSE 0 END as IsLiked,
         -- Save information
-        CASE WHEN @CurrentUserID IS NOT NULL AND EXISTS(SELECT 1 FROM NewsSitePro2025_SavedArticles sa WHERE sa.ArticleID = na.ArticleID AND sa.UserID = @CurrentUserID) 
-             THEN 1 ELSE 0 END as IsSaved,
-        -- View count (mock for now)
-        ABS(CHECKSUM(NEWID())) % 1000 as ViewsCount
+        CASE WHEN sa.UserID IS NOT NULL THEN 1 ELSE 0 END as IsSaved,
+        -- View count from actual views table
+        COALESCE(vc.ViewsCount, 0) as ViewsCount,
+        -- Repost information
+        COALESCE(rc.RepostCount, 0) as RepostCount,
+        CASE WHEN rp.UserID IS NOT NULL THEN 1 ELSE 0 END as IsReposted
     FROM NewsSitePro2025_NewsArticles na
     INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
+    -- Aggregate likes count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as LikesCount
+        FROM NewsSitePro2025_ArticleLikes
+        GROUP BY ArticleID
+    ) lc ON na.ArticleID = lc.ArticleID
+    -- Aggregate views count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as ViewsCount
+        FROM NewsSitePro2025_ArticleViews
+        GROUP BY ArticleID
+    ) vc ON na.ArticleID = vc.ArticleID
+    -- Aggregate repost count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as RepostCount
+        FROM NewsSitePro2025_Reposts
+        GROUP BY ArticleID
+    ) rc ON na.ArticleID = rc.ArticleID
+    -- Check if current user liked this article
+    LEFT JOIN NewsSitePro2025_ArticleLikes al ON na.ArticleID = al.ArticleID AND al.UserID = @CurrentUserID
+    -- Check if current user saved this article
+    LEFT JOIN NewsSitePro2025_SavedArticles sa ON na.ArticleID = sa.ArticleID AND sa.UserID = @CurrentUserID
+    -- Check if current user reposted this article
+    LEFT JOIN NewsSitePro2025_Reposts rp ON na.ArticleID = rp.ArticleID AND rp.UserID = @CurrentUserID
     WHERE (@Category IS NULL OR na.Category = @Category)
     ORDER BY na.PublishDate DESC
     OFFSET @Offset ROWS
@@ -222,6 +247,116 @@ BEGIN
 END
 GO
 
+-- Toggle Repost
+CREATE PROCEDURE NewsSitePro2025_sp_Reposts_Toggle
+    @ArticleID INT,
+    @UserID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS (SELECT 1 FROM NewsSitePro2025_Reposts WHERE ArticleID = @ArticleID AND UserID = @UserID)
+    BEGIN
+        DELETE FROM NewsSitePro2025_Reposts WHERE ArticleID = @ArticleID AND UserID = @UserID;
+        SELECT 'unreposted' as Action;
+    END
+    ELSE
+    BEGIN
+        INSERT INTO NewsSitePro2025_Reposts (ArticleID, UserID, RepostDate)
+        VALUES (@ArticleID, @UserID, GETDATE());
+        SELECT 'reposted' as Action;
+    END
+END
+GO
+
+-- Toggle Repost (short name)
+CREATE PROCEDURE sp_Reposts_Toggle
+    @ArticleID INT,
+    @UserID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS (SELECT 1 FROM NewsSitePro2025_Reposts WHERE ArticleID = @ArticleID AND UserID = @UserID)
+    BEGIN
+        DELETE FROM NewsSitePro2025_Reposts WHERE ArticleID = @ArticleID AND UserID = @UserID;
+        SELECT 'unreposted' as Action;
+    END
+    ELSE
+    BEGIN
+        INSERT INTO NewsSitePro2025_Reposts (ArticleID, UserID, RepostDate)
+        VALUES (@ArticleID, @UserID, GETDATE());
+        SELECT 'reposted' as Action;
+    END
+END
+GO
+
+-- Get Following Feed
+CREATE PROCEDURE NewsSitePro2025_sp_NewsArticles_GetFollowingFeed
+    @UserID INT,
+    @PageNumber INT = 1,
+    @PageSize INT = 10
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @Offset INT = (@PageNumber - 1) * @PageSize;
+    
+    SELECT 
+        na.ArticleID,
+        na.Title,
+        na.Content,
+        na.ImageURL,
+        na.SourceURL,
+        na.SourceName,
+        na.Category,
+        na.PublishDate,
+        na.UserID,
+        u.Username,
+        u.ProfilePicture,
+        -- Aggregate likes count
+        COALESCE(lc.LikesCount, 0) as LikesCount,
+        CASE WHEN al.UserID IS NOT NULL THEN 1 ELSE 0 END as IsLiked,
+        -- Save information
+        CASE WHEN sa.UserID IS NOT NULL THEN 1 ELSE 0 END as IsSaved,
+        -- View count from actual views table
+        COALESCE(vc.ViewsCount, 0) as ViewsCount,
+        -- Repost information
+        COALESCE(rc.RepostCount, 0) as RepostCount,
+        CASE WHEN rp.UserID IS NOT NULL THEN 1 ELSE 0 END as IsReposted
+    FROM NewsSitePro2025_NewsArticles na
+    INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
+    -- Only get articles from users that the current user follows (or their own articles)
+    LEFT JOIN NewsSitePro2025_Follows f ON na.UserID = f.FollowedUserID AND f.FollowerUserID = @UserID
+    -- Aggregate likes count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as LikesCount
+        FROM NewsSitePro2025_ArticleLikes
+        GROUP BY ArticleID
+    ) lc ON na.ArticleID = lc.ArticleID
+    -- Aggregate views count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as ViewsCount
+        FROM NewsSitePro2025_ArticleViews
+        GROUP BY ArticleID
+    ) vc ON na.ArticleID = vc.ArticleID
+    -- Aggregate repost count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as RepostCount
+        FROM NewsSitePro2025_Reposts
+        GROUP BY ArticleID
+    ) rc ON na.ArticleID = rc.ArticleID
+    -- Check if current user liked this article
+    LEFT JOIN NewsSitePro2025_ArticleLikes al ON na.ArticleID = al.ArticleID AND al.UserID = @UserID
+    -- Check if current user saved this article
+    LEFT JOIN NewsSitePro2025_SavedArticles sa ON na.ArticleID = sa.ArticleID AND sa.UserID = @UserID
+    -- Check if current user reposted this article
+    LEFT JOIN NewsSitePro2025_Reposts rp ON na.ArticleID = rp.ArticleID AND rp.UserID = @UserID
+    WHERE (f.FollowedUserID IS NOT NULL OR na.UserID = @UserID)
+    ORDER BY na.PublishDate DESC
+    OFFSET @Offset ROWS
+    FETCH NEXT @PageSize ROWS ONLY;
+END
+GO
+
 -- Add more procedures for comments, tags, follows, notifications, reports, etc.
 
 -- User Authentication Procedures
@@ -247,7 +382,8 @@ GO
 CREATE PROCEDURE NewsSitePro2025_sp_NewsArticles_GetByUser
     @UserID INT,
     @PageNumber INT = 1,
-    @PageSize INT = 10
+    @PageSize INT = 10,
+    @CurrentUserID INT = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -266,10 +402,42 @@ BEGIN
         na.UserID,
         u.Username,
         u.ProfilePicture,
-        (SELECT COUNT(*) FROM NewsSitePro2025_ArticleLikes al WHERE al.ArticleID = na.ArticleID) as LikesCount,
-        ABS(CHECKSUM(NEWID())) % 1000 as ViewsCount
+        -- Aggregate likes count
+        COALESCE(lc.LikesCount, 0) as LikesCount,
+        CASE WHEN al.UserID IS NOT NULL THEN 1 ELSE 0 END as IsLiked,
+        -- Save information
+        CASE WHEN sa.UserID IS NOT NULL THEN 1 ELSE 0 END as IsSaved,
+        -- View count from actual views table
+        COALESCE(vc.ViewsCount, 0) as ViewsCount,
+        -- Repost information
+        COALESCE(rc.RepostCount, 0) as RepostCount,
+        CASE WHEN rp.UserID IS NOT NULL THEN 1 ELSE 0 END as IsReposted
     FROM NewsSitePro2025_NewsArticles na
     INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
+    -- Aggregate likes count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as LikesCount
+        FROM NewsSitePro2025_ArticleLikes
+        GROUP BY ArticleID
+    ) lc ON na.ArticleID = lc.ArticleID
+    -- Aggregate views count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as ViewsCount
+        FROM NewsSitePro2025_ArticleViews
+        GROUP BY ArticleID
+    ) vc ON na.ArticleID = vc.ArticleID
+    -- Aggregate repost count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as RepostCount
+        FROM NewsSitePro2025_Reposts
+        GROUP BY ArticleID
+    ) rc ON na.ArticleID = rc.ArticleID
+    -- Check if current user liked this article
+    LEFT JOIN NewsSitePro2025_ArticleLikes al ON na.ArticleID = al.ArticleID AND al.UserID = ISNULL(@CurrentUserID, @UserID)
+    -- Check if current user saved this article
+    LEFT JOIN NewsSitePro2025_SavedArticles sa ON na.ArticleID = sa.ArticleID AND sa.UserID = ISNULL(@CurrentUserID, @UserID)
+    -- Check if current user reposted this article
+    LEFT JOIN NewsSitePro2025_Reposts rp ON na.ArticleID = rp.ArticleID AND rp.UserID = ISNULL(@CurrentUserID, @UserID)
     WHERE na.UserID = @UserID
     ORDER BY na.PublishDate DESC
     OFFSET @Offset ROWS
@@ -281,7 +449,8 @@ GO
 CREATE PROCEDURE NewsSitePro2025_sp_SavedArticles_GetByUser
     @UserID INT,
     @PageNumber INT = 1,
-    @PageSize INT = 10
+    @PageSize INT = 10,
+    @CurrentUserID INT = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -299,12 +468,43 @@ BEGIN
         na.PublishDate,
         na.UserID,
         u.Username,
+        u.ProfilePicture,
         sa.SaveDate,
-        (SELECT COUNT(*) FROM NewsSitePro2025_ArticleLikes al WHERE al.ArticleID = na.ArticleID) as LikesCount,
-        ABS(CHECKSUM(NEWID())) % 1000 as ViewsCount
+        -- Like information with proper aggregation
+        COALESCE(lc.LikesCount, 0) as LikesCount,
+        CASE WHEN al.UserID IS NOT NULL THEN 1 ELSE 0 END as IsLiked,
+        -- Save information (always saved since this is saved articles)
+        1 as IsSaved,
+        -- View count from actual views table
+        COALESCE(vc.ViewsCount, 0) as ViewsCount,
+        -- Repost information
+        COALESCE(rc.RepostCount, 0) as RepostCount,
+        CASE WHEN rp.UserID IS NOT NULL THEN 1 ELSE 0 END as IsReposted
     FROM NewsSitePro2025_SavedArticles sa
     INNER JOIN NewsSitePro2025_NewsArticles na ON sa.ArticleID = na.ArticleID
     INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
+    -- Aggregate likes count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as LikesCount
+        FROM NewsSitePro2025_ArticleLikes
+        GROUP BY ArticleID
+    ) lc ON na.ArticleID = lc.ArticleID
+    -- Aggregate views count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as ViewsCount
+        FROM NewsSitePro2025_ArticleViews
+        GROUP BY ArticleID
+    ) vc ON na.ArticleID = vc.ArticleID
+    -- Aggregate repost count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as RepostCount
+        FROM NewsSitePro2025_Reposts
+        GROUP BY ArticleID
+    ) rc ON na.ArticleID = rc.ArticleID
+    -- Check if current user liked this article
+    LEFT JOIN NewsSitePro2025_ArticleLikes al ON na.ArticleID = al.ArticleID AND al.UserID = ISNULL(@CurrentUserID, @UserID)
+    -- Check if current user reposted this article
+    LEFT JOIN NewsSitePro2025_Reposts rp ON na.ArticleID = rp.ArticleID AND rp.UserID = ISNULL(@CurrentUserID, @UserID)
     WHERE sa.UserID = @UserID
     ORDER BY sa.SaveDate DESC
     OFFSET @Offset ROWS
@@ -413,17 +613,42 @@ BEGIN
         na.UserID,
         u.Username,
         u.ProfilePicture,
-        -- Like information
-        (SELECT COUNT(*) FROM NewsSitePro2025_ArticleLikes al WHERE al.ArticleID = na.ArticleID) as LikesCount,
-        CASE WHEN @CurrentUserID IS NOT NULL AND EXISTS(SELECT 1 FROM NewsSitePro2025_ArticleLikes al WHERE al.ArticleID = na.ArticleID AND al.UserID = @CurrentUserID) 
-             THEN 1 ELSE 0 END as IsLiked,
+        -- Like information with proper aggregation
+        COALESCE(lc.LikesCount, 0) as LikesCount,
+        CASE WHEN al.UserID IS NOT NULL THEN 1 ELSE 0 END as IsLiked,
         -- Save information
-        CASE WHEN @CurrentUserID IS NOT NULL AND EXISTS(SELECT 1 FROM NewsSitePro2025_SavedArticles sa WHERE sa.ArticleID = na.ArticleID AND sa.UserID = @CurrentUserID) 
-             THEN 1 ELSE 0 END as IsSaved,
-        -- View count (mock for now)
-        ABS(CHECKSUM(NEWID())) % 1000 as ViewsCount
+        CASE WHEN sa.UserID IS NOT NULL THEN 1 ELSE 0 END as IsSaved,
+        -- View count from actual views table
+        COALESCE(vc.ViewsCount, 0) as ViewsCount,
+        -- Repost information
+        COALESCE(rc.RepostCount, 0) as RepostCount,
+        CASE WHEN rp.UserID IS NOT NULL THEN 1 ELSE 0 END as IsReposted
     FROM NewsSitePro2025_NewsArticles na
     INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
+    -- Aggregate likes count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as LikesCount
+        FROM NewsSitePro2025_ArticleLikes
+        GROUP BY ArticleID
+    ) lc ON na.ArticleID = lc.ArticleID
+    -- Aggregate views count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as ViewsCount
+        FROM NewsSitePro2025_ArticleViews
+        GROUP BY ArticleID
+    ) vc ON na.ArticleID = vc.ArticleID
+    -- Aggregate repost count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as RepostCount
+        FROM NewsSitePro2025_Reposts
+        GROUP BY ArticleID
+    ) rc ON na.ArticleID = rc.ArticleID
+    -- Check if current user liked this article
+    LEFT JOIN NewsSitePro2025_ArticleLikes al ON na.ArticleID = al.ArticleID AND al.UserID = @CurrentUserID
+    -- Check if current user saved this article
+    LEFT JOIN NewsSitePro2025_SavedArticles sa ON na.ArticleID = sa.ArticleID AND sa.UserID = @CurrentUserID
+    -- Check if current user reposted this article
+    LEFT JOIN NewsSitePro2025_Reposts rp ON na.ArticleID = rp.ArticleID AND rp.UserID = @CurrentUserID
     WHERE na.ArticleID = @ArticleID;
 END
 GO
@@ -453,19 +678,113 @@ BEGIN
         na.UserID,
         u.Username,
         u.ProfilePicture,
-        (SELECT COUNT(*) FROM NewsSitePro2025_ArticleLikes al WHERE al.ArticleID = na.ArticleID) as LikesCount,
-        CASE WHEN @CurrentUserID IS NOT NULL AND EXISTS(SELECT 1 FROM NewsSitePro2025_ArticleLikes al WHERE al.ArticleID = na.ArticleID AND al.UserID = @CurrentUserID) 
-             THEN 1 ELSE 0 END as IsLiked,
-        CASE WHEN @CurrentUserID IS NOT NULL AND EXISTS(SELECT 1 FROM NewsSitePro2025_SavedArticles sa WHERE sa.ArticleID = na.ArticleID AND sa.UserID = @CurrentUserID) 
-             THEN 1 ELSE 0 END as IsSaved,
-        ABS(CHECKSUM(NEWID())) % 1000 as ViewsCount
+        -- Aggregate likes count
+        COALESCE(lc.LikesCount, 0) as LikesCount,
+        -- Check if current user liked this article
+        CASE WHEN al.UserID IS NOT NULL THEN 1 ELSE 0 END as IsLiked,
+        -- Check if current user saved this article
+        CASE WHEN sa.UserID IS NOT NULL THEN 1 ELSE 0 END as IsSaved,
+        -- Actual view count from views table
+        COALESCE(vc.ViewsCount, 0) as ViewsCount,
+        -- Repost information
+        COALESCE(rc.RepostCount, 0) as RepostCount,
+        CASE WHEN rp.UserID IS NOT NULL THEN 1 ELSE 0 END as IsReposted
     FROM NewsSitePro2025_NewsArticles na
     INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
+    -- Aggregate likes count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as LikesCount
+        FROM NewsSitePro2025_ArticleLikes
+        GROUP BY ArticleID
+    ) lc ON na.ArticleID = lc.ArticleID
+    -- Aggregate views count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as ViewsCount
+        FROM NewsSitePro2025_ArticleViews
+        GROUP BY ArticleID
+    ) vc ON na.ArticleID = vc.ArticleID
+    -- Aggregate repost count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as RepostCount
+        FROM NewsSitePro2025_Reposts
+        GROUP BY ArticleID
+    ) rc ON na.ArticleID = rc.ArticleID
+    -- Check if current user liked this article
+    LEFT JOIN NewsSitePro2025_ArticleLikes al ON na.ArticleID = al.ArticleID AND al.UserID = @CurrentUserID
+    -- Check if current user saved this article
+    LEFT JOIN NewsSitePro2025_SavedArticles sa ON na.ArticleID = sa.ArticleID AND sa.UserID = @CurrentUserID
+    -- Check if current user reposted this article
+    LEFT JOIN NewsSitePro2025_Reposts rp ON na.ArticleID = rp.ArticleID AND rp.UserID = @CurrentUserID
     WHERE (na.Title LIKE '%' + @SearchTerm + '%' OR na.Content LIKE '%' + @SearchTerm + '%')
       AND (@Category IS NULL OR na.Category = @Category)
     ORDER BY na.PublishDate DESC
     OFFSET @Offset ROWS
     FETCH NEXT @PageSize ROWS ONLY;
+END
+GO
+
+-- =============================================
+-- Author:      Generated
+-- Create date: 2025
+-- Description: Get a single news article by ID with user interaction context (likes/saves)
+-- =============================================
+CREATE PROCEDURE NewsSitePro2025_sp_NewsArticles_GetByIdWithUserContext
+    @ArticleID INT,
+    @CurrentUserID INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT 
+        na.ArticleID,
+        na.Title,
+        na.Content,
+        na.ImageURL,
+        na.SourceURL,
+        na.SourceName,
+        na.Category,
+        na.PublishDate,
+        na.UserID,
+        u.Username,
+        u.ProfilePicture,
+        -- Aggregate likes count
+        COALESCE(lc.LikesCount, 0) as LikesCount,
+        -- Check if current user liked this article
+        CASE WHEN al.UserID IS NOT NULL THEN 1 ELSE 0 END as IsLiked,
+        -- Check if current user saved this article
+        CASE WHEN sa.UserID IS NOT NULL THEN 1 ELSE 0 END as IsSaved,
+        -- Actual view count from views table
+        COALESCE(vc.ViewsCount, 0) as ViewsCount,
+        -- Repost information
+        COALESCE(rc.RepostCount, 0) as RepostCount,
+        CASE WHEN rp.UserID IS NOT NULL THEN 1 ELSE 0 END as IsReposted
+    FROM NewsSitePro2025_NewsArticles na
+    INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
+    -- Aggregate likes count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as LikesCount
+        FROM NewsSitePro2025_ArticleLikes
+        GROUP BY ArticleID
+    ) lc ON na.ArticleID = lc.ArticleID
+    -- Aggregate views count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as ViewsCount
+        FROM NewsSitePro2025_ArticleViews
+        GROUP BY ArticleID
+    ) vc ON na.ArticleID = vc.ArticleID
+    -- Aggregate repost count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as RepostCount
+        FROM NewsSitePro2025_Reposts
+        GROUP BY ArticleID
+    ) rc ON na.ArticleID = rc.ArticleID
+    -- Check if current user liked this article
+    LEFT JOIN NewsSitePro2025_ArticleLikes al ON na.ArticleID = al.ArticleID AND al.UserID = @CurrentUserID
+    -- Check if current user saved this article
+    LEFT JOIN NewsSitePro2025_SavedArticles sa ON na.ArticleID = sa.ArticleID AND sa.UserID = @CurrentUserID
+    -- Check if current user reposted this article
+    LEFT JOIN NewsSitePro2025_Reposts rp ON na.ArticleID = rp.ArticleID AND rp.UserID = @CurrentUserID
+    WHERE na.ArticleID = @ArticleID;
 END
 GO
 
@@ -498,17 +817,42 @@ BEGIN
         na.UserID,
         u.Username,
         u.ProfilePicture,
-        -- Like information
-        (SELECT COUNT(*) FROM NewsSitePro2025_ArticleLikes al WHERE al.ArticleID = na.ArticleID) as LikesCount,
-        CASE WHEN @CurrentUserID IS NOT NULL AND EXISTS(SELECT 1 FROM NewsSitePro2025_ArticleLikes al WHERE al.ArticleID = na.ArticleID AND al.UserID = @CurrentUserID) 
-             THEN 1 ELSE 0 END as IsLiked,
+        -- Like information with proper aggregation
+        COALESCE(lc.LikesCount, 0) as LikesCount,
+        CASE WHEN al.UserID IS NOT NULL THEN 1 ELSE 0 END as IsLiked,
         -- Save information
-        CASE WHEN @CurrentUserID IS NOT NULL AND EXISTS(SELECT 1 FROM NewsSitePro2025_SavedArticles sa WHERE sa.ArticleID = na.ArticleID AND sa.UserID = @CurrentUserID) 
-             THEN 1 ELSE 0 END as IsSaved,
-        -- View count (mock for now)
-        ABS(CHECKSUM(NEWID())) % 1000 as ViewsCount
+        CASE WHEN sa.UserID IS NOT NULL THEN 1 ELSE 0 END as IsSaved,
+        -- View count from actual views table
+        COALESCE(vc.ViewsCount, 0) as ViewsCount,
+        -- Repost information
+        COALESCE(rc.RepostCount, 0) as RepostCount,
+        CASE WHEN rp.UserID IS NOT NULL THEN 1 ELSE 0 END as IsReposted
     FROM NewsSitePro2025_NewsArticles na
     INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
+    -- Aggregate likes count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as LikesCount
+        FROM NewsSitePro2025_ArticleLikes
+        GROUP BY ArticleID
+    ) lc ON na.ArticleID = lc.ArticleID
+    -- Aggregate views count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as ViewsCount
+        FROM NewsSitePro2025_ArticleViews
+        GROUP BY ArticleID
+    ) vc ON na.ArticleID = vc.ArticleID
+    -- Aggregate repost count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as RepostCount
+        FROM NewsSitePro2025_Reposts
+        GROUP BY ArticleID
+    ) rc ON na.ArticleID = rc.ArticleID
+    -- Check if current user liked this article
+    LEFT JOIN NewsSitePro2025_ArticleLikes al ON na.ArticleID = al.ArticleID AND al.UserID = @CurrentUserID
+    -- Check if current user saved this article
+    LEFT JOIN NewsSitePro2025_SavedArticles sa ON na.ArticleID = sa.ArticleID AND sa.UserID = @CurrentUserID
+    -- Check if current user reposted this article
+    LEFT JOIN NewsSitePro2025_Reposts rp ON na.ArticleID = rp.ArticleID AND rp.UserID = @CurrentUserID
     WHERE (@Category IS NULL OR na.Category = @Category)
     ORDER BY na.PublishDate DESC
     OFFSET @Offset ROWS
@@ -538,7 +882,8 @@ GO
 CREATE PROCEDURE sp_NewsArticles_GetByUser
     @UserID INT,
     @PageNumber INT = 1,
-    @PageSize INT = 10
+    @PageSize INT = 10,
+    @CurrentUserID INT = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -557,10 +902,42 @@ BEGIN
         na.UserID,
         u.Username,
         u.ProfilePicture,
-        (SELECT COUNT(*) FROM NewsSitePro2025_ArticleLikes al WHERE al.ArticleID = na.ArticleID) as LikesCount,
-        ABS(CHECKSUM(NEWID())) % 1000 as ViewsCount
+        -- Aggregate likes count
+        COALESCE(lc.LikesCount, 0) as LikesCount,
+        CASE WHEN al.UserID IS NOT NULL THEN 1 ELSE 0 END as IsLiked,
+        -- Save information
+        CASE WHEN sa.UserID IS NOT NULL THEN 1 ELSE 0 END as IsSaved,
+        -- View count from actual views table
+        COALESCE(vc.ViewsCount, 0) as ViewsCount,
+        -- Repost information
+        COALESCE(rc.RepostCount, 0) as RepostCount,
+        CASE WHEN rp.UserID IS NOT NULL THEN 1 ELSE 0 END as IsReposted
     FROM NewsSitePro2025_NewsArticles na
     INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
+    -- Aggregate likes count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as LikesCount
+        FROM NewsSitePro2025_ArticleLikes
+        GROUP BY ArticleID
+    ) lc ON na.ArticleID = lc.ArticleID
+    -- Aggregate views count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as ViewsCount
+        FROM NewsSitePro2025_ArticleViews
+        GROUP BY ArticleID
+    ) vc ON na.ArticleID = vc.ArticleID
+    -- Aggregate repost count
+    LEFT JOIN (
+        SELECT ArticleID, COUNT(*) as RepostCount
+        FROM NewsSitePro2025_Reposts
+        GROUP BY ArticleID
+    ) rc ON na.ArticleID = rc.ArticleID
+    -- Check if current user liked this article
+    LEFT JOIN NewsSitePro2025_ArticleLikes al ON na.ArticleID = al.ArticleID AND al.UserID = ISNULL(@CurrentUserID, @UserID)
+    -- Check if current user saved this article
+    LEFT JOIN NewsSitePro2025_SavedArticles sa ON na.ArticleID = sa.ArticleID AND sa.UserID = ISNULL(@CurrentUserID, @UserID)
+    -- Check if current user reposted this article
+    LEFT JOIN NewsSitePro2025_Reposts rp ON na.ArticleID = rp.ArticleID AND rp.UserID = ISNULL(@CurrentUserID, @UserID)
     WHERE na.UserID = @UserID
     ORDER BY na.PublishDate DESC
     OFFSET @Offset ROWS
@@ -701,14 +1078,8 @@ AS
 BEGIN
     SET NOCOUNT ON;
     
-    -- Add ProfilePicture column to Users_News table if it doesn't exist
-    IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Users_News' AND COLUMN_NAME = 'ProfilePicture')
-    BEGIN
-        ALTER TABLE Users_News ADD ProfilePicture NVARCHAR(500) NULL;
-    END
-    
-    UPDATE Users_News
-    SET ProfilePicture = @ProfilePicture
+    UPDATE NewsSitePro2025_Users
+    SET ProfilePicture = @ProfilePicture, LastUpdated = GETDATE()
     WHERE UserID = @UserID;
     
     SELECT @@ROWCOUNT as RowsAffected;
