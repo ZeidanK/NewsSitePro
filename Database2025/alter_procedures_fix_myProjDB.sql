@@ -285,8 +285,8 @@ BEGIN
         CASE WHEN rp.UserID IS NOT NULL THEN 1 ELSE 0 END as IsReposted
     FROM NewsSitePro2025_NewsArticles na
     INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
-    -- Only get articles from users that the current user follows (or their own articles)
-    LEFT JOIN NewsSitePro2025_Follows f ON na.UserID = f.FollowedUserID AND f.FollowerUserID = @UserID
+    -- Only get articles from users that the current user follows (NOT their own articles)
+    INNER JOIN NewsSitePro2025_Follows f ON na.UserID = f.FollowedUserID AND f.FollowerUserID = @UserID
     -- Aggregate likes count
     LEFT JOIN (
         SELECT ArticleID, COUNT(*) as LikesCount
@@ -311,14 +311,14 @@ BEGIN
     LEFT JOIN NewsSitePro2025_SavedArticles sa ON na.ArticleID = sa.ArticleID AND sa.UserID = @UserID
     -- Check if current user reposted this article
     LEFT JOIN NewsSitePro2025_Reposts rp ON na.ArticleID = rp.OriginalArticleID AND rp.UserID = @UserID
-    WHERE (f.FollowedUserID IS NOT NULL OR na.UserID = @UserID)
+    -- No WHERE clause needed since INNER JOIN already filters to followed users only
     ORDER BY na.PublishDate DESC
     OFFSET @Offset ROWS
     FETCH NEXT @PageSize ROWS ONLY;
 END
 GO
 
--- 6. ALTER: Fix GetAll procedure to support SortBy parameter for trending
+-- 6. ALTER: Fix GetAll procedure to support SortBy parameter for trending and proper Category filtering
 ALTER PROCEDURE NewsSitePro2025_sp_NewsArticles_GetAll
     @PageNumber INT = 1,
     @PageSize INT = 10,
@@ -380,7 +380,7 @@ BEGIN
     LEFT JOIN NewsSitePro2025_SavedArticles sa ON na.ArticleID = sa.ArticleID AND sa.UserID = @CurrentUserID
     -- Check if current user reposted this article
     LEFT JOIN NewsSitePro2025_Reposts rp ON na.ArticleID = rp.OriginalArticleID AND rp.UserID = @CurrentUserID
-    WHERE (@Category IS NULL OR na.Category = @Category)
+    WHERE (@Category IS NULL OR LOWER(na.Category) = LOWER(@Category))
         AND (@SortBy != 'trending' OR na.PublishDate >= DATEADD(day, -7, GETDATE()))
     ORDER BY 
         CASE 
@@ -394,7 +394,7 @@ BEGIN
     -- Also return total count for pagination
     SELECT COUNT(*) as TotalCount
     FROM NewsSitePro2025_NewsArticles na
-    WHERE (@Category IS NULL OR na.Category = @Category)
+    WHERE (@Category IS NULL OR LOWER(na.Category) = LOWER(@Category))
         AND (@SortBy != 'trending' OR na.PublishDate >= DATEADD(day, -7, GETDATE()));
 END
 GO

@@ -22,7 +22,7 @@ namespace NewsSite.BL.Services
         
         // Feed algorithm methods
         Task<List<NewsArticle>> GetPopularArticlesAsync(int pageSize = 10);
-        Task<List<NewsArticle>> GetTrendingArticlesAsync(int pageSize = 10);
+        Task<List<NewsArticle>> GetTrendingArticlesAsync(int pageSize = 10, string? category = null, int? currentUserId = null);
         Task<List<NewsArticle>> GetMostLikedArticlesAsync(int pageSize = 10);
         Task<List<NewsArticle>> GetMostViewedArticlesAsync(int pageSize = 10);
         Task<List<NewsArticle>> GetRecentArticlesAsync(int pageSize = 10);

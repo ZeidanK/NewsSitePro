@@ -318,18 +318,10 @@ namespace NewsSite.Controllers
 
                 // Get trending posts using the Business Logic layer
                 int articlesToFetch = page * limit; // Fetch enough for pagination
-                var allTrendingPosts = await _newsService.GetTrendingArticlesAsync(articlesToFetch);
+                var trendingPosts = await _newsService.GetTrendingArticlesAsync(articlesToFetch, category, currentUserId);
                 
-                // Apply category filter if specified
-                if (!string.IsNullOrEmpty(category) && category != "all")
-                {
-                    allTrendingPosts = allTrendingPosts
-                        .Where(a => string.Equals(a.Category, category, StringComparison.OrdinalIgnoreCase))
-                        .ToList();
-                }
-                
-                // Apply pagination
-                var trendingPosts = allTrendingPosts
+                // Apply pagination (since we might get more than needed)
+                var paginatedPosts = trendingPosts
                     .Skip((page - 1) * limit)
                     .Take(limit)
                     .ToList();
@@ -338,11 +330,11 @@ namespace NewsSite.Controllers
                 Dictionary<int, bool> followStatusMap = new Dictionary<int, bool>();
                 if (currentUserId.HasValue)
                 {
-                    followStatusMap = await LoadFollowStatusMapAsync(currentUserId.Value, trendingPosts);
+                    followStatusMap = await LoadFollowStatusMapAsync(currentUserId.Value, paginatedPosts);
                 }
                 
                 // Create enhanced view model with context-aware rendering
-                var viewModel = CreatePostsListViewModel(trendingPosts, currentUser, "trending", followStatusMap);
+                var viewModel = CreatePostsListViewModel(paginatedPosts, currentUser, "trending", followStatusMap);
                 
                 return View("_PostsList", viewModel);
             }

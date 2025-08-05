@@ -4769,7 +4769,7 @@ SqlDataReader? reader = null;
         return await RecordUserInteractionAsync(userId, articleId, interactionType);
     }
 
-    public async Task<List<NewsArticle>> GetTrendingArticlesAsync(int count = 20)
+    public async Task<List<NewsArticle>> GetTrendingArticlesAsync(int count = 20, string? category = null, int? userId = null)
     {
         var articles = new List<NewsArticle>();
         SqlConnection? con = null;
@@ -4785,10 +4785,11 @@ SqlDataReader? reader = null;
             {
                 cmd = new SqlCommand("NewsSitePro2025_sp_NewsArticles_GetAll", con);
                 cmd.CommandType = CommandType.StoredProcedure;
-                cmd.Parameters.AddWithValue("@UserID", DBNull.Value);
+                //cmd.Parameters.AddWithValue("@UserID", userId ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@PageNumber", 1);
                 cmd.Parameters.AddWithValue("@PageSize", count);
                 cmd.Parameters.AddWithValue("@SortBy", "trending");
+                cmd.Parameters.AddWithValue("@Category", category ?? (object)DBNull.Value);
 
                 reader = await cmd.ExecuteReaderAsync();
 

@@ -331,10 +331,10 @@ namespace NewsSite.BL.Services
             return await _dbService.GetPopularArticlesAsync(pageSize);
         }
 
-        public async Task<List<NewsArticle>> GetTrendingArticlesAsync(int pageSize = 10)
+        public async Task<List<NewsArticle>> GetTrendingArticlesAsync(int pageSize = 10, string? category = null, int? currentUserId = null)
         {
             if (pageSize < 1 || pageSize > 100) pageSize = 10;
-            return await _dbService.GetTrendingArticlesAsync(pageSize);
+            return await _dbService.GetTrendingArticlesAsync(pageSize, category, currentUserId);
         }
 
         public async Task<List<NewsArticle>> GetMostLikedArticlesAsync(int pageSize = 10)
