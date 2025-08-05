@@ -169,7 +169,11 @@ namespace NewsSite.Controllers
                 int? currentUserId = NewsSite.BL.User.GetCurrentUserId(Request, User);
                 
                 // Get current user object for context creation
-                User? currentUser = await GetCurrentUserAsync(currentUserId ?? 0);
+                User? currentUser = null;
+                if (currentUserId.HasValue && currentUserId.Value > 0)
+                {
+                    currentUser = await GetCurrentUserAsync(currentUserId.Value);
+                }
 
                 var articles = await _newsService.GetAllNewsArticlesAsync(page, limit, category, currentUserId);
                 
@@ -877,6 +881,95 @@ namespace NewsSite.Controllers
                     Source = new NewsApiSource { Name = "Sample News" }
                 }
             };
+        }
+
+        //==========================================================================================
+        // SIMPLE API ENDPOINTS FOR FRONTEND COMPATIBILITY
+        //==========================================================================================
+
+        /// <summary>
+        /// GET: /api/saved - Simple endpoint for saved articles (frontend compatibility)
+        /// Returns JSON array of saved articles for the authenticated user
+        /// </summary>
+        [HttpGet("/api/saved")]
+        public async Task<ActionResult<List<NewsArticle>>> GetSavedArticlesApi()
+        {
+            try
+            {
+                var userId = NewsSite.BL.User.GetCurrentUserId(Request, User);
+                if (userId == null)
+                {
+                    return Unauthorized("User must be logged in to view saved articles");
+                }
+
+                var savedArticles = await _newsService.GetSavedArticlesByUserAsync(userId.Value, 1, 20);
+                return Ok(savedArticles);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching saved articles API");
+                return StatusCode(500, "Error fetching saved articles");
+            }
+        }
+
+        /// <summary>
+        /// GET: /api/shared - Simple endpoint for posts from followed users (frontend compatibility)
+        /// Returns JSON array of posts from users the current user follows
+        /// </summary>
+        [HttpGet("/api/shared")]
+        public async Task<ActionResult<List<NewsArticle>>> GetSharedArticlesApi()
+        {
+            try
+            {
+                var userId = NewsSite.BL.User.GetCurrentUserId(Request, User);
+                if (userId == null)
+                {
+                    return Unauthorized("User must be logged in to view following feed");
+                }
+
+                var followingPosts = await _newsService.GetFollowingPostsAsync(userId.Value, 1, 20);
+                return Ok(followingPosts);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching following posts API");
+                return StatusCode(500, "Error fetching following posts");
+            }
+        }
+
+        /// <summary>
+        /// GET: /api/posts - Simple endpoint for all posts (frontend compatibility)
+        /// Returns JSON array of all posts with proper user context
+        /// </summary>
+        [HttpGet("/api/posts")]
+        public async Task<ActionResult<List<NewsArticle>>> GetAllPostsApi([FromQuery] int page = 1, [FromQuery] int limit = 20)
+        {
+            try
+            {
+                var userId = NewsSite.BL.User.GetCurrentUserId(Request, User);
+                var articles = await _newsService.GetAllNewsArticlesAsync(page, limit, null, userId);
+                return Ok(articles);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching all posts API");
+                return StatusCode(500, "Error fetching posts");
+            }
+        }
+
+        /// <summary>
+        /// GET: /api/tags - Simple endpoint for available categories/tags (frontend compatibility)
+        /// Returns JSON array of available news categories
+        /// </summary>
+        [HttpGet("/api/tags")]
+        public ActionResult<List<string>> GetTagsApi()
+        {
+            var categories = new List<string> 
+            { 
+                "general", "business", "entertainment", "health", 
+                "science", "sports", "technology" 
+            };
+            return Ok(categories);
         }
     }
 

@@ -13,7 +13,7 @@
     <div class="tags" id="tagsContainer"></div>
 
     <div class="tags">
-      <button onclick="showShared()">Shared by others</button>
+      <button onclick="showShared()">Following</button>
       <button onclick="showSaved()">Saved</button>
     </div>
 
@@ -80,7 +80,15 @@
 
     async function fetchNews() {
       try {
-        const response = await fetch('/api/posts');
+        const jwt = localStorage.getItem('jwtToken');
+        const headers = {};
+        if (jwt) {
+          headers['Authorization'] = 'Bearer ' + jwt;
+        }
+        
+        const response = await fetch('/api/posts', {
+          headers: headers
+        });
         allPosts = await response.json();
         displayPosts("All");
       } catch (err) {
@@ -88,30 +96,47 @@
       }
     }
 
-    function displayPosts(tags) {
+    function displayPosts(posts) {
       const container = document.getElementById("newsContainer");
 
-      let filtered = [];
-      if (tags === "All" || tags.length === 0) {
-        filtered = allPosts;
+      // If posts is a string like "All" or an array of tags, filter allPosts
+      if (typeof posts === "string" || Array.isArray(posts) && posts.every(p => typeof p === "string")) {
+        let filtered = [];
+        if (posts === "All" || posts.length === 0) {
+          filtered = allPosts;
+        } else {
+          const tags = Array.isArray(posts) ? posts : [posts];
+          filtered = allPosts.filter(post => tags.includes(post.Category));
+        }
+        
+        container.innerHTML = filtered.map(post => `
+          <div class="post">
+            <h3>${post.Title}</h3>
+            <p>${post.Content}</p>
+            <small>Category: ${post.Category}</small>
+          </div>
+        `).join("");
       } else {
-        filtered = allPosts.filter(post => tags.includes(post.tag));
+        // If posts is an actual array of post objects, display them directly
+        container.innerHTML = posts.map(post => `
+          <div class="post">
+            <h3>${post.Title}</h3>
+            <p>${post.Content}</p>
+            <small>Category: ${post.Category}</small>
+            ${post.Username ? `<small>By: ${post.Username}</small>` : ''}
+          </div>
+        `).join("");
       }
-
-      container.innerHTML = filtered.map(post => `
-        <div class="post">
-          <h3>${post.title}</h3>
-          <p>${post.content}</p>
-          <small>Tag: ${post.tag}</small>
-        </div>
-      `).join("");
     }
 
     async function showShared() {
       try {
-        const res = await fetch('/api/shared');
+        const jwt = localStorage.getItem('jwtToken');
+        const res = await fetch('/api/shared', {
+          headers: { 'Authorization': 'Bearer ' + jwt }
+        });
         const sharedPosts = await res.json();
-        displayPosts(sharedPosts);
+        displayPosts(sharedPosts); // Pass the actual posts array
       } catch (e) {
         alert("Failed to load shared posts");
       }
@@ -124,7 +149,7 @@
           headers: { 'Authorization': 'Bearer ' + jwt }
         });
         const savedPosts = await res.json();
-        displayPosts(savedPosts);
+        displayPosts(savedPosts); // Pass the actual posts array
       } catch (e) {
         alert("Failed to load saved posts");
       }

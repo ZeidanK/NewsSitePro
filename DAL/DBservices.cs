@@ -51,6 +51,26 @@ public class DBservices
 
         return cmd;
     }
+    
+    //---------------------------------------------------------------------------------
+    // Helper method to check if a column exists in the SqlDataReader
+    //---------------------------------------------------------------------------------
+    private bool HasColumn(SqlDataReader reader, string columnName)
+    {
+        try
+        {
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                if (reader.GetName(i).Equals(columnName, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
     //--------------------------------------------------------------------------------------------------
     // This method creates a connection to the database according to the connectionString name in the appsettings.json 
     //--------------------------------------------------------------------------------------------------
@@ -468,10 +488,10 @@ public class DBservices
                     UserProfilePicture = reader["ProfilePicture"]?.ToString(),
                     LikesCount = Convert.ToInt32(reader["LikesCount"]),
                     ViewsCount = Convert.ToInt32(reader["ViewsCount"]),
-                    // Use the stored procedure's calculated values instead of additional queries
+                    // Use the stored procedure's calculated values (now that columns exist)
                     IsLiked = Convert.ToInt32(reader["IsLiked"]) == 1,
                     IsSaved = Convert.ToInt32(reader["IsSaved"]) == 1,
-                    // Add repost data
+                    // Add repost data from stored procedure
                     RepostCount = reader.IsDBNull("RepostCount") ? 0 : Convert.ToInt32(reader["RepostCount"]),
                     IsReposted = reader.IsDBNull("IsReposted") ? false : Convert.ToInt32(reader["IsReposted"]) == 1
                 };

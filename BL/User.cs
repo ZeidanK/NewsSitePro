@@ -346,6 +346,43 @@ namespace NewsSite.BL
         //     return dBservices.GetUserPostsCount(userId);
         // }
 
+        /// <summary>
+        /// Creates a user session for the current user after successful login
+        /// </summary>
+        /// <param name="deviceInfo">Device information from request headers</param>
+        /// <param name="ipAddress">IP address of the client</param>
+        /// <param name="userAgent">User agent string from the client</param>
+        /// <param name="expiryHours">Session expiry in hours (default 24)</param>
+        /// <returns>UserSession object if successful, null if failed</returns>
+        public async Task<UserSession?> CreateUserSessionAsync(string? deviceInfo, string? ipAddress, string? userAgent, int expiryHours = 24)
+        {
+            try
+            {
+                DBservices dbService = new DBservices();
+                
+                // Generate session token
+                var sessionToken = Guid.NewGuid().ToString();
+                
+                // Create session in database
+                var session = await dbService.CreateUserSessionAsync(
+                    this.Id,
+                    sessionToken,
+                    deviceInfo,
+                    ipAddress,
+                    userAgent,
+                    expiryHours
+                );
+                
+                return session;
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't throw - session creation shouldn't fail login
+                Console.WriteLine($"Failed to create user session: {ex.Message}");
+                return null;
+            }
+        }
+
     
     }
 
