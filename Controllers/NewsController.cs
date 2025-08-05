@@ -693,6 +693,84 @@ namespace NewsSite.Controllers
         }
 
         /// <summary>
+        /// Admin endpoint to publish multiple articles at once (bulk publish)
+        /// </summary>
+        [HttpPost("publish-articles")]
+        public async Task<IActionResult> PublishArticles([FromBody] PublishArticlesRequest request)
+        {
+            try
+            {
+                // Verify admin permissions
+                if (!IsCurrentUserAdmin())
+                {
+                    return Forbid("Admin access required");
+                }
+
+                if (request.Articles == null || !request.Articles.Any())
+                {
+                    return BadRequest(new { success = false, message = "No articles provided" });
+                }
+
+                int publishedCount = 0;
+                int systemUserId = GetSystemUserId();
+                var errors = new List<string>();
+
+                foreach (var article in request.Articles)
+                {
+                    try
+                    {
+                        var newsArticle = new NewsArticle
+                        {
+                            Title = article.Title,
+                            Content = article.Content,
+                            ImageURL = article.ImageUrl,
+                            SourceURL = article.SourceUrl,
+                            SourceName = article.SourceName,
+                            Category = article.Category,
+                            PublishDate = DateTime.Now,
+                            UserID = systemUserId,
+                            LikesCount = 0,
+                            ViewsCount = 0
+                        };
+
+                        int articleId = await _newsService.CreateNewsArticleAsync(newsArticle);
+                        if (articleId > 0)
+                        {
+                            publishedCount++;
+                        }
+                        else
+                        {
+                            errors.Add($"Failed to save article: {article.Title}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        errors.Add($"Error publishing '{article.Title}': {ex.Message}");
+                        _logger.LogError(ex, "Error publishing individual article: {Title}", article.Title);
+                    }
+                }
+
+                _logger.LogInformation($"Bulk publish completed: {publishedCount}/{request.Articles.Count()} articles published");
+
+                return Ok(new { 
+                    success = true, 
+                    published = publishedCount,
+                    total = request.Articles.Count(),
+                    errors = errors,
+                    message = $"Successfully published {publishedCount} out of {request.Articles.Count()} articles"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in bulk publish operation");
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "An error occurred during bulk publishing: " + ex.Message 
+                });
+            }
+        }
+
+        /// <summary>
         /// Get published articles for admin review
         /// Returns articles with admin-specific metadata
         /// </summary>
@@ -992,5 +1070,13 @@ namespace NewsSite.Controllers
         public string? SourceName { get; set; }
         public string Category { get; set; } = "general";
         public string PublishDate { get; set; } = DateTime.Now.ToString();
+    }
+
+    /// <summary>
+    /// Request model for publishing multiple articles at once
+    /// </summary>
+    public class PublishArticlesRequest
+    {
+        public IEnumerable<PublishArticleRequest> Articles { get; set; } = new List<PublishArticleRequest>();
     }
 }
