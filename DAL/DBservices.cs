@@ -4771,7 +4771,133 @@ SqlDataReader? reader = null;
 
     public async Task<List<NewsArticle>> GetTrendingArticlesAsync(int count = 20)
     {
-        return await GetRecommendedArticlesAsync(1, count); // Use recommended as fallback
+        var articles = new List<NewsArticle>();
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            
+            // Try using the working GetAll stored procedure with trending sort
+            try
+            {
+                cmd = new SqlCommand("NewsSitePro2025_sp_NewsArticles_GetAll", con);
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.Parameters.AddWithValue("@UserID", DBNull.Value);
+                cmd.Parameters.AddWithValue("@PageNumber", 1);
+                cmd.Parameters.AddWithValue("@PageSize", count);
+                cmd.Parameters.AddWithValue("@SortBy", "trending");
+
+                reader = await cmd.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    articles.Add(new NewsArticle
+                    {
+                        ArticleID = Convert.ToInt32(reader["ArticleID"]),
+                        Title = reader.IsDBNull("Title") ? string.Empty : reader.GetString("Title"),
+                        Content = reader.IsDBNull("Content") ? string.Empty : reader.GetString("Content"),
+                        ImageURL = reader.IsDBNull("ImageURL") ? string.Empty : reader.GetString("ImageURL"),
+                        SourceURL = reader.IsDBNull("SourceURL") ? string.Empty : reader.GetString("SourceURL"),
+                        SourceName = reader.IsDBNull("SourceName") ? string.Empty : reader.GetString("SourceName"),
+                        Category = reader.IsDBNull("Category") ? string.Empty : reader.GetString("Category"),
+                        PublishDate = reader.IsDBNull("PublishDate") ? DateTime.Now : reader.GetDateTime("PublishDate"),
+                        UserID = Convert.ToInt32(reader["UserID"]),
+                        Username = reader.IsDBNull("Username") ? string.Empty : reader.GetString("Username"),
+                        UserProfilePicture = reader.IsDBNull("ProfilePicture") ? string.Empty : reader.GetString("ProfilePicture"),
+                        LikesCount = reader.IsDBNull("LikesCount") ? 0 : Convert.ToInt32(reader["LikesCount"]),
+                        ViewsCount = reader.IsDBNull("ViewsCount") ? 0 : Convert.ToInt32(reader["ViewsCount"]),
+                        RepostCount = reader.IsDBNull("RepostCount") ? 0 : Convert.ToInt32(reader["RepostCount"]),
+                        IsLiked = reader.IsDBNull("IsLiked") ? false : Convert.ToInt32(reader["IsLiked"]) == 1,
+                        IsSaved = reader.IsDBNull("IsSaved") ? false : Convert.ToInt32(reader["IsSaved"]) == 1,
+                        IsReposted = reader.IsDBNull("IsReposted") ? false : Convert.ToInt32(reader["IsReposted"]) == 1
+                    });
+                }
+            }
+            catch
+            {
+                // Fallback: Get articles with high engagement using direct SQL with proper column names
+                reader?.Close();
+                cmd?.Dispose();
+                
+                cmd = new SqlCommand(@"
+                    SELECT TOP (@Count)
+                        na.ArticleID, na.Title, na.Content, na.ImageURL, na.SourceURL, 
+                        na.SourceName, na.Category, na.PublishDate, na.UserID,
+                        u.Username, u.ProfilePicture,
+                        COALESCE(lc.LikesCount, 0) as LikesCount,
+                        COALESCE(vc.ViewsCount, 0) as ViewsCount,
+                        COALESCE(rc.RepostCount, 0) as RepostCount,
+                        0 as IsLiked, 0 as IsSaved, 0 as IsReposted
+                    FROM NewsSitePro2025_NewsArticles na
+                    INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
+                    LEFT JOIN (
+                        SELECT ArticleID, COUNT(*) as LikesCount
+                        FROM NewsSitePro2025_ArticleLikes
+                        GROUP BY ArticleID
+                    ) lc ON na.ArticleID = lc.ArticleID
+                    LEFT JOIN (
+                        SELECT ArticleID, COUNT(*) as ViewsCount
+                        FROM NewsSitePro2025_ArticleViews
+                        GROUP BY ArticleID
+                    ) vc ON na.ArticleID = vc.ArticleID
+                    LEFT JOIN (
+                        SELECT ArticleID, COUNT(*) as RepostCount
+                        FROM NewsSitePro2025_Reposts
+                        GROUP BY ArticleID
+                    ) rc ON na.ArticleID = rc.ArticleID
+                    WHERE na.PublishDate >= DATEADD(hour, -72, GETDATE())
+                    ORDER BY 
+                        (COALESCE(lc.LikesCount, 0) * 3 + 
+                         COALESCE(vc.ViewsCount, 0) * 1 + 
+                         COALESCE(rc.RepostCount, 0) * 5) DESC,
+                        na.PublishDate DESC", con);
+
+                cmd.Parameters.AddWithValue("@Count", count);
+                reader = await cmd.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    articles.Add(new NewsArticle
+                    {
+                        ArticleID = Convert.ToInt32(reader["ArticleID"]),
+                        Title = reader.IsDBNull("Title") ? string.Empty : reader.GetString("Title"),
+                        Content = reader.IsDBNull("Content") ? string.Empty : reader.GetString("Content"),
+                        ImageURL = reader.IsDBNull("ImageURL") ? string.Empty : reader.GetString("ImageURL"),
+                        SourceURL = reader.IsDBNull("SourceURL") ? string.Empty : reader.GetString("SourceURL"),
+                        SourceName = reader.IsDBNull("SourceName") ? string.Empty : reader.GetString("SourceName"),
+                        Category = reader.IsDBNull("Category") ? string.Empty : reader.GetString("Category"),
+                        PublishDate = reader.IsDBNull("PublishDate") ? DateTime.Now : reader.GetDateTime("PublishDate"),
+                        UserID = Convert.ToInt32(reader["UserID"]),
+                        Username = reader.IsDBNull("Username") ? string.Empty : reader.GetString("Username"),
+                        UserProfilePicture = reader.IsDBNull("ProfilePicture") ? string.Empty : reader.GetString("ProfilePicture"),
+                        LikesCount = reader.IsDBNull("LikesCount") ? 0 : Convert.ToInt32(reader["LikesCount"]),
+                        ViewsCount = reader.IsDBNull("ViewsCount") ? 0 : Convert.ToInt32(reader["ViewsCount"]),
+                        RepostCount = reader.IsDBNull("RepostCount") ? 0 : Convert.ToInt32(reader["RepostCount"]),
+                        IsLiked = Convert.ToInt32(reader["IsLiked"]) == 1,
+                        IsSaved = Convert.ToInt32(reader["IsSaved"]) == 1,
+                        IsReposted = Convert.ToInt32(reader["IsReposted"]) == 1
+                    });
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // Final fallback - get recent articles
+            return await GetRecommendedArticlesAsync(1, count);
+        }
+        finally
+        {
+            if (reader != null && !reader.IsClosed)
+            {
+                reader.Close();
+            }
+            con?.Close();
+        }
+
+        return articles;
     }
 
     public async Task<bool> CreateUserFeedConfigurationAsync(FeedConfiguration config)
@@ -5002,46 +5128,12 @@ SqlDataReader? reader = null;
         {
             con = connect("myProjDB");
 
-            // Get articles from users that the current user follows with user interaction data
-            string sql = @"
-                SELECT TOP (@Count) 
-                    n.ArticleID as ArticleID, n.Title, n.Content, n.ImageURL, n.SourceURL, n.SourceName, 
-                    n.Category, n.PublishDate, n.UserID,
-                    u.Username,
-                    u.ProfilePicture,
-                    COALESCE(lc.LikesCount, 0) as LikesCount,
-                    COALESCE(vc.ViewsCount, 0) as ViewsCount,
-                    COALESCE(rc.RepostCount, 0) as RepostCount,
-                    CASE WHEN al.UserID IS NOT NULL THEN 1 ELSE 0 END as IsLiked,
-                    CASE WHEN sa.UserID IS NOT NULL THEN 1 ELSE 0 END as IsSaved,
-                    CASE WHEN r.UserID IS NOT NULL THEN 1 ELSE 0 END as IsReposted
-                FROM NewsSitePro2025_NewsArticles n
-                INNER JOIN NewsSitePro2025_Users u ON n.UserID = u.UserID
-                INNER JOIN NewsSitePro2025_Follows uf ON n.UserID = uf.FollowedUserID
-                LEFT JOIN (
-                    SELECT ArticleID, COUNT(*) as LikesCount
-                    FROM NewsSitePro2025_ArticleLikes
-                    GROUP BY ArticleID
-                ) lc ON n.ArticleID = lc.ArticleID
-                LEFT JOIN (
-                    SELECT ArticleID, COUNT(*) as ViewsCount
-                    FROM NewsSitePro2025_ArticleViews
-                    GROUP BY ArticleID
-                ) vc ON n.ArticleID = vc.ArticleID
-                LEFT JOIN (
-                    SELECT ArticleID, COUNT(*) as RepostCount
-                    FROM NewsSitePro2025_Reposts
-                    GROUP BY ArticleID
-                ) rc ON n.ArticleID = rc.ArticleID
-                LEFT JOIN NewsSitePro2025_ArticleLikes al ON n.ArticleID = al.ArticleID AND al.UserID = @UserId
-                LEFT JOIN NewsSitePro2025_SavedArticles sa ON n.ArticleID = sa.ArticleID AND sa.UserID = @UserId
-                LEFT JOIN NewsSitePro2025_Reposts r ON n.ArticleID = r.ArticleID AND r.UserID = @UserId
-                WHERE uf.FollowerUserID = @UserId 
-                ORDER BY n.PublishDate DESC";
-
-            cmd = new SqlCommand(sql, con);
-            cmd.Parameters.AddWithValue("@UserId", userId);
-            cmd.Parameters.AddWithValue("@Count", count);
+            // Use the stored procedure for following feed
+            cmd = new SqlCommand("NewsSitePro2025_sp_NewsArticles_GetFollowingFeed", con);
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.Parameters.AddWithValue("@UserID", userId);
+            cmd.Parameters.AddWithValue("@PageNumber", 1);
+            cmd.Parameters.AddWithValue("@PageSize", count);
             
             reader = await cmd.ExecuteReaderAsync();
             
@@ -5049,7 +5141,7 @@ SqlDataReader? reader = null;
             {
                 NewsArticle article = new NewsArticle
                 {
-                    ArticleID = reader.GetInt32("ArticleID"),
+                    ArticleID = Convert.ToInt32(reader["ArticleID"]),
                     Title = reader.IsDBNull("Title") ? string.Empty : reader.GetString("Title"),
                     Content = reader.IsDBNull("Content") ? string.Empty : reader.GetString("Content"),
                     ImageURL = reader.IsDBNull("ImageURL") ? string.Empty : reader.GetString("ImageURL"),
@@ -5057,15 +5149,15 @@ SqlDataReader? reader = null;
                     SourceName = reader.IsDBNull("SourceName") ? string.Empty : reader.GetString("SourceName"),
                     Category = reader.IsDBNull("Category") ? string.Empty : reader.GetString("Category"),
                     PublishDate = reader.IsDBNull("PublishDate") ? DateTime.Now : reader.GetDateTime("PublishDate"),
-                    UserID = reader.GetInt32("UserID"),
+                    UserID = Convert.ToInt32(reader["UserID"]),
                     Username = reader.IsDBNull("Username") ? string.Empty : reader.GetString("Username"),
                     UserProfilePicture = reader.IsDBNull("ProfilePicture") ? string.Empty : reader.GetString("ProfilePicture"),
-                    LikesCount = reader.IsDBNull("LikesCount") ? 0 : reader.GetInt32("LikesCount"),
-                    ViewsCount = reader.IsDBNull("ViewsCount") ? 0 : reader.GetInt32("ViewsCount"),
-                    RepostCount = reader.IsDBNull("RepostCount") ? 0 : reader.GetInt32("RepostCount"),
-                    IsLiked = reader.GetInt32("IsLiked") == 1,
-                    IsSaved = reader.GetInt32("IsSaved") == 1,
-                    IsReposted = reader.GetInt32("IsReposted") == 1
+                    LikesCount = reader.IsDBNull("LikesCount") ? 0 : Convert.ToInt32(reader["LikesCount"]),
+                    ViewsCount = reader.IsDBNull("ViewsCount") ? 0 : Convert.ToInt32(reader["ViewsCount"]),
+                    RepostCount = reader.IsDBNull("RepostCount") ? 0 : Convert.ToInt32(reader["RepostCount"]),
+                    IsLiked = Convert.ToInt32(reader["IsLiked"]) == 1,
+                    IsSaved = Convert.ToInt32(reader["IsSaved"]) == 1,
+                    IsReposted = Convert.ToInt32(reader["IsReposted"]) == 1
                 };
 
                 articles.Add(article);

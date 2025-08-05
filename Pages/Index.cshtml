@@ -18,8 +18,15 @@
             <h2>Latest News</h2>
             <div class="feed-controls">
                 <button class="feed-tab active" data-feed="all">All</button>
-                <button class="feed-tab" data-feed="following">Following</button>
+                @if (Model.HeaderData?.user != null)
+                {
+                    <button class="feed-tab" data-feed="following">Following</button>
+                }
                 <button class="feed-tab" data-feed="trending">Trending</button>
+                @if (Model.HeaderData?.user != null)
+                {
+                    <button class="feed-tab" data-feed="saved">Saved</button>
+                }
             </div>
         </div>
 

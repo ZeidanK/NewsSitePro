@@ -70,9 +70,15 @@ else
             <div class="feed-controls">
                 <div class="feed-tabs">
                     <button class="feed-tab active" data-filter="all">All</button>
-                    <button class="feed-tab" data-filter="following">Following</button>
+                    @if (Model.HeaderData?.user != null)
+                    {
+                        <button class="feed-tab" data-filter="following">Following</button>
+                    }
                     <button class="feed-tab" data-filter="trending">Trending</button>
-                    <button class="feed-tab" data-filter="saved">Saved</button>
+                    @if (Model.HeaderData?.user != null)
+                    {
+                        <button class="feed-tab" data-filter="saved">Saved</button>
+                    }
                 </div>
                 <button id="refreshBtn" class="btn btn-outline-primary" onclick="refreshFeed()">
                     <i class="fas fa-sync-alt"></i> Refresh
