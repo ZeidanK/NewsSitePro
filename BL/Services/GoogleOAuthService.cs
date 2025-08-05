@@ -180,7 +180,7 @@ namespace NewsSite.BL.Services
 
                 var tokenResponse = JsonSerializer.Deserialize<OAuthTokenResponse>(json, new JsonSerializerOptions
                 {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    PropertyNameCaseInsensitive = true
                 });
 
                 Console.WriteLine($"[DEBUG] Token Response Success: {tokenResponse?.IsSuccess}");
@@ -208,10 +208,11 @@ namespace NewsSite.BL.Services
             {
                 Console.WriteLine($"[DEBUG] Getting user info with access token: {accessToken?.Substring(0, Math.Min(10, accessToken.Length))}...");
                 
-                _httpClient.DefaultRequestHeaders.Authorization = 
-                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+                // Create the request with authorization header
+                var request = new HttpRequestMessage(HttpMethod.Get, "https://www.googleapis.com/oauth2/v2/userinfo?fields=id,email,verified_email,name,given_name,family_name,picture,locale");
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
-                var response = await _httpClient.GetAsync("https://www.googleapis.com/oauth2/v2/userinfo?fields=id,email,verified_email,name,given_name,family_name,picture,locale");
+                var response = await _httpClient.SendAsync(request);
                 var json = await response.Content.ReadAsStringAsync();
 
                 Console.WriteLine($"[DEBUG] Google User Info Response Status: {response.StatusCode}");
@@ -233,7 +234,7 @@ namespace NewsSite.BL.Services
 
                 var userInfo = JsonSerializer.Deserialize<GoogleUserInfo>(json, new JsonSerializerOptions
                 {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    PropertyNameCaseInsensitive = true
                 });
 
                 Console.WriteLine($"[DEBUG] User Info Success: {userInfo?.IsSuccess}");

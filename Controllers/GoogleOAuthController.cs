@@ -53,10 +53,35 @@ namespace NewsSite.Controllers
         [HttpPost("callback")]
         public async Task<IActionResult> HandleGoogleCallback([FromBody] GoogleOAuthRequest request)
         {
+            Console.WriteLine($"[DEBUG] OAuth callback endpoint called");
+            Console.WriteLine($"[DEBUG] Request is null: {request == null}");
+            Console.WriteLine($"[DEBUG] ModelState is valid: {ModelState.IsValid}");
+            
+            if (!ModelState.IsValid)
+            {
+                Console.WriteLine($"[DEBUG] ModelState errors:");
+                foreach (var error in ModelState)
+                {
+                    Console.WriteLine($"[DEBUG] - {error.Key}: {string.Join(", ", error.Value.Errors.Select(e => e.ErrorMessage))}");
+                }
+                return BadRequest(new { message = "Model validation failed", errors = ModelState });
+            }
+            
             try
             {
+                if (request == null)
+                {
+                    Console.WriteLine($"[DEBUG] Request object is null");
+                    return BadRequest(new { message = "Request data is required" });
+                }
+
+                Console.WriteLine($"[DEBUG] Authorization code: {(request.AuthorizationCode?.Length > 10 ? request.AuthorizationCode.Substring(0, 10) + "..." : request.AuthorizationCode)}");
+                Console.WriteLine($"[DEBUG] Device info: {request.DeviceInfo}");
+                Console.WriteLine($"[DEBUG] User agent: {(request.UserAgent?.Length > 20 ? request.UserAgent.Substring(0, 20) + "..." : request.UserAgent)}");
+                
                 if (string.IsNullOrEmpty(request.AuthorizationCode))
                 {
+                    Console.WriteLine($"[DEBUG] Authorization code is null or empty");
                     return BadRequest(new { message = "Authorization code is required" });
                 }
 
@@ -65,12 +90,16 @@ namespace NewsSite.Controllers
                 request.UserAgent = HttpContext.Request.Headers["User-Agent"].ToString();
                 request.DeviceInfo = GetDeviceInfo();
 
+                Console.WriteLine($"[DEBUG] Calling HandleGoogleOAuthAsync...");
                 var result = await _googleOAuthService.HandleGoogleOAuthAsync(request);
 
                 if (!result.Success)
                 {
+                    Console.WriteLine($"[DEBUG] OAuth service returned failure: {result.Message}");
                     return BadRequest(new { message = result.Message });
                 }
+
+                Console.WriteLine($"[DEBUG] OAuth successful, setting cookie and returning response");
 
                 // Set JWT token in cookie
                 var cookieOptions = new CookieOptions
@@ -102,6 +131,8 @@ namespace NewsSite.Controllers
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"[DEBUG] Controller exception: {ex.Message}");
+                Console.WriteLine($"[DEBUG] Stack trace: {ex.StackTrace}");
                 return StatusCode(500, new { message = "OAuth callback failed", error = ex.Message });
             }
         }

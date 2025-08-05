@@ -32,7 +32,7 @@ namespace NewsSite.BL
     {
         public string id { get; set; } = string.Empty;
         public string email { get; set; } = string.Empty;
-        public string verified_email { get; set; } = string.Empty;
+        public bool verified_email { get; set; } // Changed from string to bool
         public string name { get; set; } = string.Empty;
         public string given_name { get; set; } = string.Empty;
         public string family_name { get; set; } = string.Empty;

@@ -6442,7 +6442,7 @@ SqlDataReader? reader = null;
             {
                 var user = new User
                 {
-                    Id = reader.GetInt32("UserID"),
+                    Id = Convert.ToInt32(reader["UserID"]),
                     Name = reader.GetString("Username"),
                     Email = reader.GetString("Email"),
                     GoogleId = reader.IsDBNull("GoogleId") ? null : reader.GetString("GoogleId"),
@@ -6503,7 +6503,7 @@ SqlDataReader? reader = null;
             {
                 return new UserSession
                 {
-                    SessionID = reader.GetInt32("SessionID"),
+                    SessionID = Convert.ToInt32(reader["SessionID"]),
                     UserID = userId,
                     SessionToken = sessionToken,
                     DeviceInfo = deviceInfo,
@@ -6554,7 +6554,7 @@ SqlDataReader? reader = null;
                 {
                     var user = new User
                     {
-                        Id = reader.GetInt32("UserID"),
+                        Id = Convert.ToInt32(reader["UserID"]),
                         Name = reader.GetString("Username"),
                         Email = reader.GetString("Email"),
                         IsActive = reader.GetBoolean("IsActive"),
@@ -6569,7 +6569,7 @@ SqlDataReader? reader = null;
 
                     var session = new UserSession
                     {
-                        SessionID = reader.GetInt32("SessionID"),
+                        SessionID = Convert.ToInt32(reader["SessionID"]),
                         UserID = user.Id,
                         SessionToken = sessionToken,
                         LoginTime = reader.GetDateTime("LoginTime"),
@@ -6628,7 +6628,7 @@ SqlDataReader? reader = null;
 
             if (await reader.ReadAsync())
             {
-                var sessionsLoggedOut = reader.GetInt32("SessionsLoggedOut");
+                var sessionsLoggedOut = Convert.ToInt32(reader["SessionsLoggedOut"]);
                 return sessionsLoggedOut > 0;
             }
 
@@ -6664,7 +6664,7 @@ SqlDataReader? reader = null;
 
             if (await reader.ReadAsync())
             {
-                return reader.GetInt32("SessionsDeleted");
+                return Convert.ToInt32(reader["SessionsDeleted"]);
             }
 
             return 0;
@@ -6708,7 +6708,7 @@ SqlDataReader? reader = null;
             {
                 return new OAuthToken
                 {
-                    TokenID = reader.GetInt32("TokenID"),
+                    TokenID = Convert.ToInt32(reader["TokenID"]),
                     UserID = userId,
                     Provider = provider,
                     AccessToken = accessToken,
@@ -6757,8 +6757,8 @@ SqlDataReader? reader = null;
             {
                 return new OAuthToken
                 {
-                    TokenID = reader.GetInt32("TokenID"),
-                    UserID = reader.GetInt32("UserID"),
+                    TokenID = Convert.ToInt32(reader["TokenID"]),
+                    UserID = Convert.ToInt32(reader["UserID"]),
                     Provider = reader.GetString("Provider"),
                     AccessToken = reader.GetString("AccessToken"),
                     RefreshToken = reader.IsDBNull("RefreshToken") ? null : reader.GetString("RefreshToken"),
@@ -6809,8 +6809,8 @@ SqlDataReader? reader = null;
             {
                 sessions.Add(new UserSession
                 {
-                    SessionID = reader.GetInt32("SessionID"),
-                    UserID = reader.GetInt32("UserID"),
+                    SessionID = Convert.ToInt32(reader["SessionID"]),
+                    UserID = Convert.ToInt32(reader["UserID"]),
                     DeviceInfo = reader.IsDBNull("DeviceInfo") ? null : reader.GetString("DeviceInfo"),
                     IpAddress = reader.IsDBNull("IpAddress") ? null : reader.GetString("IpAddress"),
                     UserAgent = reader.IsDBNull("UserAgent") ? null : reader.GetString("UserAgent"),
@@ -6820,14 +6820,14 @@ SqlDataReader? reader = null;
                     LogoutTime = reader.IsDBNull("LogoutTime") ? null : reader.GetDateTime("LogoutTime"),
                     LogoutReason = reader.IsDBNull("LogoutReason") ? null : reader.GetString("LogoutReason"),
                     IsActive = reader.GetBoolean("IsActive"),
-                    SessionDurationMinutes = reader.GetInt32("SessionDurationMinutes")
+                    SessionDurationMinutes = Convert.ToInt32(reader["SessionDurationMinutes"])
                 });
             }
 
             // Move to next result set for total count
             if (await reader.NextResultAsync() && await reader.ReadAsync())
             {
-                var totalSessions = reader.GetInt32("TotalSessions");
+                var totalSessions = Convert.ToInt32(reader["TotalSessions"]);
 
                 return new LoginHistoryResponse
                 {
@@ -6896,15 +6896,15 @@ SqlDataReader? reader = null;
 
             if (await reader.ReadAsync())
             {
-                stats.TotalActiveSessions = reader.GetInt32("TotalActiveSessions");
-                stats.GoogleOAuthUsers = reader.GetInt32("GoogleOAuthUsers");
-                stats.RegularUsers = reader.GetInt32("RegularUsers");
+                stats.TotalActiveSessions = Convert.ToInt32(reader["TotalActiveSessions"]);
+                stats.GoogleOAuthUsers = Convert.ToInt32(reader["GoogleOAuthUsers"]);
+                stats.RegularUsers = Convert.ToInt32(reader["RegularUsers"]);
                 stats.AverageSessionDurationHours = reader.IsDBNull("AverageSessionDurationHours") ? 0 : reader.GetDouble("AverageSessionDurationHours");
             }
 
             if (await reader.NextResultAsync() && await reader.ReadAsync())
             {
-                stats.ExpiredSessions = reader.GetInt32("ExpiredSessions");
+                stats.ExpiredSessions = Convert.ToInt32(reader["ExpiredSessions"]);
             }
 
             return stats;
