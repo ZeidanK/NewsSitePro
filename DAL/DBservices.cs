@@ -842,6 +842,33 @@ public class DBservices
         }
     }
 
+    /// <summary>
+    /// Get total count of published news articles
+    /// </summary>
+    /// <returns>Total number of news articles in the database</returns>
+    public int GetTotalNewsArticlesCount()
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            string sql = "SELECT COUNT(*) FROM NewsSitePro2025_NewsArticles";
+            cmd = new SqlCommand(sql, con);
+            var result = cmd.ExecuteScalar();
+            return Convert.ToInt32(result);
+        }
+        catch (Exception)
+        {
+            return 0;
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
+
     public bool ReportArticle(int articleId, int userId, string? reason = null)
     {
         SqlConnection? con = null;

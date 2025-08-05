@@ -771,6 +771,88 @@ namespace NewsSite.Controllers
         }
 
         /// <summary>
+        /// Public endpoint to publish articles - requires user authentication but not admin
+        /// </summary>
+        [HttpPost("publish")]
+        public async Task<IActionResult> PublishArticleForUser([FromBody] PublishArticlesRequest request)
+        {
+            try
+            {
+                // Check if user is logged in
+                var currentUserId = NewsSite.BL.User.GetCurrentUserId(Request, User);
+                if (!currentUserId.HasValue || currentUserId.Value <= 0)
+                {
+                    return Unauthorized(new { 
+                        success = false, 
+                        message = "You must be logged in to publish articles",
+                        requiresLogin = true 
+                    });
+                }
+
+                if (request.Articles == null || !request.Articles.Any())
+                {
+                    return BadRequest(new { success = false, message = "No articles provided" });
+                }
+
+                int publishedCount = 0;
+                var errors = new List<string>();
+
+                foreach (var article in request.Articles)
+                {
+                    try
+                    {
+                        var newsArticle = new NewsArticle
+                        {
+                            Title = article.Title,
+                            Content = article.Content,
+                            ImageURL = article.ImageUrl,
+                            SourceURL = article.SourceUrl,
+                            SourceName = article.SourceName,
+                            Category = article.Category,
+                            PublishDate = DateTime.Now,
+                            UserID = currentUserId.Value, // Use the logged-in user's ID
+                            LikesCount = 0,
+                            ViewsCount = 0
+                        };
+
+                        int articleId = await _newsService.CreateNewsArticleAsync(newsArticle);
+                        if (articleId > 0)
+                        {
+                            publishedCount++;
+                        }
+                        else
+                        {
+                            errors.Add($"Failed to save article: {article.Title}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        errors.Add($"Error publishing '{article.Title}': {ex.Message}");
+                        _logger.LogError(ex, "Error publishing individual article: {Title}", article.Title);
+                    }
+                }
+
+                _logger.LogInformation($"User publish completed: {publishedCount}/{request.Articles.Count()} articles published by user {currentUserId}");
+
+                return Ok(new { 
+                    success = true, 
+                    published = publishedCount,
+                    total = request.Articles.Count(),
+                    errors = errors,
+                    message = $"Successfully published {publishedCount} out of {request.Articles.Count()} articles"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in user publish operation");
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "An error occurred during publishing: " + ex.Message 
+                });
+            }
+        }
+
+        /// <summary>
         /// Get published articles for admin review
         /// Returns articles with admin-specific metadata
         /// </summary>
@@ -1041,6 +1123,88 @@ namespace NewsSite.Controllers
             };
             return Ok(categories);
         }
+
+        /// <summary>
+        /// Public endpoint to browse news from external APIs
+        /// Used by public News page for users to browse articles
+        /// </summary>
+        [HttpPost("browse-external")]
+        public async Task<ActionResult> BrowseExternalNews([FromBody] PublicFetchNewsRequest request)
+        {
+            try
+            {
+                _logger.LogInformation("BrowseExternalNews called with request: {@Request}", request);
+
+                List<NewsApiArticle> articles = new List<NewsApiArticle>();
+
+                try
+                {
+                    // Fetch articles based on request type and filters
+                    switch (request.Type.ToLower())
+                    {
+                        case "top-headlines":
+                            _logger.LogInformation("Fetching top headlines for category: {Category}, country: {Country}", 
+                                request.Category, request.Country);
+                            
+                            if (!string.IsNullOrEmpty(request.Sources))
+                            {
+                                // For now, use everything endpoint with source in query
+                                // You can enhance this later with a dedicated sources method
+                                string sourceQuery = $"source:{request.Sources.Split(',')[0]}";
+                                articles = await _newsApiService.FetchEverythingAsync(sourceQuery, request.PageSize);
+                            }
+                            else
+                            {
+                                articles = await _newsApiService.FetchTopHeadlinesAsync(
+                                    request.Category ?? "general", request.Country ?? "us", request.PageSize);
+                            }
+                            break;
+
+                        case "everything":
+                            _logger.LogInformation("Fetching everything for category: {Category}", request.Category);
+                            string query = !string.IsNullOrEmpty(request.Category) && request.Category != "general" 
+                                ? request.Category 
+                                : "news";
+                            articles = await _newsApiService.FetchEverythingAsync(query, request.PageSize);
+                            break;
+
+                        case "breaking":
+                            _logger.LogInformation("Fetching breaking news");
+                            articles = await _newsApiService.FetchEverythingAsync("breaking news", request.PageSize);
+                            break;
+
+                        default:
+                            _logger.LogInformation("Using default: top headlines");
+                            articles = await _newsApiService.FetchTopHeadlinesAsync(
+                                request.Category ?? "general", request.Country ?? "us", request.PageSize);
+                            break;
+                    }
+                }
+                catch (Exception apiEx)
+                {
+                    _logger.LogWarning(apiEx, "Failed to fetch from News API, returning mock data for testing");
+                    
+                    // Return mock data for testing when API is not configured
+                    articles = CreateMockNewsArticles(request.Category ?? "general");
+                }
+
+                _logger.LogInformation("Successfully fetched {Count} articles for public browsing", articles.Count);
+
+                return Ok(new { 
+                    success = true, 
+                    articles = articles, 
+                    message = $"Successfully found {articles.Count} articles" 
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error browsing external news");
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "Failed to fetch news: " + ex.Message
+                });
+            }
+        }
     }
 
     // REQUEST/RESPONSE MODELS FOR ADMIN ENDPOINTS
@@ -1054,6 +1218,19 @@ namespace NewsSite.Controllers
         public string Type { get; set; } = "latest"; // latest, top-headlines, breaking
         public string Category { get; set; } = "general";
         public string Country { get; set; } = "us";
+        public int PageSize { get; set; } = 20;
+    }
+
+    /// <summary>
+    /// Request model for public news browsing
+    /// Used by public News page with additional source filtering
+    /// </summary>
+    public class PublicFetchNewsRequest
+    {
+        public string Type { get; set; } = "top-headlines"; // top-headlines, everything, breaking
+        public string? Category { get; set; } = "general";
+        public string? Country { get; set; } = "us";
+        public string? Sources { get; set; } = null; // e.g., "bbc-news,cnn,reuters"
         public int PageSize { get; set; } = 20;
     }
 
