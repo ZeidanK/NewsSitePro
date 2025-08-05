@@ -6,6 +6,8 @@
     ViewData["Title"] = "Register";
 }
 
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+
 <h2>Register</h2>
 <form id="registerForm" method="post" class="mt-4 w-50 mx-auto border p-4 rounded shadow-sm bg-light">
     <div class="mb-3">
@@ -24,6 +26,18 @@
         <span asp-validation-for="Password" class="text-danger"></span>
     </div>
     <button type="submit" class="btn btn-primary w-100">Register</button>
+    
+    <div class="text-center my-3">
+        <span class="text-muted">or</span>
+    </div>
+    
+    <button type="button" id="googleRegisterBtn" class="btn btn-outline-danger w-100">
+        <i class="fab fa-google me-2"></i>Continue with Google
+    </button>
+    
+    <div class="text-center mt-3">
+        <p class="text-muted">Already have an account? <a href="/Login" class="text-decoration-none">Sign in here</a></p>
+    </div>
 </form>
 
 @section Scripts {
@@ -59,6 +73,31 @@
                 }
             } catch (err) {
                 messageDiv.textContent = 'An error occurred. Please try again later.';
+                messageDiv.className = 'alert alert-danger mt-3';
+            }
+        });
+
+        // Google OAuth Registration
+        document.getElementById('googleRegisterBtn').addEventListener('click', async function () {
+            try {
+                const messageDiv = document.getElementById('registerMessage');
+                messageDiv.textContent = 'Redirecting to Google...';
+                messageDiv.className = 'alert alert-info mt-3';
+
+                // Get Google OAuth URL
+                const response = await fetch('/api/GoogleOAuth/auth-url');
+                const data = await response.json();
+
+                if (response.ok && data.authUrl) {
+                    // Redirect to Google OAuth
+                    window.location.href = data.authUrl;
+                } else {
+                    messageDiv.textContent = 'Failed to initiate Google authentication';
+                    messageDiv.className = 'alert alert-danger mt-3';
+                }
+            } catch (error) {
+                const messageDiv = document.getElementById('registerMessage');
+                messageDiv.textContent = 'Google authentication error. Please try again.';
                 messageDiv.className = 'alert alert-danger mt-3';
             }
         });

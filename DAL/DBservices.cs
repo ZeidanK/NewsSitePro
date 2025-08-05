@@ -6416,4 +6416,510 @@ SqlDataReader? reader = null;
 
     #endregion
 
+    #region Google OAuth and Session Management Methods
+
+    // Google OAuth user creation/retrieval
+    public async Task<(User User, bool IsNewUser)> CreateOrGetGoogleUserAsync(string googleId, string googleEmail, string? username = null)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@GoogleId", googleId },
+                { "@GoogleEmail", googleEmail },
+                { "@Username", username ?? (object)DBNull.Value }
+            };
+
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Google_CreateOrGetUser", con, paramDic);
+            reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                var user = new User
+                {
+                    Id = reader.GetInt32("UserID"),
+                    Name = reader.GetString("Username"),
+                    Email = reader.GetString("Email"),
+                    GoogleId = reader.IsDBNull("GoogleId") ? null : reader.GetString("GoogleId"),
+                    GoogleEmail = reader.IsDBNull("GoogleEmail") ? null : reader.GetString("GoogleEmail"),
+                    IsGoogleUser = reader.GetBoolean("IsGoogleUser"),
+                    IsActive = reader.GetBoolean("IsActive"),
+                    IsAdmin = reader.GetBoolean("IsAdmin"),
+                    IsLocked = reader.GetBoolean("IsLocked"),
+                    IsBanned = reader.GetBoolean("IsBanned"),
+                    BannedUntil = reader.IsDBNull("BannedUntil") ? null : reader.GetDateTime("BannedUntil"),
+                    ProfilePicture = reader.IsDBNull("ProfilePicture") ? null : reader.GetString("ProfilePicture"),
+                    Bio = reader.IsDBNull("Bio") ? null : reader.GetString("Bio"),
+                    JoinDate = reader.GetDateTime("JoinDate"),
+                    LastLoginTime = reader.IsDBNull("LastLoginTime") ? null : reader.GetDateTime("LastLoginTime")
+                };
+
+                var isNewUser = reader.GetBoolean("IsNewUser");
+                return (user, isNewUser);
+            }
+
+            throw new Exception("Failed to create or retrieve Google user");
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    // Session management methods
+    public async Task<UserSession> CreateUserSessionAsync(int userId, string sessionToken, string? deviceInfo, string? ipAddress, string? userAgent, int expiryHours = 24)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@UserID", userId },
+                { "@SessionToken", sessionToken },
+                { "@DeviceInfo", deviceInfo ?? (object)DBNull.Value },
+                { "@IpAddress", ipAddress ?? (object)DBNull.Value },
+                { "@UserAgent", userAgent ?? (object)DBNull.Value },
+                { "@ExpiryHours", expiryHours }
+            };
+
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UserSessions_Create", con, paramDic);
+            reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                return new UserSession
+                {
+                    SessionID = reader.GetInt32("SessionID"),
+                    UserID = userId,
+                    SessionToken = sessionToken,
+                    DeviceInfo = deviceInfo,
+                    IpAddress = ipAddress,
+                    UserAgent = userAgent,
+                    LoginTime = DateTime.Now,
+                    LastActivityTime = DateTime.Now,
+                    ExpiryTime = reader.GetDateTime("ExpiryTime"),
+                    IsActive = true
+                };
+            }
+
+            throw new Exception("Failed to create user session");
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    public async Task<SessionValidationResponse> ValidateUserSessionAsync(string sessionToken)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@SessionToken", sessionToken }
+            };
+
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UserSessions_Validate", con, paramDic);
+            reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                var isValidSession = reader.GetBoolean("IsValidSession");
+
+                if (isValidSession)
+                {
+                    var user = new User
+                    {
+                        Id = reader.GetInt32("UserID"),
+                        Name = reader.GetString("Username"),
+                        Email = reader.GetString("Email"),
+                        IsActive = reader.GetBoolean("IsActive"),
+                        IsAdmin = reader.GetBoolean("IsAdmin"),
+                        IsLocked = reader.GetBoolean("IsLocked"),
+                        IsBanned = reader.GetBoolean("IsBanned"),
+                        BannedUntil = reader.IsDBNull("BannedUntil") ? null : reader.GetDateTime("BannedUntil"),
+                        ProfilePicture = reader.IsDBNull("ProfilePicture") ? null : reader.GetString("ProfilePicture"),
+                        Bio = reader.IsDBNull("Bio") ? null : reader.GetString("Bio"),
+                        IsGoogleUser = reader.GetBoolean("IsGoogleUser")
+                    };
+
+                    var session = new UserSession
+                    {
+                        SessionID = reader.GetInt32("SessionID"),
+                        UserID = user.Id,
+                        SessionToken = sessionToken,
+                        LoginTime = reader.GetDateTime("LoginTime"),
+                        LastActivityTime = reader.GetDateTime("LastActivityTime"),
+                        ExpiryTime = reader.GetDateTime("ExpiryTime"),
+                        IsActive = true
+                    };
+
+                    return new SessionValidationResponse
+                    {
+                        IsValid = true,
+                        User = user,
+                        Session = session
+                    };
+                }
+            }
+
+            return new SessionValidationResponse
+            {
+                IsValid = false,
+                Message = "Invalid or expired session"
+            };
+        }
+        catch (Exception ex)
+        {
+            return new SessionValidationResponse
+            {
+                IsValid = false,
+                Message = $"Session validation error: {ex.Message}"
+            };
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    public async Task<bool> LogoutUserSessionAsync(string sessionToken, string reason = "Manual")
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@SessionToken", sessionToken },
+                { "@LogoutReason", reason }
+            };
+
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UserSessions_Logout", con, paramDic);
+            reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                var sessionsLoggedOut = reader.GetInt32("SessionsLoggedOut");
+                return sessionsLoggedOut > 0;
+            }
+
+            return false;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    public async Task<int> CleanupExpiredSessionsAsync(int daysToKeep = 30)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@DaysToKeep", daysToKeep }
+            };
+
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UserSessions_Cleanup", con, paramDic);
+            reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                return reader.GetInt32("SessionsDeleted");
+            }
+
+            return 0;
+        }
+        catch (Exception)
+        {
+            return 0;
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    // OAuth token management
+    public async Task<OAuthToken> StoreOAuthTokenAsync(int userId, string provider, string accessToken, string? refreshToken, string tokenType, int expiresInSeconds, string? scope)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@UserID", userId },
+                { "@Provider", provider },
+                { "@AccessToken", accessToken },
+                { "@RefreshToken", refreshToken ?? (object)DBNull.Value },
+                { "@TokenType", tokenType },
+                { "@ExpiresInSeconds", expiresInSeconds },
+                { "@Scope", scope ?? (object)DBNull.Value }
+            };
+
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_OAuthTokens_Store", con, paramDic);
+            reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                return new OAuthToken
+                {
+                    TokenID = reader.GetInt32("TokenID"),
+                    UserID = userId,
+                    Provider = provider,
+                    AccessToken = accessToken,
+                    RefreshToken = refreshToken,
+                    TokenType = tokenType,
+                    ExpiresAt = reader.GetDateTime("ExpiresAt"),
+                    Scope = scope,
+                    CreatedAt = DateTime.Now,
+                    UpdatedAt = DateTime.Now,
+                    IsActive = true
+                };
+            }
+
+            throw new Exception("Failed to store OAuth token");
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    public async Task<OAuthToken?> GetOAuthTokenAsync(int userId, string provider)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@UserID", userId },
+                { "@Provider", provider }
+            };
+
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_OAuthTokens_Get", con, paramDic);
+            reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                return new OAuthToken
+                {
+                    TokenID = reader.GetInt32("TokenID"),
+                    UserID = reader.GetInt32("UserID"),
+                    Provider = reader.GetString("Provider"),
+                    AccessToken = reader.GetString("AccessToken"),
+                    RefreshToken = reader.IsDBNull("RefreshToken") ? null : reader.GetString("RefreshToken"),
+                    TokenType = reader.GetString("TokenType"),
+                    ExpiresAt = reader.GetDateTime("ExpiresAt"),
+                    Scope = reader.IsDBNull("Scope") ? null : reader.GetString("Scope"),
+                    CreatedAt = reader.GetDateTime("CreatedAt"),
+                    UpdatedAt = reader.GetDateTime("UpdatedAt"),
+                    IsActive = true
+                };
+            }
+
+            return null;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    public async Task<LoginHistoryResponse> GetUserLoginHistoryAsync(int userId, int pageNumber = 1, int pageSize = 20)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@UserID", userId },
+                { "@PageNumber", pageNumber },
+                { "@PageSize", pageSize }
+            };
+
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UserSessions_GetHistory", con, paramDic);
+            reader = await cmd.ExecuteReaderAsync();
+
+            var sessions = new List<UserSession>();
+
+            while (await reader.ReadAsync())
+            {
+                sessions.Add(new UserSession
+                {
+                    SessionID = reader.GetInt32("SessionID"),
+                    UserID = reader.GetInt32("UserID"),
+                    DeviceInfo = reader.IsDBNull("DeviceInfo") ? null : reader.GetString("DeviceInfo"),
+                    IpAddress = reader.IsDBNull("IpAddress") ? null : reader.GetString("IpAddress"),
+                    UserAgent = reader.IsDBNull("UserAgent") ? null : reader.GetString("UserAgent"),
+                    LoginTime = reader.GetDateTime("LoginTime"),
+                    LastActivityTime = reader.GetDateTime("LastActivityTime"),
+                    ExpiryTime = reader.GetDateTime("ExpiryTime"),
+                    LogoutTime = reader.IsDBNull("LogoutTime") ? null : reader.GetDateTime("LogoutTime"),
+                    LogoutReason = reader.IsDBNull("LogoutReason") ? null : reader.GetString("LogoutReason"),
+                    IsActive = reader.GetBoolean("IsActive"),
+                    SessionDurationMinutes = reader.GetInt32("SessionDurationMinutes")
+                });
+            }
+
+            // Move to next result set for total count
+            if (await reader.NextResultAsync() && await reader.ReadAsync())
+            {
+                var totalSessions = reader.GetInt32("TotalSessions");
+
+                return new LoginHistoryResponse
+                {
+                    Sessions = sessions,
+                    TotalSessions = totalSessions,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
+            }
+
+            return new LoginHistoryResponse
+            {
+                Sessions = sessions,
+                TotalSessions = sessions.Count,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+        }
+        catch (Exception)
+        {
+            return new LoginHistoryResponse
+            {
+                Sessions = new List<UserSession>(),
+                TotalSessions = 0,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    public async Task<SessionStats> GetSessionStatsAsync()
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+
+            // Get session statistics
+            var query = @"
+                SELECT 
+                    COUNT(*) AS TotalActiveSessions,
+                    SUM(CASE WHEN u.IsGoogleUser = 1 THEN 1 ELSE 0 END) AS GoogleOAuthUsers,
+                    SUM(CASE WHEN u.IsGoogleUser = 0 THEN 1 ELSE 0 END) AS RegularUsers,
+                    AVG(CAST(DATEDIFF(MINUTE, s.LoginTime, ISNULL(s.LogoutTime, s.LastActivityTime)) AS FLOAT) / 60.0) AS AverageSessionDurationHours
+                FROM NewsSitePro2025_UserSessions s
+                INNER JOIN NewsSitePro2025_Users u ON s.UserID = u.UserID
+                WHERE s.IsActive = 1 AND s.ExpiryTime > GETDATE();
+
+                -- Get expired sessions count
+                SELECT COUNT(*) AS ExpiredSessions
+                FROM NewsSitePro2025_UserSessions
+                WHERE IsActive = 0 OR ExpiryTime <= GETDATE();";
+
+            cmd = new SqlCommand(query, con);
+            reader = await cmd.ExecuteReaderAsync();
+
+            var stats = new SessionStats();
+
+            if (await reader.ReadAsync())
+            {
+                stats.TotalActiveSessions = reader.GetInt32("TotalActiveSessions");
+                stats.GoogleOAuthUsers = reader.GetInt32("GoogleOAuthUsers");
+                stats.RegularUsers = reader.GetInt32("RegularUsers");
+                stats.AverageSessionDurationHours = reader.IsDBNull("AverageSessionDurationHours") ? 0 : reader.GetDouble("AverageSessionDurationHours");
+            }
+
+            if (await reader.NextResultAsync() && await reader.ReadAsync())
+            {
+                stats.ExpiredSessions = reader.GetInt32("ExpiredSessions");
+            }
+
+            return stats;
+        }
+        catch (Exception)
+        {
+            return new SessionStats();
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    #endregion
+
 }

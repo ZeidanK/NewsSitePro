@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace NewsSite.BL
 {
-    public class User
+    public partial class User
     {
 
         private int id;
@@ -96,7 +96,7 @@ namespace NewsSite.BL
             return dBservices.UpdateUser(user);
         }
 
-        public string LogIn(string password, string email)
+        public string? LogIn(string password, string email)
         {
             DBservices dBservices = new DBservices();
             // Retrieve user by email
@@ -182,9 +182,9 @@ namespace NewsSite.BL
 
             var claims = new[]
     {
-        new Claim(JwtRegisteredClaimNames.Sub, this.Email), // Standard subject claim
+        new Claim(JwtRegisteredClaimNames.Sub, this.Email ?? ""), // Standard subject claim
         new Claim("id", this.Id.ToString()), // Standard name identifier
-        new Claim("name", this.Name),
+        new Claim("name", this.Name ?? ""),
 
         new Claim("isAdmin", this.IsAdmin.ToString()),
         new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
@@ -195,6 +195,40 @@ namespace NewsSite.BL
                 audience: audience,
                 claims: claims,
                 expires: DateTime.Now.AddHours(1),
+                signingCredentials: credentials
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        // Public method for external access to JWT generation
+        public string GenerateJwtTokenExternal()
+        {
+            if (_config == null)
+                throw new InvalidOperationException("Configuration is required for JWT generation");
+
+            var key = ((IConfiguration)_config)["Jwt:Key"];
+            var issuer = ((IConfiguration)_config)["Jwt:Issuer"];
+            var audience = ((IConfiguration)_config)["Jwt:Audience"];
+
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
+            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, this.Email ?? ""), 
+                new Claim("id", this.Id.ToString()), 
+                new Claim("name", this.Name ?? ""),
+                new Claim("isAdmin", this.IsAdmin.ToString()),
+                new Claim("isGoogleUser", this.IsGoogleUser.ToString()),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: issuer,
+                audience: audience,
+                claims: claims,
+                expires: DateTime.Now.AddHours(24), // Extended to 24 hours for better UX
                 signingCredentials: credentials
             );
 
