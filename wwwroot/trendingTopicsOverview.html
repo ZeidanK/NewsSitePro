@@ -1,0 +1,168 @@
+<!-- <!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Test with JWT</title>
+</head>
+<body>
+    <h1>Admin Test</h1>
+    <button onclick="setJWTAndRedirect()">Set JWT Token and Go to Admin</button>
+    <div id="result"></div>
+
+    <script>
+        function setJWTAndRedirect() {
+            // Set the JWT token from the login response
+            const jwtToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJBZG1pbkBBZG1pbi5jb20iLCJpZCI6IjIzIiwibmFtZSI6IkFkbWluIiwiaXNBZG1pbiI6IlRydWUiLCJqdGkiOiI1YjZkYjA2Yy1lYTdkLTQ1MDUtOWE4Ni1lZmRhZWQwNTkzMTIiLCJleHAiOjE3NTM1MjcyNjksImlzcyI6Ik15QXBwIiwiYXVkIjoiTXlBcHBVc2VycyJ9.-oL1ABHNY0Kr4UDZF5SXlnma_Am5X7joSGAbeDrwaeY";
+            
+            document.cookie = `jwtToken=${jwtToken}; path=/; secure; samesite=strict`;
+            document.getElementById('result').innerHTML = 'JWT token set! Redirecting to admin page...';
+            
+            setTimeout(() => {
+                window.location.href = '/Admin';
+            }, 1000);
+        }
+    </script>
+</body>
+</html> -->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trending Topics Explanation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        header {
+            background: #0078d7;
+            color: #fff;
+            padding: 1rem 0;
+            text-align: center;
+        }
+        header h1 {
+            margin: 0;
+            font-size: 2rem;
+        }
+        main {
+            padding: 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        section {
+            margin-bottom: 2rem;
+        }
+        section h2 {
+            color: #0078d7;
+            border-bottom: 2px solid #0078d7;
+            padding-bottom: 0.5rem;
+        }
+        code {
+            background: #f4f4f9;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: Consolas, monospace;
+            color: #d6336c;
+        }
+        pre {
+            background: #f4f4f9;
+            padding: 1rem;
+            border-left: 4px solid #0078d7;
+            overflow-x: auto;
+        }
+        .highlight {
+            background: #e7f3ff;
+            padding: 0.5rem;
+            border-left: 4px solid #0078d7;
+            margin: 1rem 0;
+        }
+        footer {
+            text-align: center;
+            padding: 1rem 0;
+            background: #0078d7;
+            color: #fff;
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Trending Topics Explanation</h1>
+    </header>
+    <main>
+        <section>
+            <h2>Overview</h2>
+            <p>This document explains how trending topics are calculated and managed in the <code>TrendingController</code> and the associated stored procedure. The system uses engagement metrics such as likes, comments, and views to determine the most popular topics, with a time decay factor to prioritize recent interactions.</p>
+        </section>
+
+        <section>
+            <h2>Trending Topics Calculation</h2>
+            <p>The stored procedure <code>NewsSitePro2025_sp_TrendingTopics_Calculate</code> performs the following steps:</p>
+            <ol>
+                <li><strong>Clear Old Data:</strong> Removes outdated trending topics older than the specified time window.</li>
+                <li><strong>Calculate Engagement Metrics:</strong> Aggregates likes, comments, and views for each article within the time window. Each metric is weighted:
+                    <ul>
+                        <li>Likes: Weight = <code>3.0</code></li>
+                        <li>Comments: Weight = <code>5.0</code></li>
+                        <li>Views: Weight = <code>1.0</code></li>
+                    </ul>
+                </li>
+                <li><strong>Apply Time Decay:</strong> Uses an exponential decay formula (<code>0.9^hours</code>) to reduce the influence of older interactions.</li>
+                <li><strong>Calculate Trend Score:</strong> Combines the weighted engagement score with the time decay factor to compute the final trend score.</li>
+                <li><strong>Update Trending Topics:</strong> Updates or inserts the top topics into the <code>NewsSitePro2025_TrendingTopics</code> table.</li>
+            </ol>
+            <div class="highlight">
+                <strong>Formula:</strong> <code>TrendScore = (Likes * 3.0 + Comments * 5.0 + Views * 1.0) * TimeDecayFactor</code>
+            </div>
+        </section>
+
+        <section>
+            <h2>TrendingController Functionality</h2>
+            <p>The <code>TrendingController</code> provides the following endpoints:</p>
+            <ul>
+                <li><strong>Get Trending Topics:</strong> Returns a list of trending topics, optionally filtered by category.</li>
+                <li><strong>Get Trending Topics by Category:</strong> Groups trending topics by category and returns a specified number of topics per category.</li>
+                <li><strong>Get Related Articles:</strong> Retrieves articles related to a specific trending topic.</li>
+                <li><strong>Refresh Trending Topics:</strong> Manually triggers the calculation of trending topics (admin-only).</li>
+                <li><strong>Get Sidebar Trending Topics:</strong> Returns a simplified list of the top 5 trending topics for sidebar display.</li>
+                <li><strong>Cleanup Old Topics:</strong> Deletes outdated trending topics older than a specified age (admin-only).</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Key Features</h2>
+            <ul>
+                <li><strong>Engagement-Based Scoring:</strong> Uses likes, comments, and views to calculate topic popularity.</li>
+                <li><strong>Time Decay:</strong> Prioritizes recent interactions to keep topics fresh.</li>
+                <li><strong>Weighted Metrics:</strong> Assigns higher weights to comments and likes to reflect deeper engagement.</li>
+                <li><strong>Dynamic Updates:</strong> Ensures the trending topics table is always up-to-date.</li>
+                <li><strong>Admin Controls:</strong> Allows admins to refresh calculations and clean up old data.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Example Endpoint Usage</h2>
+            <p>Here are some example API calls:</p>
+            <pre>
+GET /api/trending?count=10&category=Technology
+GET /api/trending/by-category?topicsPerCategory=5
+GET /api/trending/related-articles?topic=AI&category=Technology&count=10
+POST /api/trending/refresh?timeWindowHours=24&maxTopics=20
+DELETE /api/trending/cleanup?maxAgeHours=48
+            </pre>
+        </section>
+
+        <footer>
+            <p>Created by the NewsSitePro Team | August 2025</p>
+        </footer>
+    </main>
+</body>
+</html>
