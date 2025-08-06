@@ -463,25 +463,27 @@ class AuthService {
 
     async markNotificationRead(notificationId) {
         try {
-            const apiUrl = window.ApiConfig.getApiUrl('Notifications?handler=MarkAsRead');
+            const apiUrl = window.ApiConfig.getApiUrl(`api/Notification/mark-read/${notificationId}`);
             const response = await fetch(apiUrl, {
-                method: 'POST',
+                method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'RequestVerificationToken': this.getAntiForgeryToken()
-                },
-                body: JSON.stringify(notificationId)
+                    'Authorization': `Bearer ${this.getToken()}`
+                }
             });
 
             if (response.ok) {
-                const notificationItem = document.querySelector(`[data-id="${notificationId}"]`);
-                if (notificationItem) {
-                    notificationItem.classList.remove('unread');
-                    notificationItem.classList.add('read');
-                    const markBtn = notificationItem.querySelector('.mark-read-btn-small');
-                    if (markBtn) markBtn.remove();
+                const result = await response.json();
+                if (result.success) {
+                    const notificationItem = document.querySelector(`[data-id="${notificationId}"]`);
+                    if (notificationItem) {
+                        notificationItem.classList.remove('unread');
+                        notificationItem.classList.add('read');
+                        const markBtn = notificationItem.querySelector('.mark-read-btn-small');
+                        if (markBtn) markBtn.remove();
+                    }
+                    this.updateNotificationCount();
                 }
-                this.updateNotificationCount();
             }
         } catch (error) {
             console.error('Error marking notification as read:', error);
@@ -490,19 +492,22 @@ class AuthService {
 
     async markAllNotificationsRead() {
         try {
-            const apiUrl = window.ApiConfig.getApiUrl('Notifications?handler=MarkAllAsRead');
+            const apiUrl = window.ApiConfig.getApiUrl('api/Notification/mark-all-read');
             const response = await fetch(apiUrl, {
-                method: 'POST',
+                method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'RequestVerificationToken': this.getAntiForgeryToken()
+                    'Authorization': `Bearer ${this.getToken()}`
                 }
             });
 
             if (response.ok) {
-                this.notificationCount = 0;
-                this.updateNotificationBadge();
-                await this.loadRecentNotifications();
+                const result = await response.json();
+                if (result.success) {
+                    this.notificationCount = 0;
+                    this.updateNotificationBadge();
+                    await this.loadRecentNotifications();
+                }
             }
         } catch (error) {
             console.error('Error marking all notifications as read:', error);

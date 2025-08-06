@@ -302,7 +302,7 @@ public class DBservices
             };
             cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Users_Insert", con, paramDic);
             int affectedRows = cmd.ExecuteNonQuery();
-            return affectedRows > 0;
+            return affectedRows < 0;
         }
         catch (Exception)
         {
@@ -2582,38 +2582,44 @@ public class DBservices
         
         try
         {
-            using (con = connect("myProjDB"))
+            con = connect("myProjDB");
+            // connect() method already opens the connection, no need to call OpenAsync() again
+            
+            var paramDic = new Dictionary<string, object>
             {
-                await con.OpenAsync();
+                { "@NotificationID", notificationId }
+            };
+            
+            // First verify the notification belongs to the user for security
+            var verifyQuery = "SELECT COUNT(*) FROM NewsSitePro2025_Notifications WHERE NotificationID = @NotificationID AND UserID = @UserID";
+            using (var verifyCmd = new SqlCommand(verifyQuery, con))
+            {
+                verifyCmd.Parameters.AddWithValue("@NotificationID", notificationId);
+                verifyCmd.Parameters.AddWithValue("@UserID", userId);
                 
-                var paramDic = new Dictionary<string, object>
+                var count = (int?)await verifyCmd.ExecuteScalarAsync();
+                if (count == null || count == 0)
                 {
-                    { "@NotificationID", notificationId }
-                };
-                
-                // First verify the notification belongs to the user for security
-                var verifyQuery = "SELECT COUNT(*) FROM NewsSitePro2025_Notifications WHERE NotificationID = @NotificationID AND UserID = @UserID";
-                using (var verifyCmd = new SqlCommand(verifyQuery, con))
-                {
-                    verifyCmd.Parameters.AddWithValue("@NotificationID", notificationId);
-                    verifyCmd.Parameters.AddWithValue("@UserID", userId);
-                    
-                    var count = (int?)await verifyCmd.ExecuteScalarAsync();
-                    if (count == null || count == 0)
-                    {
-                        return false; // Notification doesn't belong to user
-                    }
+                    return false; // Notification doesn't belong to user
                 }
-                
-                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Notifications_MarkAsRead", con, paramDic);
-                
-                var rowsAffected = await cmd.ExecuteNonQueryAsync();
-                return rowsAffected > 0;
             }
+            
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Notifications_MarkAsRead", con, paramDic);
+            
+            var rowsAffected = await cmd.ExecuteNonQueryAsync();
+            return rowsAffected > 0;
         }
         catch (Exception ex)
         {
             throw new Exception("Error marking notification as read: " + ex.Message);
+        }
+        finally
+        {
+            if (reader != null && !reader.IsClosed)
+            {
+                reader.Close();
+            }
+            con?.Close();
         }
     }
 
@@ -2621,33 +2627,33 @@ public class DBservices
     {
         SqlConnection? con = null;
         SqlCommand? cmd = null;
-        SqlDataReader? reader = null;
         
         try
         {
-            using (con = connect("myProjDB"))
+            con = connect("myProjDB");
+            // connect() method already opens the connection, no need to call OpenAsync() again
+            
+            var paramDic = new Dictionary<string, object>
             {
-                await con.OpenAsync();
-                
-                var paramDic = new Dictionary<string, object>
-                {
-                    { "@UserID", userId }
-                };
-                
-                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Notifications_MarkAllAsRead", con, paramDic);
-                var rowsAffected = await cmd.ExecuteNonQueryAsync();
-                return rowsAffected > 0;
-            }
+                { "@UserID", userId }
+            };
+            
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Notifications_MarkAllAsRead", con, paramDic);
+            var rowsAffected = await cmd.ExecuteNonQueryAsync();
+            return rowsAffected > 0;
         }
         catch (Exception)
         {
             // Fallback to direct SQL if stored procedure doesn't exist
             try
             {
+                // Close the previous connection properly
+                con?.Close();
+                
                 IConfigurationRoot configuration = new ConfigurationBuilder()
                     .AddJsonFile("appsettings.json").Build();
                 string cStr = configuration.GetConnectionString("myProjDB");
-                
+
                 using (var fallbackCon = new SqlConnection(cStr))
                 {
                     await fallbackCon.OpenAsync();
@@ -2668,9 +2674,11 @@ public class DBservices
                 throw new Exception("Error marking all notifications as read: " + ex.Message);
             }
         }
-    }
-
-    public async Task<bool> MarkNotificationsAsRead(int userId)
+        finally
+        {
+            con?.Close();
+        }
+    }    public async Task<bool> MarkNotificationsAsRead(int userId)
     {
         SqlConnection? con = null;
         SqlCommand? cmd = null;
@@ -2681,19 +2689,20 @@ public class DBservices
                 .AddJsonFile("appsettings.json").Build();
             string cStr = configuration.GetConnectionString("myProjDB");
 
-              con = new SqlConnection(cStr);
-              await con.OpenAsync();
+            using (con = new SqlConnection(cStr))
+            {
+                await con.OpenAsync();
 
                 var query = "UPDATE NewsSitePro2025_Notifications SET IsRead = 1 WHERE UserID = @UserID AND IsRead = 0";
 
-                 cmd = new SqlCommand(query, con);
+                using (cmd = new SqlCommand(query, con))
                 {
                     cmd.Parameters.AddWithValue("@UserID", userId);
 
                     var rowsAffected = await cmd.ExecuteNonQueryAsync();
                     return rowsAffected > 0;
                 }
-            
+            }
         }
         catch (Exception ex)
         {

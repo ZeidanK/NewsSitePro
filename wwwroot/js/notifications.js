@@ -40,14 +40,13 @@ class NotificationManager {
 
     async markAsRead(notificationId) {
         try {
-            const response = await fetch(window.ApiConfig.getApiUrl('/Notifications?handler=MarkAsRead'), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': this.getAntiForgeryToken()
-                },
-                body: JSON.stringify(parseInt(notificationId))
-            });
+            const response = await fetch(window.ApiConfig.getApiUrl(`/api/Notification/mark-read/${notificationId}`), {
+    method: 'PUT',
+    headers: {
+        'Content-Type': 'application/json',
+        'RequestVerificationToken': this.getAntiForgeryToken()
+    }
+});
 
             if (response.ok) {
                 const result = await response.json();
@@ -78,8 +77,8 @@ class NotificationManager {
 
     async markAllAsRead() {
         try {
-            const response = await fetch(window.ApiConfig.getApiUrl('/Notifications?handler=MarkAllAsRead'), {
-                method: 'POST',
+            const response = await fetch(window.ApiConfig.getApiUrl('/api/Notification/mark-all-read'), {
+                method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     'RequestVerificationToken': this.getAntiForgeryToken()
