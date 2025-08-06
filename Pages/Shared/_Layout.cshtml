@@ -2,6 +2,16 @@
 @{
     var headerData = (HeaderViewModel)ViewData["HeaderData"];
 }
+<!-- ------------------------------------------------------------------------------
+     _Layout.cshtml
+
+     This is the main layout file for NewsSitePro. It defines the overall page structure,
+     including the header, sidebars, main content area, and script/style includes. The layout
+     uses a Twitter-like design and integrates partial views for header and side panels. It also
+     includes JavaScript for UI interactions such as mobile menu toggling, authentication, post
+     actions, category filtering, follow buttons, and trending topics navigation. Key sections
+     and functions are commented for clarity.
+------------------------------------------------------------------------------ -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -65,15 +75,20 @@
         if (mobileMenuToggle && leftSidebar) {
             mobileMenuToggle.addEventListener('click', function() {
                 leftSidebar.classList.toggle('open');
+        // --------------------------------------------------------------------------
+        // UI Interactions and Event Handlers
+        // --------------------------------------------------------------------------
             });
             
             // Close menu when clicking outside
             document.addEventListener('click', function(e) {
                 if (!leftSidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+            // Toggle left sidebar open/close on mobile menu button click
                     leftSidebar.classList.remove('open');
                 }
             });
         }
+            // Close menu when clicking outside the sidebar or toggle button
 
         // Logout functionality
         var logoutBtn = document.getElementById('logoutBtn');
@@ -84,6 +99,7 @@
                 e.preventDefault();
                 localStorage.removeItem('jwtToken');
                 document.cookie = 'jwtToken=; Max-Age=0; path=/;';
+            // Remove JWT token and redirect to login on logout
                 window.location.href = window.ApiConfig.getApiUrl('/Login');
             });
         } else {
@@ -99,6 +115,7 @@
                 if (jwt) {
                     try {
                         const response = await fetch(window.ApiConfig.getApiUrl('/api/Auth/validate'), {
+            // Validate JWT and redirect to post page if authenticated
                             method: 'POST',
                             headers: {
                                 'Authorization': `Bearer ${jwt}`
@@ -131,6 +148,7 @@
                 if (typeof window.filterPostsByCategory === 'function') {
                     window.filterPostsByCategory(category);
                 }
+            // Filter posts by selected category
             });
         });
 
@@ -142,6 +160,7 @@
                     this.style.background = '#657786';
                 } else {
                     this.textContent = 'Follow';
+            // Toggle follow/unfollow button state
                     this.style.background = '#1da1f2';
                 }
             });
@@ -155,6 +174,7 @@
                 
                 if (category && topic) {
                     // Navigate to search page with the trending topic
+            // Navigate to search page with trending topic or category
                     window.location.href = window.ApiConfig.getApiUrl(`/Search?q=${encodeURIComponent('#' + topic)}&category=${encodeURIComponent(category)}&type=posts`);
                 } else if (category) {
                     // Navigate to search page with just the category
@@ -168,3 +188,4 @@
     </script>
 </body>
 </html>
+            // Add pointer cursor on trending items

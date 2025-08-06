@@ -1,9 +1,18 @@
 using System;
 using System.Collections.Generic;
 
+// ----------------------------------------------------------------------------------
+// Post.cs
+//
+// This file contains models for posts, post comments, and likes in the NewsSitePro application.
+// These models are used to represent shared articles, user interactions, and metadata for posts
+// in the business logic and presentation layers. Comments are added to key classes for clarity.
+// ----------------------------------------------------------------------------------
+
 namespace NewsSite.BL
 {
     public class Post
+    // Model for a post (shared article) in the system
     {
         public int PostID { get; set; }
         
@@ -41,6 +50,7 @@ namespace NewsSite.BL
 
     // Supporting classes
     public class PostComment
+    // Model for a comment on a post
     {
         public int CommentID { get; set; }
         public int PostID { get; set; }
@@ -53,6 +63,7 @@ namespace NewsSite.BL
     }
 
     public class Like
+    // Model for a like on a post
     {
         public int LikeID { get; set; }
         public int PostID { get; set; }

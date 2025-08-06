@@ -3,6 +3,13 @@
 @{
     ViewData["Title"] = "Google OAuth Callback";
 }
+<!-- ------------------------------------------------------------------------------
+     GoogleOAuthCallback.cshtml
+
+     This page handles the callback from Google OAuth login. It processes the
+     authorization code, exchanges it for tokens, and logs the user in or shows
+     an error. Key functions in the script are commented for clarity.
+------------------------------------------------------------------------------ -->
 
 <!DOCTYPE html>
 <html>
@@ -62,6 +69,7 @@
             }
         };
 
+        // Main logic: process Google OAuth callback and handle login
         document.addEventListener('DOMContentLoaded', async function() {
             try {
                 // Get authorization code from URL
@@ -122,6 +130,7 @@
             }
         });
 
+        // Show error message and redirect to login
         function showError(message) {
             document.querySelector('.spinner').style.display = 'none';
             document.querySelector('.loading p').textContent = 'Authentication Failed';
@@ -135,6 +144,7 @@
             }, 3000);
         }
 
+        // Get device type for logging
         function getDeviceInfo() {
             const userAgent = navigator.userAgent;
             if (userAgent.includes('Mobile')) return 'Mobile';

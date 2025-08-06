@@ -5,6 +5,11 @@ using NewsSitePro.Models;
 public class IndexModel : PageModel
 {
     public HeaderViewModel HeaderData { get; set; } = new HeaderViewModel();
+// Index.cshtml.cs
+//
+// Code-behind for the NewsSitePro home page. Loads initial posts, user info,
+// and follow status for the feed. Main logic is in OnGet().
+// ------------------------------------------------------------------------------
     public List<NewsArticle> Posts { get; set; } = new List<NewsArticle>();
     public Dictionary<int, bool> FollowStatusMap { get; set; } = new Dictionary<int, bool>();
     private readonly DBservices _dbService;
@@ -18,6 +23,9 @@ public class IndexModel : PageModel
     {
         var jwt = Request.Cookies["jwtToken"];
         User? currentUser = null;
+    /// <summary>
+    /// Loads initial posts, user info, and follow status for the home feed.
+    /// </summary>
         int? currentUserId = null;
 
         if (!string.IsNullOrEmpty(jwt))

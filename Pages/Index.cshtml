@@ -21,6 +21,14 @@
                 @if (Model.HeaderData?.user != null)
                 {
                     <button class="feed-tab" data-feed="following">Following</button>
+<!-- ------------------------------------------------------------------------------
+     Index.cshtml
+
+     This is the main home page for NewsSitePro. It displays the latest news feed,
+     trending topics, and posts from followed/saved users. The page supports dynamic
+     loading, feed switching, and post interactions. Key functions in the script are
+     commented for clarity.
+------------------------------------------------------------------------------ -->
                 }
                 <button class="feed-tab" data-feed="trending">Trending</button>
                 @if (Model.HeaderData?.user != null)

@@ -1,6 +1,15 @@
 ﻿namespace NewsSite.BL
+
+// ----------------------------------------------------------------------------------
+// NewsArticle.cs
+//
+// This file contains models for news articles, user activity, and user profiles in the NewsSitePro application.
+// These models are used throughout the business logic and presentation layers to represent articles, user stats,
+// profiles, and activity items. Comments are added to key classes for clarity.
+// ----------------------------------------------------------------------------------
 {
     public class NewsArticle
+    // Model for a news article in the system
     {
         public int ArticleID { get; set; }
         public string? Title { get; set; }
@@ -22,6 +31,7 @@
     }
 
     public class UserActivity
+    // Model for tracking user activity statistics
     {
         public int PostsCount { get; set; }
         public int LikesCount { get; set; }
@@ -31,6 +41,7 @@
     }
 
     public class UserProfile
+    // Model for a user's profile and recent activity
     {
         public int UserID { get; set; }
         public string? Username { get; set; }
@@ -44,6 +55,7 @@
     }
 
     public class UserActivityItem
+    // Model for a single user activity event (like, comment, share, etc.)
     {
         public string ActivityType { get; set; } = string.Empty; // "liked", "commented", "shared", etc.
         public int ArticleID { get; set; }

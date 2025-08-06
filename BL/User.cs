@@ -9,6 +9,14 @@ using Microsoft.AspNetCore.Http;
 
 namespace NewsSite.BL
 {
+// ----------------------------------------------------------------------------------
+// User.cs
+//
+// This file contains the User model and related admin/user view models for the NewsSitePro application.
+// The User class provides properties and methods for authentication, profile management, JWT generation,
+// session creation, and extracting user info from tokens. Additional classes support admin dashboards,
+// activity logs, and user reports. Comments are added to key classes and functions for clarity.
+// ----------------------------------------------------------------------------------
     public partial class User
     {
 

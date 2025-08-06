@@ -1,5 +1,13 @@
 @model NewsSitePro.Models.HeaderViewModel
 
+<!-- ------------------------------------------------------------------------------
+     _HeaderPartial.cshtml
+
+     This partial view renders the main header and navigation bar for NewsSitePro.
+     It includes branding, navigation controls, and a notification dropdown. The
+     header adapts based on authentication state and displays notifications using
+     the auth service. Key sections are commented for clarity.
+------------------------------------------------------------------------------ -->
 <header class="main-header">
     <nav class="header-nav">
         <div class="header-brand">
@@ -9,6 +17,7 @@
             </a>
         </div>
         
+        <!-- Controls for login/logout, profile, etc. Populated by auth service -->
         <div class="header-controls" id="headerControls">
             <!-- Will be populated by auth service -->
         </div>
@@ -17,12 +26,14 @@
         <div class="notification-dropdown" id="notificationDropdown">
             <div class="notification-header">
                 <h4>Notifications</h4>
+                <!-- Button to mark all notifications as read -->
                 <button class="mark-all-read" onclick="authService.markAllNotificationsRead()">Mark all as read</button>
             </div>
             <div class="notification-content" id="notificationContent">
                 <!-- Notifications will be loaded here -->
             </div>
             <div class="notification-footer">
+                <!-- Link to view all notifications -->
                 <a href="/Notifications" class="view-all-link">View all notifications</a>
             </div>
         </div>

@@ -1,5 +1,15 @@
 using NewsSite.BL;
 
+// ----------------------------------------------------------------------------------
+// NewsService.cs
+//
+// This class implements news article-related business logic for the NewsSitePro application. It provides
+// methods for creating, updating, deleting, and retrieving news articles, as well as handling likes, saves,
+// views, reports, and notifications. The service enforces business rules (such as validation, ownership,
+// and pagination), integrates with NotificationService, and interacts with the database layer through DBservices.
+// All methods are asynchronous for efficient, non-blocking operations. Comments are added to key functions for clarity.
+// ----------------------------------------------------------------------------------
+
 namespace NewsSite.BL.Services
 {
     /// <summary>
@@ -13,12 +23,14 @@ namespace NewsSite.BL.Services
         private readonly NotificationService _notificationService;
 
         public NewsService(DBservices dbService, NotificationService notificationService)
+        // Constructor: injects database and notification services
         {
             _dbService = dbService;
             _notificationService = notificationService;
         }
 
         public async Task<List<NewsArticle>> GetAllNewsArticlesAsync(int pageNumber = 1, int pageSize = 10, string? category = null, int? currentUserId = null)
+        // Get all news articles, with optional category and block filtering
         {
             // Business logic validation
             if (pageNumber < 1) pageNumber = 1;
@@ -36,6 +48,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<NewsArticle?> GetNewsArticleByIdAsync(int articleId, int? currentUserId = null)
+        // Get a specific news article by its ID, optionally recording a view
         {
             if (articleId <= 0)
             {
@@ -53,6 +66,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<int> CreateNewsArticleAsync(NewsArticle article)
+        // Create a new news article and notify followers
         {
             // Business logic validation
             if (string.IsNullOrWhiteSpace(article.Title))
@@ -117,6 +131,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<bool> UpdateNewsArticleAsync(NewsArticle article)
+        // Update an existing news article (only by author)
         {
             // Business logic validation
             if (article.ArticleID <= 0)
@@ -141,11 +156,13 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<bool> DeleteNewsArticleAsync(int articleId)
+        // Delete a news article by its ID
         {
             return await _dbService.DeleteNewsArticle(articleId);
         }
 
         public async Task<List<NewsArticle>> GetArticlesByUserAsync(int userId, int pageNumber = 1, int pageSize = 10)
+        // Get all articles created by a specific user
         {
             if (userId <= 0)
             {
@@ -156,6 +173,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<List<NewsArticle>> SearchArticlesAsync(string searchTerm, string category = "", int pageNumber = 1, int pageSize = 10, int? currentUserId = null)
+        // Search for articles by term and category
         {
             if (string.IsNullOrWhiteSpace(searchTerm))
             {
@@ -166,6 +184,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<string> ToggleArticleLikeAsync(int articleId, int userId)
+        // Like or unlike an article, and send notification if liked
         {
             Console.WriteLine($"[NewsService] ToggleArticleLikeAsync called - ArticleId: {articleId}, UserId: {userId}");
             
@@ -231,6 +250,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<string> ToggleSaveArticleAsync(int articleId, int userId)
+        // Save or unsave an article for a user
         {
             if (articleId <= 0 || userId <= 0)
             {
@@ -241,11 +261,13 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<bool> RecordArticleViewAsync(int articleId, int? userId = null)
+        // Record a view for an article (optionally by user)
         {
             return await Task.FromResult(_dbService.RecordArticleView(articleId, userId));
         }
 
         public async Task<bool> ReportArticleAsync(int articleId, int userId, string? reason = null)
+        // Report an article for review
         {
             if (articleId <= 0 || userId <= 0)
             {
@@ -256,6 +278,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<List<NewsArticle>> GetLikedArticlesByUserAsync(int userId, int pageNumber = 1, int pageSize = 10)
+        // Get all articles liked by a specific user
         {
             if (userId <= 0)
             {
@@ -266,6 +289,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<List<NewsArticle>> GetSavedArticlesByUserAsync(int userId, int pageNumber = 1, int pageSize = 10)
+        // Get all articles saved by a specific user
         {
             if (userId <= 0)
             {
@@ -276,6 +300,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<List<NewsArticle>> GetSavedArticlesWithFiltersAsync(int userId, int pageNumber = 1, int pageSize = 10, string? category = null, string? search = null)
+        // Get saved articles for a user, with optional filters
         {
             if (userId <= 0)
             {
@@ -291,6 +316,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<List<NewsArticle>> GetFollowingPostsAsync(int userId, int pageNumber = 1, int pageSize = 10, string? category = null)
+        // Get posts from users that the current user is following
         {
             if (userId <= 0)
             {
@@ -326,36 +352,42 @@ namespace NewsSite.BL.Services
 
         // Feed algorithm methods
         public async Task<List<NewsArticle>> GetPopularArticlesAsync(int pageSize = 10)
+        // Get the most popular articles
         {
             if (pageSize < 1 || pageSize > 100) pageSize = 10;
             return await _dbService.GetPopularArticlesAsync(pageSize);
         }
 
         public async Task<List<NewsArticle>> GetTrendingArticlesAsync(int pageSize = 10, string? category = null, int? currentUserId = null)
+        // Get trending articles, optionally filtered by category and user
         {
             if (pageSize < 1 || pageSize > 100) pageSize = 10;
             return await _dbService.GetTrendingArticlesAsync(pageSize, category, currentUserId);
         }
 
         public async Task<List<NewsArticle>> GetMostLikedArticlesAsync(int pageSize = 10)
+        // Get articles with the most likes
         {
             if (pageSize < 1 || pageSize > 100) pageSize = 10;
             return await _dbService.GetMostLikedArticlesAsync(pageSize);
         }
 
         public async Task<List<NewsArticle>> GetMostViewedArticlesAsync(int pageSize = 10)
+        // Get articles with the most views
         {
             if (pageSize < 1 || pageSize > 100) pageSize = 10;
             return await _dbService.GetMostViewedArticlesAsync(pageSize);
         }
 
         public async Task<List<NewsArticle>> GetRecentArticlesAsync(int pageSize = 10)
+        // Get the most recent articles
         {
             if (pageSize < 1 || pageSize > 100) pageSize = 10;
             return await _dbService.GetRecentArticlesAsync(pageSize);
         }
 
         public async Task<List<NewsArticle>> GetArticlesByInterestAsync(int userId, string category, int pageSize = 10)
+        // Get articles based on user interests and category
         {
             if (userId <= 0)
             {

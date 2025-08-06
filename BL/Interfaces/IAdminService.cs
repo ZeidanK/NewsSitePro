@@ -2,6 +2,12 @@ using NewsSite.BL;
  
 namespace NewsSite.BL.Services
 {
+    /// <summary>
+    /// Defines the contract for admin-related operations in the application.
+    /// This interface is placed here to centralize all admin service methods, making it easier to manage and implement admin functionality.
+    /// Asynchronous functions are used to ensure that operations such as database queries, user management, and report handling do not block the main thread.
+    /// This improves application responsiveness and scalability, especially when handling large datasets or long-running tasks.
+    /// </summary>
     public interface IAdminService
     {
         Task<AdminDashboardStats> GetAdminDashboardStatsAsync();

@@ -1,3 +1,16 @@
+// ----------------------------------------------------------------------------------
+// INewsService.cs
+//
+// This interface defines the contract for all news-related operations in the business logic layer.
+// It centralizes the methods for creating, retrieving, updating, and deleting news articles, as well as
+// user interactions like likes, saves, views, and reports. By using an interface, the codebase supports
+// dependency injection, testability, and separation of concerns, allowing different implementations for
+// news services if needed.
+//
+// All methods are asynchronous and return Task or Task<T> to ensure non-blocking I/O operations, scalability,
+// and responsiveness. This is especially important for web applications where database and network calls
+// should not block the main thread. Using async/Task enables efficient resource usage and better user experience.
+// ----------------------------------------------------------------------------------
 using NewsSite.BL;
 
 namespace NewsSite.BL.Services

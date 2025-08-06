@@ -1,7 +1,14 @@
 @model NewsSitePro.Models.HeaderViewModel
 
+<!-- ------------------------------------------------------------------------------
+     _RightSidePanelPartial.cshtml
+
+     This partial view renders the right sidebar for NewsSitePro. It includes trending
+     topics
+------------------------------------------------------------------------------ -->
 <div class="right-sidebar">
     <div class="sidebar-content">
+        <!-- Trending Topics: dynamically loaded via JS -->
         <!-- Trending Topics -->
         <div class="trending-section">
             <h3 class="section-header">
@@ -18,115 +25,11 @@
             <a href="/Search?type=posts&trending=true" class="show-more-link">Show more trending</a>
         </div>
 
-        <!-- Who to Follow -->
-        @if (Model?.user != null)
-        {
-            <div class="suggestions-section">
-                <h3 class="section-header">Who to Follow</h3>
-                <div class="suggestions-list">
-                    <div class="suggestion-item">
-                        <div class="suggestion-avatar">
-                            <div class="avatar-circle">JD</div>
-                        </div>
-                        <div class="suggestion-info">
-                            <div class="suggestion-name">John Doe</div>
-                            <div class="suggestion-handle">@@johndoe_news</div>
-                        </div>
-                        <button class="follow-btn">Follow</button>
-                    </div>
-                    <div class="suggestion-item">
-                        <div class="suggestion-avatar">
-                            <div class="avatar-circle">ST</div>
-                        </div>
-                        <div class="suggestion-info">
-                            <div class="suggestion-name">Sarah Tech</div>
-                            <div class="suggestion-handle">@@sarahtech</div>
-                        </div>
-                        <button class="follow-btn">Follow</button>
-                    </div>
-                    <div class="suggestion-item">
-                        <div class="suggestion-avatar">
-                            <div class="avatar-circle">NW</div>
-                        </div>
-                        <div class="suggestion-info">
-                            <div class="suggestion-name">News World</div>
-                            <div class="suggestion-handle">@@newsworld24</div>
-                        </div>
-                        <button class="follow-btn">Follow</button>
-                    </div>
-                </div>
-                <a href="#" class="show-more-link">Show more</a>
-            </div>
-        }
+        
 
-        <!-- Recent Activity -->
-        @if (Model?.user != null)
-        {
-            <div class="activity-section">
-                <h3 class="section-header">Recent Activity</h3>
-                <div class="activity-list">
-                    <div class="activity-item">
-                        <div class="activity-icon">❤️</div>
-                        <div class="activity-text">You liked a post about technology</div>
-                        <div class="activity-time">2h</div>
-                    </div>
-                    <div class="activity-item">
-                        <div class="activity-icon">🔄</div>
-                        <div class="activity-text">You shared a news article</div>
-                        <div class="activity-time">4h</div>
-                    </div>
-                    <div class="activity-item">
-                        <div class="activity-icon">💬</div>
-                        <div class="activity-text">New comment on your post</div>
-                        <div class="activity-time">6h</div>
-                    </div>
-                    <div class="activity-item">
-                        <div class="activity-icon">👤</div>
-                        <div class="activity-text">John Doe started following you</div>
-                        <div class="activity-time">1d</div>
-                    </div>
-                </div>
-            </div>
-        }
 
-        <!-- Quick Stats -->
-        @if (Model?.user != null)
-        {
-            <div class="stats-section">
-                <h3 class="section-header">Your Stats</h3>
-                <div class="stats-grid">
-                    <div class="stat-item">
-                        <div class="stat-number">24</div>
-                        <div class="stat-label">Posts Liked</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-number">12</div>
-                        <div class="stat-label">Articles Shared</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-number">156</div>
-                        <div class="stat-label">Following</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-number">89</div>
-                        <div class="stat-label">Followers</div>
-                    </div>
-                </div>
-            </div>
-        }
 
-        <!-- Footer Links -->
-        <div class="footer-section">
-            <div class="footer-links">
-                <a href="#" class="footer-link">Terms of Service</a>
-                <a href="#" class="footer-link">Privacy Policy</a>
-                <a href="#" class="footer-link">Cookie Policy</a>
-                <a href="#" class="footer-link">Accessibility</a>
-                <a href="#" class="footer-link">Help Center</a>
-            </div>
-            <div class="copyright">
-                © 2025 NewsSitePro. All rights reserved.
-            </div>
-        </div>
+
+        
     </div>
 </div>

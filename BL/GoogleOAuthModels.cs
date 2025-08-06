@@ -1,5 +1,13 @@
 using System.ComponentModel.DataAnnotations;
 
+// ----------------------------------------------------------------------------------
+// GoogleOAuthModels.cs
+//
+// This file contains models for Google OAuth authentication and session management in the NewsSitePro application.
+// It defines configuration, token responses, user info, session tracking, analytics, and request/response models
+// used throughout the authentication flow and user management. Comments are added to key classes for clarity.
+// ----------------------------------------------------------------------------------
+
 namespace NewsSite.BL
 {
     /// <summary>
@@ -7,6 +15,7 @@ namespace NewsSite.BL
     /// </summary>
     
     public class GoogleOAuthConfig
+    // Configuration settings for Google OAuth
     {
         public string ClientId { get; set; } = string.Empty;
         public string ClientSecret { get; set; } = string.Empty;
@@ -15,6 +24,7 @@ namespace NewsSite.BL
     }
 
     public class OAuthTokenResponse
+    // Response model for OAuth token exchange
     {
         public string access_token { get; set; } = string.Empty;
         public int expires_in { get; set; }
@@ -29,6 +39,7 @@ namespace NewsSite.BL
     }
 
     public class GoogleUserInfo
+    // Model for user information returned by Google
     {
         public string id { get; set; } = string.Empty;
         public string email { get; set; } = string.Empty;
@@ -43,6 +54,7 @@ namespace NewsSite.BL
         public bool IsSuccess => error == null || error.code == 0;
 
         public class ApiError
+        // Error details for Google API responses
         {
             public int code { get; set; }
             public string message { get; set; } = string.Empty;
@@ -51,6 +63,7 @@ namespace NewsSite.BL
     }
 
     public class UserSession
+    // Model for tracking user sessions
     {
         public int SessionID { get; set; }
         public int UserID { get; set; }
@@ -71,6 +84,7 @@ namespace NewsSite.BL
     }
 
     public class OAuthToken
+    // Model for storing OAuth tokens
     {
         public int TokenID { get; set; }
         public int UserID { get; set; }
@@ -90,6 +104,7 @@ namespace NewsSite.BL
 
     // Request/Response models for API endpoints
     public class GoogleOAuthRequest
+    // Request model for Google OAuth API endpoint
     {
         [Required]
         public string AuthorizationCode { get; set; } = string.Empty;
@@ -99,6 +114,7 @@ namespace NewsSite.BL
     }
 
     public class GoogleOAuthResponse
+    // Response model for Google OAuth API endpoint
     {
         public bool Success { get; set; }
         public string? Token { get; set; }
@@ -109,6 +125,7 @@ namespace NewsSite.BL
     }
 
     public class SessionValidationResponse
+    // Response model for session validation
     {
         public bool IsValid { get; set; }
         public User? User { get; set; }
@@ -117,6 +134,7 @@ namespace NewsSite.BL
     }
 
     public class LoginHistoryResponse
+    // Response model for user login history
     {
         public List<UserSession> Sessions { get; set; } = new List<UserSession>();
         public int TotalSessions { get; set; }
@@ -127,6 +145,7 @@ namespace NewsSite.BL
 
     // Extended User class with Google OAuth properties
     public partial class User
+    // Extended User class with Google OAuth properties
     {
         public string? GoogleId { get; set; }
         public string? GoogleEmail { get; set; }
@@ -143,6 +162,7 @@ namespace NewsSite.BL
 
     // Request models for session management
     public class SessionRequest
+    // Request model for session management
     {
         public string? DeviceInfo { get; set; }
         public string? IpAddress { get; set; }
@@ -151,6 +171,7 @@ namespace NewsSite.BL
     }
 
     public class LogoutRequest
+    // Request model for logging out a session
     {
         public string SessionToken { get; set; } = string.Empty;
         public string LogoutReason { get; set; } = "Manual";
@@ -158,6 +179,7 @@ namespace NewsSite.BL
 
     // Analytics and monitoring models
     public class SessionStats
+    // Model for session analytics and monitoring
     {
         public int TotalActiveSessions { get; set; }
         public int GoogleOAuthUsers { get; set; }
@@ -168,6 +190,7 @@ namespace NewsSite.BL
     }
 
     public class DeviceStats
+    // Model for device statistics in session analytics
     {
         public string DeviceType { get; set; } = string.Empty;
         public int Count { get; set; }

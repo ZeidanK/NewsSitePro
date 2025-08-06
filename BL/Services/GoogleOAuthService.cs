@@ -2,6 +2,16 @@ using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using System.Text;
 
+// ----------------------------------------------------------------------------------
+// GoogleOAuthService.cs
+//
+// This class implements Google OAuth authentication and session management for the NewsSitePro application.
+// It handles the OAuth flow, exchanges authorization codes for tokens, retrieves user info from Google,
+// manages user sessions, generates JWT tokens, and integrates with the database layer. The service enforces
+// business rules, logs debug information, and provides methods for login history, session stats, and cleanup.
+// All methods are asynchronous for efficient, non-blocking operations. Comments are added to key functions for clarity.
+// ----------------------------------------------------------------------------------
+
 namespace NewsSite.BL.Services
 {
     public interface IGoogleOAuthService
@@ -31,6 +41,7 @@ namespace NewsSite.BL.Services
         }
 
         public string GenerateGoogleOAuthUrl(bool isDevelopment = true)
+        // Build the Google OAuth URL for user login
         {
             var clientId = _config["GoogleOAuth:ClientId"];
             var redirectUri = isDevelopment 
@@ -49,6 +60,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<GoogleOAuthResponse> HandleGoogleOAuthAsync(GoogleOAuthRequest request)
+        // Main method to handle the Google OAuth flow and user login
         {
             try
             {
@@ -143,6 +155,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<OAuthTokenResponse> ExchangeCodeForTokensAsync(string authorizationCode)
+        // Exchange the authorization code for access and refresh tokens from Google
         {
             try
             {
@@ -203,6 +216,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<GoogleUserInfo> GetUserInfoAsync(string accessToken)
+        // Retrieve user information from Google using the access token
         {
             try
             {
@@ -265,6 +279,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<SessionValidationResponse> ValidateSessionAsync(string sessionToken)
+        // Validate a user session token
         {
             try
             {
@@ -282,6 +297,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<bool> LogoutAsync(string sessionToken, string reason = "Manual")
+        // Log out a user session
         {
             try
             {
@@ -294,6 +310,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<LoginHistoryResponse> GetUserLoginHistoryAsync(int userId, int pageNumber = 1, int pageSize = 20)
+        // Get login history for a user
         {
             try
             {
@@ -312,6 +329,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<SessionStats> GetSessionStatsAsync()
+        // Get statistics about user sessions
         {
             try
             {
@@ -324,6 +342,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task CleanupExpiredSessionsAsync()
+        // Remove expired user sessions from the database
         {
             try
             {
@@ -336,6 +355,7 @@ namespace NewsSite.BL.Services
         }
 
         private string GenerateJwtToken(User user)
+        // Generate a JWT token for the authenticated user
         {
             var key = _config["Jwt:Key"];
             var issuer = _config["Jwt:Issuer"];
@@ -367,6 +387,7 @@ namespace NewsSite.BL.Services
         }
 
         private string GenerateSessionToken()
+        // Generate a unique session token for user sessions
         {
             return Guid.NewGuid().ToString() + "_" + DateTime.UtcNow.Ticks.ToString();
         }
