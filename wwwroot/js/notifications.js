@@ -40,7 +40,7 @@ class NotificationManager {
 
     async markAsRead(notificationId) {
         try {
-            const response = await fetch('/Notifications?handler=MarkAsRead', {
+            const response = await fetch(window.ApiConfig.getApiUrl('/Notifications?handler=MarkAsRead'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -78,7 +78,7 @@ class NotificationManager {
 
     async markAllAsRead() {
         try {
-            const response = await fetch('/Notifications?handler=MarkAllAsRead', {
+            const response = await fetch(window.ApiConfig.getApiUrl('/Notifications?handler=MarkAllAsRead'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -128,7 +128,7 @@ class NotificationManager {
                 };
             });
 
-            const response = await fetch('/Notifications?handler=UpdatePreferences', {
+            const response = await fetch(window.ApiConfig.getApiUrl('/Notifications?handler=UpdatePreferences'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -194,7 +194,7 @@ class NotificationManager {
 
     async refreshNotificationCount() {
         try {
-            const response = await fetch('/Notifications?handler=UnreadCount');
+            const response = await fetch(window.ApiConfig.getApiUrl('/Notifications?handler=UnreadCount'));
             if (response.ok) {
                 const data = await response.json();
                 const count = data.count || 0;
@@ -286,7 +286,7 @@ class NotificationManager {
     // Update notification badge in sidebar
     async updateNotificationBadge() {
         try {
-            const response = await fetch('/Notifications?handler=UnreadCount', {
+            const response = await fetch(window.ApiConfig.getApiUrl('/Notifications?handler=UnreadCount'), {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -419,6 +419,10 @@ class NotificationEnhancements {
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
+    // Prevent multiple initialization
+    if (window.notificationManagerInitialized) return;
+    window.notificationManagerInitialized = true;
+    
     new NotificationManager();
     new NotificationEnhancements();
 });

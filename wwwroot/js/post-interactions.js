@@ -78,7 +78,7 @@ window.PostCardInteractions = {
     },
 
     openPost(postId) {
-        window.location.href = `/Post/${postId}`;
+        window.location.href = window.ApiConfig.getApiUrl(`/Post/${postId}`);
     },
 
     async reportPost(postId) {
@@ -304,7 +304,7 @@ window.PostCardInteractions = {
     },
 
     editPost(postId) {
-        window.location.href = `./Posts/Edit/${postId}`;
+        window.location.href = window.ApiConfig.getApiUrl(`./Posts/Edit/${postId}`);
     },
 
     deletePost(postId) {

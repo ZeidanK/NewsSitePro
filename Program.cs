@@ -52,6 +52,10 @@ builder.Services.AddHostedService<NewsApiBackgroundService>();
 // Register Background Service for trending topics calculation
 builder.Services.AddHostedService<TrendingTopicsBackgroundService>();
 
+// Register API Configuration Service
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<NewsSite.Services.IApiConfigurationService, NewsSite.Services.ApiConfigurationService>();
+
 // Configure authentication
 builder.Services.AddAuthentication(options =>
 {
@@ -101,7 +105,7 @@ builder.Services.AddAuthentication(options =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+if (true)
 {
     app.UseSwagger();
     app.UseSwaggerUI();

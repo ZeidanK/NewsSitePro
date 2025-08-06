@@ -146,7 +146,7 @@
 
         try {
             // Fetch server-rendered HTML from ViewComponent endpoint
-            const response = await fetch(`/api/news/posts/rendered?page=${page}&limit=10&feed=${currentFeed}`);
+            const response = await fetch(window.ApiConfig.getApiUrl(`/api/news/posts/rendered?page=${page}&limit=10&feed=${currentFeed}`));
             
             if (response.ok) {
                 const htmlContent = await response.text();

@@ -84,7 +84,7 @@
                 e.preventDefault();
                 localStorage.removeItem('jwtToken');
                 document.cookie = 'jwtToken=; Max-Age=0; path=/;';
-                window.location.href = '/Login';
+                window.location.href = window.ApiConfig.getApiUrl('/Login');
             });
         } else {
             console.log("Logout button not found");
@@ -98,7 +98,7 @@
                 const jwt = localStorage.getItem('jwtToken');
                 if (jwt) {
                     try {
-                        const response = await fetch('/api/Auth/validate', {
+                        const response = await fetch(window.ApiConfig.getApiUrl('/api/Auth/validate'), {
                             method: 'POST',
                             headers: {
                                 'Authorization': `Bearer ${jwt}`
@@ -106,11 +106,11 @@
                         });
 
                         if (response.ok) {
-                            window.location.href = `/Post`;
+                            window.location.href = window.ApiConfig.getApiUrl(`/Post`);
                         } else {
                             alert('Your session has expired. Please log in again.');
                             localStorage.removeItem('jwtToken');
-                            window.location.href = '/Login';
+                            window.location.href = window.ApiConfig.getApiUrl('/Login');
                         }
                     } catch (error) {
                         console.error('Error validating token:', error);
@@ -118,7 +118,7 @@
                     }
                 } else {
                     alert('You must be logged in to view posts.');
-                    window.location.href = '/Login';
+                    window.location.href = window.ApiConfig.getApiUrl('/Login');
                 }
             });
         }
@@ -155,10 +155,10 @@
                 
                 if (category && topic) {
                     // Navigate to search page with the trending topic
-                    window.location.href = `/Search?q=${encodeURIComponent('#' + topic)}&category=${encodeURIComponent(category)}&type=posts`;
+                    window.location.href = window.ApiConfig.getApiUrl(`/Search?q=${encodeURIComponent('#' + topic)}&category=${encodeURIComponent(category)}&type=posts`);
                 } else if (category) {
                     // Navigate to search page with just the category
-                    window.location.href = `/Search?category=${encodeURIComponent(category)}&type=posts`;
+                    window.location.href = window.ApiConfig.getApiUrl(`/Search?category=${encodeURIComponent(category)}&type=posts`);
                 }
             });
             

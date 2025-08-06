@@ -89,7 +89,7 @@ class PublicNewsFeed {
                 type: 'top-headlines' // Always use top headlines
             };
 
-            const response = await fetch('/api/News/browse-external', {
+            const response = await fetch(window.ApiConfig.getApiUrl('/api/News/browse-external'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestBody)
@@ -336,7 +336,7 @@ class PublicNewsFeed {
                 publishBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Publishing...';
             }
 
-            const response = await fetch('/api/News/publish', {
+            const response = await fetch(window.ApiConfig.getApiUrl('/api/News/publish'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -397,7 +397,7 @@ class PublicNewsFeed {
      */
     showLoginPrompt() {
         if (confirm('You need to be logged in to publish articles. Would you like to go to the login page?')) {
-            window.location.href = '/login';
+            window.location.href = window.ApiConfig.getApiUrl('/login');
         }
     }
 

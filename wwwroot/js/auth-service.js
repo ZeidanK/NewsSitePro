@@ -514,7 +514,7 @@ class AuthService {
             this.removeToken();
             this.setUnauthenticated();
             this.updateUI();
-            window.location.href = '/Login';
+            window.location.href = window.ApiConfig.getApiUrl('/Login');
         } catch (error) {
             console.error('Logout error:', error);
         }

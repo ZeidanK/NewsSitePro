@@ -68,7 +68,7 @@ class AdminNewsFeed {
 
             this.showLoading('Fetching news articles...');
 
-            const response = await fetch('/api/News/fetch-external', {
+            const response = await fetch(window.ApiConfig.getApiUrl('/api/News/fetch-external'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -352,7 +352,7 @@ class AdminNewsFeed {
      * Publish articles to database
      */
     async publishArticles(articles) {
-        const response = await fetch('/api/News/publish-articles', {
+        const response = await fetch(window.ApiConfig.getApiUrl('/api/News/publish-articles'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

@@ -45,6 +45,23 @@
     </div>
 
     <script>
+        // API Configuration for this standalone page
+        window.ApiConfig = {
+            getBaseUrl: function() {
+                const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+                const port = isLocalhost ? ":7128" : "";
+                const address = isLocalhost ? "https://localhost" : "https://proj.ruppin.ac.il/cgroup4/test2/tar1";
+                
+                return `${address}${port}`;
+            },
+            
+            getApiUrl: function(endpoint) {
+                const baseUrl = this.getBaseUrl();
+                const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+                return `${baseUrl}${cleanEndpoint}`;
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', async function() {
             try {
                 // Get authorization code from URL
@@ -63,7 +80,7 @@
                 }
 
                 // Exchange code for tokens
-                const response = await fetch('/api/GoogleOAuth/callback', {
+                const response = await fetch(window.ApiConfig.getApiUrl('/api/GoogleOAuth/callback'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -94,7 +111,7 @@
                         data.isNewUser ? 'Account created successfully! Redirecting...' : 'Login successful! Redirecting...';
                     
                     setTimeout(() => {
-                        window.location.href = '/Feed';
+                        window.location.href = window.ApiConfig.getApiUrl('/');
                     }, 1500);
                 } else {
                     showError(data.message || 'Google authentication failed.');
@@ -114,7 +131,7 @@
             
             // Redirect to login page after 3 seconds
             setTimeout(() => {
-                window.location.href = '/Login';
+                window.location.href = window.ApiConfig.getApiUrl('/Login');
             }, 3000);
         }
 

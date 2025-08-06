@@ -54,7 +54,7 @@
             messageDiv.className = '';
 
             try {
-                const response = await fetch('/api/Auth/register', {
+                const response = await fetch(window.ApiConfig.getApiUrl('/api/Auth/register'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: name, email: email, password: password })
@@ -64,7 +64,7 @@
                     messageDiv.textContent = 'Registration successful! Redirecting to login...';
                     messageDiv.className = 'alert alert-success mt-3';
                     setTimeout(() => {
-                        window.location.href = '/Login';
+                        window.location.href = window.ApiConfig.getApiUrl('/Login');
                     }, 1500);
                 } else {
                     const error = await response.text();
@@ -85,7 +85,7 @@
                 messageDiv.className = 'alert alert-info mt-3';
 
                 // Get Google OAuth URL
-                const response = await fetch('/api/GoogleOAuth/auth-url');
+                const response = await fetch(window.ApiConfig.getApiUrl('/api/GoogleOAuth/auth-url'));
                 const data = await response.json();
 
                 if (response.ok && data.authUrl) {

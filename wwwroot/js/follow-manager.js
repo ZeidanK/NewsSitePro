@@ -60,7 +60,7 @@ class FollowStatusManager {
         button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
 
         try {
-            const response = await fetch(`/api/User/Follow/${userId}`, {
+            const response = await fetch(window.ApiConfig.getApiUrl(`/api/User/Follow/${userId}`), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -133,7 +133,7 @@ class FollowStatusManager {
      */
     async checkFollowStatus(userId) {
         try {
-            const response = await fetch(`/api/User/Follow/Status/${userId}`, {
+            const response = await fetch(window.ApiConfig.getApiUrl(`/api/User/Follow/Status/${userId}`), {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json'

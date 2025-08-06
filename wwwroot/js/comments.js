@@ -102,7 +102,7 @@ class CommentsManager {
 
         // Focus events for comment inputs (auth check)
         document.addEventListener('focus', (e) => {
-            if (e.target.classList.contains('comment-input')) {
+            if (e.target && e.target.classList && e.target.classList.contains('comment-input')) {
                 if (!this.isAuthenticated) {
                     e.target.blur();
                     this.showLoginPrompt('comment on this post');
@@ -122,7 +122,7 @@ class CommentsManager {
 
     async loadComments(postId) {
         try {
-            const response = await fetch(`/api/Comments/post/${postId}`);
+            const response = await fetch(window.ApiConfig.getApiUrl(`/api/Comments/post/${postId}`));
             if (response.ok) {
                 const data = await response.json();
                 if (data.success) {
@@ -240,7 +240,7 @@ class CommentsManager {
         if (!content) return;
 
         try {
-            const response = await fetch('/api/Comments', {
+            const response = await fetch(window.ApiConfig.getApiUrl('/api/Comments'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -369,7 +369,7 @@ class CommentsManager {
 
     async saveCommentEdit(commentId, newContent, contentElement, originalContent) {
         try {
-            const response = await fetch(`/api/Comments/${commentId}`, {
+            const response = await fetch(window.ApiConfig.getApiUrl(`/api/Comments/${commentId}`), {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -400,7 +400,7 @@ class CommentsManager {
 
         const commentId = button.dataset.commentId;
         try {
-            const response = await fetch(`/api/Comments/${commentId}`, {
+            const response = await fetch(window.ApiConfig.getApiUrl(`/api/Comments/${commentId}`), {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${getCookie('jwtToken')}`
@@ -429,7 +429,7 @@ class CommentsManager {
             if (!commentId) return;
             
             try {
-                const response = await fetch(`/api/Comments/like/${commentId}`, {
+                const response = await fetch(window.ApiConfig.getApiUrl(`/api/Comments/like/${commentId}`), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -550,12 +550,12 @@ async function addComment(postId) {
     const token = getCookie('jwtToken');
     if (!token) {
         alert('Please log in to comment');
-        window.location.href = '/Login';
+        window.location.href = window.ApiConfig.getApiUrl('/Login');
         return;
     }
 
     try {
-        const response = await fetch('/api/Comments', {
+        const response = await fetch(window.ApiConfig.getApiUrl('/api/Comments'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

@@ -58,7 +58,7 @@
             errorDiv.textContent = '';
 
             try {
-                const response = await fetch('/api/auth/login', {
+                const response = await fetch(window.ApiConfig.getApiUrl('/api/auth/login'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -72,7 +72,7 @@
                         localStorage.setItem('jwtToken', data.token);
                            // document.cookie = "jwtToken=" + data.token + "; path=/"; "Secure"; HttpOnly;
                         document.cookie = `jwtToken=${data.token}; path=/; secure; samesite=strict`;
-                        window.location.href = '/';
+                        window.location.href = window.ApiConfig.getApiUrl('/');
                     } else {
                         errorDiv.textContent = 'Invalid response from server.';
                         errorDiv.classList.remove('d-none');
@@ -103,7 +103,7 @@
                 errorDiv.classList.add('d-none');
 
                 // Get Google OAuth URL
-                const response = await fetch('/api/GoogleOAuth/auth-url');
+                const response = await fetch(window.ApiConfig.getApiUrl('/api/GoogleOAuth/auth-url'));
                 const data = await response.json();
 
                 if (response.ok && data.authUrl) {

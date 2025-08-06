@@ -7,25 +7,33 @@ using Microsoft.AspNetCore.Mvc;
 using NewsSitePro.Models;
 using NewsSite.BL;
 using NewsSite.Models;
+using NewsSite.Services;
 //using NewsSite.Pages
 namespace NewsSite.Pages;
 
 public class RegisterModel : PageModel
 {
-    public HeaderViewModel HeaderData { get; set; }
+    private readonly IApiConfigurationService _apiConfigurationService;
+
+    public RegisterModel(IApiConfigurationService apiConfigurationService)
+    {
+        _apiConfigurationService = apiConfigurationService;
+    }
+
+    public HeaderViewModel HeaderData { get; set; } = new HeaderViewModel();
 
     [BindProperty]
-    public string Email { get; set; }
+    public string Email { get; set; } = string.Empty;
     [BindProperty]
-    public string Password { get; set; }
+    public string Password { get; set; } = string.Empty;
     [BindProperty]
-    public string Name { get; set; }
+    public string Name { get; set; } = string.Empty;
     public void OnGet()
     {
         HeaderData = new HeaderViewModel
         {
-            UserName = User.Identity.IsAuthenticated ? User.Identity.Name : "Guest",
-            NotificationCount = User.Identity.IsAuthenticated ? 3 : 0 ,// Example,
+            UserName = User.Identity?.IsAuthenticated == true ? User.Identity.Name ?? "Guest" : "Guest",
+            NotificationCount = User.Identity?.IsAuthenticated == true ? 3 : 0 ,// Example,
             CurrentPage = "Register"
         };
     }
@@ -45,7 +53,8 @@ public class RegisterModel : PageModel
             Password = Password
         };
 
-        var response = await client.PostAsJsonAsync("https://localhost:5001/api/Auth/register", registerRequest);
+        var apiUrl = _apiConfigurationService.GetApiUrl("api/Auth/register");
+        var response = await client.PostAsJsonAsync(apiUrl, registerRequest);
         var responseContent = await response.Content.ReadAsStringAsync();
 
         if (response.IsSuccessStatusCode)

@@ -157,7 +157,7 @@ namespace NewsSitePro.Services
             try
             {
                 // TODO: Implement actual database query
-                // return await _dbServices.GetUserFollowingListAsync(userId);
+                //return await _dbServices.GetUserFollowingListAsync(userId);
                 return await Task.FromResult(new List<int>());
             }
             catch

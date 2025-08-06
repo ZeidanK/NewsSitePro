@@ -606,7 +606,7 @@ class AdminNewsFeed {
             };
 
             // Call NewsController to publish article
-            const response = await fetch('/api/News/publish-article', {
+            const response = await fetch(window.ApiConfig.getApiUrl('/api/News/publish-article'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
