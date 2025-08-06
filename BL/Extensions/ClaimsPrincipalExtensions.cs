@@ -1,4 +1,13 @@
 using System.Security.Claims;
+// ----------------------------------------------------------------------------------
+// ClaimsPrincipalExtensions.cs
+// 
+// This file defines extension methods for the ClaimsPrincipal class, which represents
+// the current user's identity in ASP.NET applications. These helpers simplify access
+// to common user information (such as user ID, email, name, and admin status) from
+// authentication claims. By centralizing this logic, the codebase remains cleaner and
+// more maintainable, avoiding repetitive claim parsing throughout the project.
+// ----------------------------------------------------------------------------------
 
 namespace NewsSite.BL.Extensions
 {
