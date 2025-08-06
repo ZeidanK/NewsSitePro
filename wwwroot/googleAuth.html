@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Login Feature Explanation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        header {
+            background: #34a853;
+            color: #fff;
+            padding: 1rem 0;
+            text-align: center;
+        }
+        header h1 {
+            margin: 0;
+            font-size: 2rem;
+        }
+        main {
+            padding: 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        section {
+            margin-bottom: 2rem;
+        }
+        section h2 {
+            color: #34a853;
+            border-bottom: 2px solid #34a853;
+            padding-bottom: 0.5rem;
+        }
+        code {
+            background: #f4f4f9;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: Consolas, monospace;
+            color: #d6336c;
+        }
+        pre {
+            background: #f4f4f9;
+            padding: 1rem;
+            border-left: 4px solid #34a853;
+            overflow-x: auto;
+        }
+        .highlight {
+            background: #e7f3ff;
+            padding: 0.5rem;
+            border-left: 4px solid #34a853;
+            margin: 1rem 0;
+        }
+        footer {
+            text-align: center;
+            padding: 1rem 0;
+            background: #34a853;
+            color: #fff;
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Google Login Feature Explanation</h1>
+    </header>
+    <main>
+        <section>
+            <h2>Overview</h2>
+            <p>The Google Login feature allows users to authenticate using their Google accounts. This simplifies the login process by eliminating the need for users to create and remember a separate username and password for the application.</p>
+        </section>
+
+        <section>
+            <h2>How It Works</h2>
+            <p>The Google Login feature is implemented using the OAuth 2.0 protocol. Here’s how the process works:</p>
+            <ol>
+                <li><strong>Authorization Request:</strong> The user clicks the "Login with Google" button, which redirects them to Google's authorization page.</li>
+                <li><strong>User Consent:</strong> The user logs into their Google account (if not already logged in) and grants permission to share their profile information with the application.</li>
+                <li><strong>Authorization Code:</strong> Google redirects the user back to the application with an authorization code.</li>
+                <li><strong>Token Exchange:</strong> The application exchanges the authorization code for an access token and a refresh token using Google's token endpoint.</li>
+                <li><strong>User Information Retrieval:</strong> The application uses the access token to retrieve the user's profile information (e.g., name, email, profile picture) from Google's API.</li>
+                <li><strong>Account Linking:</strong> The application creates a new user account or links the Google account to an existing account in the database.</li>
+                <li><strong>Session Creation:</strong> A session is created for the user, and a JWT token is issued for subsequent authenticated requests.</li>
+            </ol>
+        </section>
+
+        <section>
+            <h2>Key Features</h2>
+            <ul>
+                <li><strong>Seamless Authentication:</strong> Users can log in with their Google accounts without creating a new password.</li>
+                <li><strong>Account Linking:</strong> Existing accounts can be linked to Google accounts for a unified login experience.</li>
+                <li><strong>Secure Token Management:</strong> Access tokens and refresh tokens are securely stored and managed.</li>
+                <li><strong>Session Tracking:</strong> User sessions are tracked, and expired sessions are automatically cleaned up.</li>
+                <li><strong>Admin Controls:</strong> Admins can monitor and manage user sessions and statistics.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Example API Endpoints</h2>
+            <p>Here are some of the key API endpoints used in the Google Login feature:</p>
+            <pre>
+GET /api/googleauth/auth-url
+POST /api/googleauth/callback
+POST /api/googleauth/validate-session
+POST /api/googleauth/logout
+GET /api/googleauth/login-history
+            </pre>
+        </section>
+
+        <section>
+            <h2>Benefits</h2>
+            <ul>
+                <li><strong>Improved User Experience:</strong> Users can log in quickly and easily using their existing Google accounts.</li>
+                <li><strong>Enhanced Security:</strong> OAuth 2.0 ensures secure authentication and token management.</li>
+                <li><strong>Reduced Friction:</strong> Eliminates the need for users to remember additional passwords.</li>
+                <li><strong>Scalability:</strong> The system is designed to handle a large number of users and sessions efficiently.</li>
+            </ul>
+        </section>
+
+        <footer>
+            <p>Created by the NewsSitePro Team | August 2025</p>
+        </footer>
+    </main>
+</body>
+</html>
