@@ -251,120 +251,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const tabButtons = document.querySelectorAll('.tab-btn');
     const contentFrame = document.getElementById('content-frame');
     
-    // Content data - embedded directly to avoid CORS issues
-    const contentData = {
-        'architecture': `
-            <h1>🏗️ NewsSitePro Architecture Overview</h1>
-            <p>This section explains the technical architecture and design patterns used in NewsSitePro.</p>
-            <h2>Key Components</h2>
-            <ul>
-                <li><strong>ASP.NET Core Razor Pages</strong> - Server-side rendering with dynamic content</li>
-                <li><strong>SQL Server Database</strong> - Relational data storage with stored procedures</li>
-                <li><strong>JWT Authentication</strong> - Secure token-based authentication</li>
-                <li><strong>Context-Driven Architecture</strong> - Dynamic UI based on user context</li>
-                <li><strong>Background Services</strong> - Automated news fetching and processing</li>
-            </ul>
-            <h2>Design Patterns</h2>
-            <ul>
-                <li>Repository Pattern for data access</li>
-                <li>Dependency Injection for service management</li>
-                <li>Factory Pattern for context creation</li>
-                <li>Observer Pattern for real-time updates</li>
-            </ul>
-            <div class="highlight">
-                <strong>Note:</strong> The architecture is designed for scalability and maintainability, allowing easy addition of new features and services.
-            </div>
-        `,
-        'autosync': `
-            <h1>🤖 Auto Sync Technology</h1>
-            <p>Automated news aggregation system that keeps your content fresh and up-to-date.</p>
-            <h2>How It Works</h2>
-            <ol>
-                <li><strong>Background Service</strong> - Runs every 24 hours automatically</li>
-                <li><strong>News API Integration</strong> - Fetches from multiple news sources</li>
-                <li><strong>Content Processing</strong> - Filters and validates articles</li>
-                <li><strong>Database Storage</strong> - Saves articles with proper categorization</li>
-            </ol>
-            <h2>Features</h2>
-            <ul>
-                <li>Automatic categorization (Technology, Sports, Politics, etc.)</li>
-                <li>Duplicate detection and filtering</li>
-                <li>Image optimization and storage</li>
-                <li>Source attribution and linking</li>
-            </ul>
-            <div class="success">
-                <strong>✅ Current Status:</strong> Auto sync is active and fetching 35+ articles daily from trusted news sources.
-            </div>
-            <h2>Admin Controls</h2>
-            <p>Administrators can manually trigger sync, enable/disable the service, and monitor sync statistics through the admin panel.</p>
-        `,
-        'trending': `
-            <h1>🔥 Trending Topics System</h1>
-            <p>Advanced algorithm that identifies and tracks trending topics based on user engagement.</p>
-            <h2>Calculation Method</h2>
-            <p>The trending algorithm uses weighted engagement metrics with time decay:</p>
-            <ul>
-                <li><strong>Likes:</strong> Weight = 3.0</li>
-                <li><strong>Comments:</strong> Weight = 5.0</li>
-                <li><strong>Views:</strong> Weight = 1.0</li>
-                <li><strong>Time Decay:</strong> 0.9^hours (prioritizes recent activity)</li>
-            </ul>
-            <div class="highlight">
-                <strong>Formula:</strong> TrendScore = (Likes × 3.0 + Comments × 5.0 + Views × 1.0) × TimeDecayFactor
-            </div>
-            <h2>Features</h2>
-            <ul>
-                <li>Real-time trend calculation</li>
-                <li>Category-based trending</li>
-                <li>Automatic cleanup of old trends</li>
-                <li>API endpoints for third-party integration</li>
-            </ul>
-            <h2>Display Locations</h2>
-            <p>Trending topics appear in:</p>
-            <ul>
-                <li>Right sidebar (top 5 trends)</li>
-                <li>Dedicated trending page</li>
-                <li>Search suggestions</li>
-                <li>Category filters</li>
-            </ul>
-        `,
-        'googleauth': `
-            <h1>🔐 Google OAuth Integration</h1>
-            <p>Seamless authentication using Google accounts with secure token management.</p>
-            <h2>Authentication Flow</h2>
-            <ol>
-                <li><strong>Authorization Request</strong> - User clicks "Login with Google"</li>
-                <li><strong>User Consent</strong> - Google handles authentication</li>
-                <li><strong>Token Exchange</strong> - Application receives access tokens</li>
-                <li><strong>Profile Retrieval</strong> - User data is fetched from Google</li>
-                <li><strong>Account Linking</strong> - User is created or linked in database</li>
-                <li><strong>Session Creation</strong> - JWT token issued for app access</li>
-            </ol>
-            <h2>Security Features</h2>
-            <ul>
-                <li>OAuth 2.0 standard compliance</li>
-                <li>Secure token storage and management</li>
-                <li>Automatic session cleanup</li>
-                <li>Refresh token handling</li>
-            </ul>
-            <div class="success">
-                <strong>Benefits:</strong> Users can login quickly without creating additional passwords, improving security and user experience.
-            </div>
-            <h2>Admin Monitoring</h2>
-            <p>Administrators can:</p>
-            <ul>
-                <li>View login statistics</li>
-                <li>Monitor active sessions</li>
-                <li>Track authentication success rates</li>
-                <li>Manage user accounts</li>
-            </ul>
-        `
+    // Content mapping - these correspond to your HTML files
+    const contentMap = {
+        'architecture': '/architectureOverview.html',
+        'autosync': '/autoSync.html',
+        'trending': '/trendingTopicsOverview.html',
+        'googleauth': '/googleAuth.html'
     };
     
     // Load content function
-    function loadContent(contentKey) {
+    async function loadContent(contentKey) {
         try {
-            // Show loading state briefly
+            // Show loading state
             contentFrame.innerHTML = `
                 <div class="loading-state">
                     <div class="loading-spinner"></div>
@@ -372,10 +270,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
             
-            // Simulate brief loading for better UX
-            setTimeout(() => {
-                contentFrame.innerHTML = contentData[contentKey] || '<p>Content not found.</p>';
-            }, 300);
+            const response = await fetch(contentMap[contentKey]);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const htmlContent = await response.text();
+            
+            // Extract body content from the HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlContent, 'text/html');
+            const mainContent = doc.querySelector('main') || doc.querySelector('body');
+            
+            if (mainContent) {
+                contentFrame.innerHTML = mainContent.innerHTML;
+            } else {
+                contentFrame.innerHTML = htmlContent;
+            }
             
         } catch (error) {
             console.error('Error loading content:', error);

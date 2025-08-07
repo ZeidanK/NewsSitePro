@@ -314,4 +314,20 @@
 
 @section Styles {
     <link rel="stylesheet" href="~/css/admin-panel.css">
+    <style>
+        /* Hide right sidebar on Admin page */
+        .right-sidebar {
+            display: none !important;
+        }
+        /* Adjust main content to use full width when right sidebar is hidden */
+        .main-content {
+            max-width: 100% !important;
+            margin-right: 0 !important;
+        }
+        /* Ensure admin container uses full available space */
+        .admin-container {
+            max-width: 100%;
+            padding: 0 15px;
+        }
+    </style>
 }
