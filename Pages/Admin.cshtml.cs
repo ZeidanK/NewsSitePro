@@ -351,10 +351,15 @@ namespace NewsSite.Pages
             try
             {
                 var userDetails = await dbService.GetUserDetailsForAdmin(userId);
+                if (userDetails == null)
+                {
+                    return new JsonResult(new { success = false, message = "User not found" });
+                }
                 return new JsonResult(new { success = true, user = userDetails });
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Error getting user details: {ex.Message}");
                 return new JsonResult(new { success = false, message = "Error: " + ex.Message });
             }
         }

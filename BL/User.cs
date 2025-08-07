@@ -407,6 +407,8 @@ namespace NewsSite.BL
     public string Status { get; set; } = string.Empty;
     public int PostCount { get; set; }
     public int LikesReceived { get; set; }
+    public int FollowersCount { get; set; }
+    public int FollowingCount { get; set; }
     public bool IsAdmin { get; set; }
 }
 

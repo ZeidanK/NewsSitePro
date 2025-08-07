@@ -54,9 +54,6 @@ class AdminPanel {
         // Reset filters
         document.getElementById('resetFilters').addEventListener('click', () => this.resetFilters());
 
-        // Export data
-        document.getElementById('exportData').addEventListener('click', () => this.exportData());
-
         // Select all checkbox
         document.getElementById('selectAll').addEventListener('change', (e) => this.toggleSelectAll(e.target.checked));
 
@@ -150,7 +147,7 @@ class AdminPanel {
                     <div class="user-info">
                         <div class="user-avatar">
                             ${user.profilePicture ? 
-                                `<img src="${user.profilePicture}" alt="${user.username}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                                `<img src="${user.profilePicture}" alt="${user.username}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
                                  <div class="avatar-placeholder" style="display:none;width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;">
                                      ${(user.username || 'U').substring(0, 1).toUpperCase()}
                                  </div>` 
@@ -595,8 +592,10 @@ class AdminPanel {
 
     async viewUserDetails(userId) {
         try {
-            const endpoint = `api/Admin/users/${userId}/details`;
+            const endpoint = `/Admin?handler=UserDetails&userId=${userId}`;
             const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            
+            console.log('Fetching user details from:', apiUrl);
             
             // Get JWT token for authentication
             const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
@@ -610,16 +609,31 @@ class AdminPanel {
                 credentials: 'include'
             });
             
-            const data = await response.json();
+            console.log('Response status:', response.status);
+            console.log('Response headers:', response.headers);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const responseText = await response.text();
+            console.log('Raw response:', responseText);
+            
+            if (!responseText.trim()) {
+                throw new Error('Empty response from server');
+            }
+            
+            const data = JSON.parse(responseText);
             
             if (data.success) {
                 this.renderUserDetailsModal(data.user);
                 const modal = new bootstrap.Modal(document.getElementById('userDetailsModal'));
                 modal.show();
             } else {
-                this.showError(data.message);
+                this.showError(data.message || 'Unknown error occurred');
             }
         } catch (error) {
+            console.error('Error in viewUserDetails:', error);
             this.showError('Error loading user details: ' + error.message);
         }
     }
@@ -632,7 +646,7 @@ class AdminPanel {
                     <div class="col-md-4 text-center">
                         <div class="user-avatar-large" style="width:150px;height:150px;margin:0 auto 1rem;">
                             ${user.profilePicture ? 
-                                `<img src="${user.profilePicture}" alt="${user.username}" class="img-fluid rounded-circle" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                                `<img src="${user.profilePicture}" alt="${user.username}" class="img-fluid rounded-circle" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
                                  <div class="avatar-placeholder" style="display:none;width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:4rem;">
                                      ${(user.username || 'U').substring(0, 1).toUpperCase()}
                                  </div>` 
@@ -642,7 +656,11 @@ class AdminPanel {
                                  </div>`
                             }
                         </div>
-                        <h4>${user.username}</h4>
+                        <h4>
+                            <a href="/UserProfile?userId=${user.id}" class="text-decoration-none" target="_blank">
+                                ${user.username} <i class="fas fa-external-link-alt" style="font-size:0.8rem;"></i>
+                            </a>
+                        </h4>
                         <p class="text-muted">${user.fullName || 'N/A'}</p>
                         <span class="status-badge status-${user.status.toLowerCase()}">${user.status}</span>
                     </div>
@@ -653,18 +671,22 @@ class AdminPanel {
                             <tr><td><strong>Join Date:</strong></td><td>${this.formatDate(user.joinDate)}</td></tr>
                             <tr><td><strong>Last Activity:</strong></td><td>${this.formatDateTime(user.lastActivity)}</td></tr>
                             <tr><td><strong>Posts:</strong></td><td>${user.postCount}</td></tr>
-                            <tr><td><strong>Likes Received:</strong></td><td>${user.likesReceived}</td></tr>
+                            <tr><td><strong>Followers:</strong></td><td>${user.followersCount || 0}</td></tr>
+                            <tr><td><strong>Following:</strong></td><td>${user.followingCount || 0}</td></tr>
                             <tr><td><strong>Bio:</strong></td><td>${user.bio || 'N/A'}</td></tr>
                         </table>
                         
                         <h5>Recent Activity</h5>
                         <div class="recent-activity" style="max-height: 200px; overflow-y: auto;">
-                            ${user.recentActivity.map(activity => `
-                                <div class="activity-item mb-2 p-2 border rounded">
-                                    <small class="text-muted">${this.formatDateTime(activity.timestamp)}</small>
-                                    <div>${activity.action}</div>
-                                </div>
-                            `).join('')}
+                            ${(user.recentActivity && user.recentActivity.length > 0) ? 
+                                user.recentActivity.map(activity => `
+                                    <div class="activity-item mb-2 p-2 border rounded">
+                                        <small class="text-muted">${this.formatDateTime(activity.timestamp)}</small>
+                                        <div>${activity.action}</div>
+                                    </div>
+                                `).join('') :
+                                '<div class="text-muted">No recent activity available</div>'
+                            }
                         </div>
                     </div>
                 </div>
@@ -721,15 +743,6 @@ class AdminPanel {
             bootstrap.Modal.getInstance(document.getElementById('bulkActionsModal')).hide();
         } catch (error) {
             this.showError(`Error performing bulk ${action}: ` + error.message);
-        }
-    }
-
-    async exportData() {
-        try {
-            // Implementation for data export would go here
-            this.showSuccess('Data export started. You will receive a download link shortly.');
-        } catch (error) {
-            this.showError('Error exporting data: ' + error.message);
         }
     }
 

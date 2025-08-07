@@ -1314,6 +1314,7 @@ public class DBservices
                         Id = reader.GetInt32("UserID"),
                         Username = reader.GetString("Username"),
                         Email = reader.GetString("Email"),
+                        ProfilePicture = reader.IsDBNull("ProfilePicture") ? null : reader.GetString("ProfilePicture"),
                         JoinDate = reader.GetDateTime("JoinDate"),
                         LastActivity = reader.IsDBNull("LastActivity") ? null : reader.GetDateTime("LastActivity"),
                         PostCount = reader.GetInt32("PostCount"),
@@ -1402,7 +1403,7 @@ public class DBservices
                 var whereClause = whereConditions.Count > 0 ? "WHERE " + string.Join(" AND ", whereConditions) : "";
                 
                 var query = $@"
-                    SELECT u.UserID, u.Username AS Username, u.Email, u.Bio, u.JoinDate, u.LastActivity, 
+                    SELECT u.UserID, u.Username AS Username, u.Email, u.ProfilePicture, u.Bio, u.JoinDate, u.LastActivity, 
                            u.IsAdmin, u.IsActive, u.IsBanned, u.BannedUntil,
                            COALESCE(pc.PostCount, 0) AS PostCount,
                            COALESCE(lc.LikesReceived, 0) AS LikesReceived
@@ -1439,6 +1440,7 @@ public class DBservices
                         Id = reader.GetInt32("UserID"),
                         Username = reader.GetString("Username"),
                         Email = reader.GetString("Email"),
+                        ProfilePicture = reader.IsDBNull("ProfilePicture") ? null : reader.GetString("ProfilePicture"),
                         JoinDate = reader.GetDateTime("JoinDate"),
                         LastActivity = reader.IsDBNull("LastActivity") ? null : reader.GetDateTime("LastActivity"),
                         PostCount = reader.GetInt32("PostCount"),
@@ -1608,11 +1610,14 @@ public class DBservices
                         Id = reader.GetInt32("UserID"),
                         Username = reader.GetString("Username"),
                         Email = reader.GetString("Email"),
+                        ProfilePicture = reader.IsDBNull("ProfilePicture") ? null : reader.GetString("ProfilePicture"),
                         Bio = reader.IsDBNull("Bio") ? null : reader.GetString("Bio"),
                         JoinDate = reader.GetDateTime("JoinDate"),
                         LastActivity = reader.IsDBNull("LastActivity") ? null : reader.GetDateTime("LastActivity"),
                         PostCount = reader.GetInt32("PostCount"),
                         LikesReceived = reader.GetInt32("LikesReceived"),
+                        FollowersCount = reader.IsDBNull("FollowersCount") ? 0 : reader.GetInt32("FollowersCount"),
+                        FollowingCount = reader.IsDBNull("FollowingCount") ? 0 : reader.GetInt32("FollowingCount"),
                         IsAdmin = reader.GetBoolean("IsAdmin"),
                         BannedUntil = reader.IsDBNull("BannedUntil") ? null : reader.GetDateTime("BannedUntil"),
                         BanReason = reader.IsDBNull("BanReason") ? null : reader.GetString("BanReason")
@@ -1650,10 +1655,12 @@ public class DBservices
                 }
                 
                 var query = @"
-                    SELECT u.UserID, u.Username AS Username, u.Email, u.Bio, u.JoinDate, u.LastActivity, 
+                    SELECT u.UserID, u.Username AS Username, u.Email, u.ProfilePicture, u.Bio, u.JoinDate, u.LastActivity, 
                            u.IsAdmin, u.IsActive, u.IsBanned, u.BannedUntil, u.BanReason,
                            COALESCE(pc.PostCount, 0) AS PostCount,
-                           COALESCE(lc.LikesReceived, 0) AS LikesReceived
+                           COALESCE(lc.LikesReceived, 0) AS LikesReceived,
+                           COALESCE(fc.FollowersCount, 0) AS FollowersCount,
+                           COALESCE(fg.FollowingCount, 0) AS FollowingCount
                     FROM NewsSitePro2025_Users u
                     LEFT JOIN (
                         SELECT UserID, COUNT(*) AS PostCount 
@@ -1668,6 +1675,18 @@ public class DBservices
                         WHERE na.UserID = @UserId
                         GROUP BY na.UserID
                     ) lc ON u.UserID = lc.UserID
+                    LEFT JOIN (
+                        SELECT FollowedUserID, COUNT(*) AS FollowersCount
+                        FROM NewsSitePro2025_UserFollows
+                        WHERE FollowedUserID = @UserId
+                        GROUP BY FollowedUserID
+                    ) fc ON u.UserID = fc.FollowedUserID
+                    LEFT JOIN (
+                        SELECT FollowerUserID, COUNT(*) AS FollowingCount
+                        FROM NewsSitePro2025_UserFollows
+                        WHERE FollowerUserID = @UserId
+                        GROUP BY FollowerUserID
+                    ) fg ON u.UserID = fg.FollowerUserID
                     WHERE u.UserID = @UserId";
 
                 cmd = new SqlCommand(query, con);
@@ -1681,11 +1700,14 @@ public class DBservices
                         Id = reader.GetInt32("UserID"),
                         Username = reader.GetString("Username"),
                         Email = reader.GetString("Email"),
+                        ProfilePicture = reader.IsDBNull("ProfilePicture") ? null : reader.GetString("ProfilePicture"),
                         Bio = reader.IsDBNull("Bio") ? null : reader.GetString("Bio"),
                         JoinDate = reader.GetDateTime("JoinDate"),
                         LastActivity = reader.IsDBNull("LastActivity") ? null : reader.GetDateTime("LastActivity"),
                         PostCount = reader.GetInt32("PostCount"),
                         LikesReceived = reader.GetInt32("LikesReceived"),
+                        FollowersCount = reader.GetInt32("FollowersCount"),
+                        FollowingCount = reader.GetInt32("FollowingCount"),
                         IsAdmin = reader.GetBoolean("IsAdmin"),
                         BannedUntil = reader.IsDBNull("BannedUntil") ? null : reader.GetDateTime("BannedUntil"),
                         BanReason = reader.IsDBNull("BanReason") ? null : reader.GetString("BanReason")
