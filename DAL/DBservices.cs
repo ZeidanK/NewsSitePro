@@ -941,9 +941,9 @@ public class DBservices
                 
                 string sql = @"
                     SELECT 
-                        (SELECT COUNT(*) FROM NewsArticles WHERE UserID = @UserID) as PostsCount,
-                        (SELECT COUNT(*) FROM UserLikes ul INNER JOIN NewsArticles na ON ul.ArticleID = na.ArticleID WHERE na.UserID = @UserID) as LikesCount,
-                        (SELECT COUNT(*) FROM SavedArticles WHERE UserID = @UserID) as SavedCount,
+                        (SELECT COUNT(*) FROM NewsSitePro2025_NewsArticles WHERE UserID = @UserID) as PostsCount,
+                        (SELECT COUNT(*) FROM NewsSitePro2025_ArticleLikes ul INNER JOIN NewsSitePro2025_NewsArticles na ON ul.ArticleID = na.ArticleID WHERE na.UserID = @UserID) as LikesCount,
+                        (SELECT COUNT(*) FROM NewsSitePro2025_SavedArticles WHERE UserID = @UserID) as SavedCount,
                         (SELECT COUNT(*) FROM NewsSitePro2025_UserFollows WHERE FollowedUserID = @UserID) as FollowersCount,
                         (SELECT COUNT(*) FROM NewsSitePro2025_UserFollows WHERE FollowerUserID = @UserID) as FollowingCount";
                 
