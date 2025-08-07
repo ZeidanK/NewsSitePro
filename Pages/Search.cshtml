@@ -131,7 +131,7 @@
                                     
                                     <div class="post-content">
                                         <h3 class="post-title">
-                                            <a href="/Post/@article.ArticleID">@article.Title</a>
+                                            <a href="#" onclick="openPost(@article.ArticleID); return false;">@article.Title</a>
                                         </h3>
                                         <p class="post-excerpt">
                                             @(article.Content?.Length > 200 ? article.Content.Substring(0, 200) + "..." : article.Content)
@@ -300,4 +300,10 @@
 @section Scripts {
     <link rel="stylesheet" href="~/css/search.css" />
     <script src="~/js/search.js"></script>
+    <script>
+        // Function to navigate to a post using the correct API URL
+        function openPost(postId) {
+            window.location.href = window.ApiConfig.getApiUrl(`/Post/${postId}`);
+        }
+    </script>
 }

@@ -26,6 +26,11 @@ if (!window.ApiConfig) {
     };
 }
 
+// Helper function to navigate to user profile using correct API URL
+function openUserProfile(userId) {
+    window.location.href = window.ApiConfig.getApiUrl(`/UserProfile?userId=${userId}`);
+}
+
 class AdminPanel {
     constructor() {
         this.currentPage = 1;
@@ -666,7 +671,7 @@ class AdminPanel {
                             }
                         </div>
                         <h4>
-                            <a href="/UserProfile?userId=${user.id}" class="text-decoration-none" target="_blank">
+                            <a href="#" onclick="openUserProfile('${user.id}'); return false;" class="text-decoration-none" target="_blank">
                                 ${user.username} <i class="fas fa-external-link-alt" style="font-size:0.8rem;"></i>
                             </a>
                         </h4>
