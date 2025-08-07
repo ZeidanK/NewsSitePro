@@ -175,8 +175,21 @@ namespace NewsSite.Controllers
                     currentUser = await GetCurrentUserAsync(currentUserId.Value);
                 }
 
+                // DEBUG: Log what's being called
+                _logger.LogInformation($"[DEBUG] Calling NewsService.GetAllNewsArticlesAsync with currentUserId: {currentUserId}");
                 var articles = await _newsService.GetAllNewsArticlesAsync(page, limit, category, currentUserId);
                 //var articles = await _DBservices.GetAllNewsArticlesWithBlockFilter(page, limit, category, currentUserId);
+                
+                // DEBUG: Log article count and first few article authors
+                _logger.LogInformation($"[DEBUG] Retrieved {articles.Count} articles");
+                if (articles.Count > 0)
+                {
+                    var firstFew = articles.Take(3);
+                    foreach (var art in firstFew)
+                    {
+                        _logger.LogInformation($"[DEBUG] Article {art.ArticleID} by User {art.UserID} ({art.Username})");
+                    }
+                }
                 // Load follow status for all post authors if user is logged in
                 Dictionary<int, bool> followStatusMap = new Dictionary<int, bool>();
                 if (currentUserId.HasValue)

@@ -36,13 +36,18 @@ namespace NewsSite.BL.Services
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1 || pageSize > 100) pageSize = 10; // Limit page size
 
+            // DEBUG: Log which path we're taking
+            Console.WriteLine($"[NewsService DEBUG] GetAllNewsArticlesAsync called with currentUserId: {currentUserId}");
+            
             // Use block filtering when currentUserId is provided
             if (currentUserId.HasValue)
             {
+                Console.WriteLine($"[NewsService DEBUG] Using BLOCK FILTER for user {currentUserId}");
                 return await Task.FromResult(_dbService.GetAllNewsArticlesWithBlockFilter(pageNumber, pageSize, category, currentUserId));
             }
             else
             {
+                Console.WriteLine($"[NewsService DEBUG] Using REGULAR method (no user logged in)");
                 return await Task.FromResult(_dbService.GetAllNewsArticles(pageNumber, pageSize, category, currentUserId));
             }
         }

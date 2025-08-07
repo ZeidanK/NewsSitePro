@@ -535,7 +535,8 @@ public class DBservices
                 { "@CurrentUserID", currentUserId.HasValue ? (object)currentUserId.Value : DBNull.Value },
                 { "@PageNumber", pageNumber },
                 { "@PageSize", pageSize },
-                { "@Category", (object?)category ?? DBNull.Value }
+                { "@Category", (object?)category ?? DBNull.Value },
+                { "@SortBy", "recent" }  // Add missing SortBy parameter
             };
 
             try
@@ -561,7 +562,10 @@ public class DBservices
                         ViewsCount = Convert.ToInt32(reader["ViewsCount"]),
                         UserProfilePicture = reader["UserProfilePicture"]?.ToString(),
                         IsLiked = reader["IsLiked"] != DBNull.Value && Convert.ToBoolean(reader["IsLiked"]),
-                        IsSaved = reader["IsSaved"] != DBNull.Value && Convert.ToBoolean(reader["IsSaved"])
+                        IsSaved = reader["IsSaved"] != DBNull.Value && Convert.ToBoolean(reader["IsSaved"]),
+                        // Add repost data from stored procedure
+                        RepostCount = reader.IsDBNull("RepostCount") ? 0 : Convert.ToInt32(reader["RepostCount"]),
+                        IsReposted = reader.IsDBNull("IsReposted") ? false : Convert.ToInt32(reader["IsReposted"]) == 1
                     };
 
                     articles.Add(article);

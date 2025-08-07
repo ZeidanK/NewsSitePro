@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using NewsSite.BL;
 using NewsSitePro.Models;
 
 public class IndexModel : PageModel
 {
+    /* COMMENTED OUT - Index page now redirects to /post
     public HeaderViewModel HeaderData { get; set; } = new HeaderViewModel();
 // Index.cshtml.cs
 //
@@ -18,9 +20,14 @@ public class IndexModel : PageModel
     { 
         _dbService = new DBservices();
     }
+    */
 
-    public void OnGet() 
+    public IActionResult OnGet() 
     {
+        // Redirect to the post page instead of loading the index
+        return RedirectToPage("/Post");
+
+        /* COMMENTED OUT - Original index page logic
         var jwt = Request.Cookies["jwtToken"];
         User? currentUser = null;
     /// <summary>
@@ -82,5 +89,6 @@ public class IndexModel : PageModel
             Console.WriteLine($"Error loading posts: {ex.Message}");
             Posts = new List<NewsArticle>();
         }
+        */
     }
 }
