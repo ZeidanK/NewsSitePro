@@ -4,38 +4,52 @@
      _HeaderPartial.cshtml
 
      This partial view renders the main header and navigation bar for NewsSitePro.
-     It includes branding, navigation controls, and a notification dropdown. The
-     header adapts based on authentication state and displays notifications using
-     the auth service. Key sections are commented for clarity.
+     It shows only icons with the same navigation routes as the left sidebar.
 ------------------------------------------------------------------------------ -->
 <header class="main-header">
     <nav class="header-nav">
-        <div class="header-brand">
-            <a href="/" class="brand-link">
-                <span class="brand-icon">📰</span>
-                <span class="brand-text">NewsSitePro</span>
+        <!-- Icon-only navigation matching left sidebar -->
+        <div class="header-nav-icons">
+            <a href="~/" class="nav-btn" title="Home">
+                <span class="nav-icon">🏠</span>
             </a>
-        </div>
-        
-        <!-- Controls for login/logout, profile, etc. Populated by auth service -->
-        <div class="header-controls" id="headerControls">
-            <!-- Will be populated by auth service -->
-        </div>
-        
-        <!-- Notification Dropdown -->
-        <div class="notification-dropdown" id="notificationDropdown">
-            <div class="notification-header">
-                <h4>Notifications</h4>
-                <!-- Button to mark all notifications as read -->
-                <button class="mark-all-read" onclick="authService.markAllNotificationsRead()">Mark all as read</button>
-            </div>
-            <div class="notification-content" id="notificationContent">
-                <!-- Notifications will be loaded here -->
-            </div>
-            <div class="notification-footer">
-                <!-- Link to view all notifications -->
-                <a href="/Notifications" class="view-all-link">View all notifications</a>
-            </div>
+            <a href="~/Search" class="nav-btn" title="Search">
+                <span class="nav-icon">🔍</span>
+            </a>
+            <a href="~/News" class="nav-btn" title="Latest News">
+                <span class="nav-icon">📰</span>
+            </a>
+            <a href="~/Features" class="nav-btn" title="Features">
+                <span class="nav-icon">✨</span>
+            </a>
+            
+            <!-- Auth Required Items -->
+            <a href="~/UserProfile" class="nav-btn" data-auth-required title="Profile">
+                <span class="nav-icon">👤</span>
+            </a>
+            <a href="~/Notifications" class="nav-btn" data-auth-required title="Notifications">
+                <span class="nav-icon">🔔</span>
+                <span class="notification-badge" style="display: none;"></span>
+            </a>
+            <a href="~/SavedArticles" class="nav-btn" data-auth-required title="Saved Articles">
+                <span class="nav-icon">🔖</span>
+            </a>
+            <a href="~/Admin" class="nav-btn" data-auth-required data-admin-only style="display: none;" title="Admin Panel">
+                <span class="nav-icon">⚙️</span>
+            </a>
+            
+            <!-- Logout Button -->
+            <button class="nav-btn logout-btn" id="logoutBtn" data-auth-required title="Logout">
+                <span class="nav-icon">🚪</span>
+            </button>
+            
+            <!-- Guest Only Items -->
+            <a href="~/Login" class="nav-btn" data-guest-only title="Login">
+                <span class="nav-icon">🔐</span>
+            </a>
+            <a href="~/Register" class="nav-btn" data-guest-only title="Register">
+                <span class="nav-icon">✍️</span>
+            </a>
         </div>
     </nav>
 </header>

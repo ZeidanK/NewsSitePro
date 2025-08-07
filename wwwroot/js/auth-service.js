@@ -181,6 +181,11 @@ class AuthService {
     }
 
     updateHeader() {
+        // DISABLED: Header content is now managed by _HeaderPartial.cshtml
+        // The HTML partial now handles all header navigation instead of JavaScript
+        //return;
+        
+        /* OLD CODE - COMMENTED OUT*/
         const header = document.querySelector('header nav');
         if (!header) return;
 
@@ -290,6 +295,7 @@ class AuthService {
             registerLink.textContent = 'Register';
             header.appendChild(registerLink);
         }
+       /* END OF OLD CODE */
     }
 
     updateSidebar() {
