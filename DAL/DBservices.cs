@@ -522,9 +522,17 @@ public class DBservices
         try
         {
             con = connect("myProjDB");
+            
+            // Debug logging
+            Console.WriteLine($"[DBservices] GetAllNewsArticlesWithBlockFilter called with:");
+            Console.WriteLine($"  - pageNumber: {pageNumber}");
+            Console.WriteLine($"  - pageSize: {pageSize}");
+            Console.WriteLine($"  - category: {category ?? "NULL"}");
+            Console.WriteLine($"  - currentUserId: {currentUserId?.ToString() ?? "NULL"}");
+            
             var paramDic = new Dictionary<string, object>
             {
-                { "@CurrentUserID", (object?)currentUserId ?? DBNull.Value },
+                { "@CurrentUserID", currentUserId.HasValue ? (object)currentUserId.Value : DBNull.Value },
                 { "@PageNumber", pageNumber },
                 { "@PageSize", pageSize },
                 { "@Category", (object?)category ?? DBNull.Value }
@@ -558,10 +566,14 @@ public class DBservices
 
                     articles.Add(article);
                 }
+                
+                Console.WriteLine($"[DBservices] Stored procedure returned {articles.Count} articles");
             }
-            catch
+            catch (Exception spEx)
             {
+                Console.WriteLine($"[DBservices] Stored procedure failed: {spEx.Message}");
                 // Fallback to regular GetAllNewsArticles if stored procedure fails
+                Console.WriteLine("[DBservices] Falling back to GetAllNewsArticles");
                 return GetAllNewsArticles(pageNumber, pageSize, category, currentUserId);
             }
         }

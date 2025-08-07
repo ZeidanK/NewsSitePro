@@ -176,7 +176,7 @@ namespace NewsSite.Controllers
                 }
 
                 var articles = await _newsService.GetAllNewsArticlesAsync(page, limit, category, currentUserId);
-                
+                //var articles = await _DBservices.GetAllNewsArticlesWithBlockFilter(page, limit, category, currentUserId);
                 // Load follow status for all post authors if user is logged in
                 Dictionary<int, bool> followStatusMap = new Dictionary<int, bool>();
                 if (currentUserId.HasValue)
