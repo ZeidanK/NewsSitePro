@@ -31,6 +31,9 @@ class AdminPanel {
         this.currentPage = 1;
         this.pageSize = 50;
         this.selectedUsers = new Set();
+        this.autoRefreshEnabled = false;
+        this.autoRefreshInterval = null;
+        this.refreshIntervalMinutes = 5; // Refresh every 5 minutes
         this.init();
     }
 
@@ -39,7 +42,7 @@ class AdminPanel {
         this.loadUsers();
         this.loadActivityLogs();
         this.loadReports();
-        this.startAutoRefresh();
+        this.loadAutoNewsSyncStatus();
     }
 
     bindEvents() {
@@ -67,6 +70,12 @@ class AdminPanel {
         document.getElementById('bulkDeactivate').addEventListener('click', () => this.bulkAction('deactivate'));
         document.getElementById('bulkBan').addEventListener('click', () => this.bulkAction('ban'));
         document.getElementById('bulkActivate').addEventListener('click', () => this.bulkAction('activate'));
+
+        // Auto news sync toggle
+        document.getElementById('autoNewsSync').addEventListener('click', () => this.toggleAutoNewsSync());
+        
+        // Test news sync button
+        document.getElementById('testNewsSync').addEventListener('click', () => this.testNewsSync());
     }
 
     async loadUsers(page = 1) {
@@ -751,14 +760,6 @@ class AdminPanel {
         document.getElementById('banDuration').value = '';
     }
 
-    startAutoRefresh() {
-        // Refresh data every 5 minutes
-        setInterval(() => {
-            this.loadUsers(this.currentPage);
-            this.loadActivityLogs();
-        }, 5 * 60 * 1000);
-    }
-
     // Utility functions
     debounce(func, wait) {
         let timeout;
@@ -830,6 +831,220 @@ class AdminPanel {
                 notification.parentNode.removeChild(notification);
             }
         }, 5000);
+    }
+
+    // Auto News Sync functionality
+    async loadAutoNewsSyncStatus() {
+        try {
+            const endpoint = 'api/Admin/background-service/status';
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.autoNewsSyncEnabled = data.isEnabled;
+                    this.updateAutoNewsSyncUI(data.isEnabled);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading auto news sync status:', error);
+            // Default to OFF if there's an error
+            this.updateAutoNewsSyncUI(false);
+        }
+    }
+
+    async toggleAutoNewsSync() {
+        try {
+            const newStatus = !this.autoNewsSyncEnabled;
+            
+            const endpoint = 'api/Admin/background-service/toggle';
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include',
+                body: JSON.stringify({ enabled: newStatus })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.autoNewsSyncEnabled = data.isEnabled;
+                    this.updateAutoNewsSyncUI(data.isEnabled);
+                    
+                    if (data.isEnabled) {
+                        this.showNotification('Auto news sync enabled! News will be fetched every 24 hours. Triggering initial sync...', 'success');
+                        // Trigger manual sync when enabling
+                        await this.manualNewsSync();
+                    } else {
+                        this.showNotification('Auto news sync disabled', 'info');
+                    }
+                } else {
+                    this.showNotification(data.message || 'Failed to toggle auto news sync', 'error');
+                }
+            } else {
+                throw new Error(`HTTP ${response.status}`);
+            }
+        } catch (error) {
+            console.error('Error toggling auto news sync:', error);
+            this.showNotification('Error toggling auto news sync', 'error');
+        }
+    }
+
+    updateAutoNewsSyncUI(isEnabled) {
+        const button = document.getElementById('autoNewsSync');
+        const text = document.getElementById('autoSyncText');
+        
+        if (button && text) {
+            if (isEnabled) {
+                button.className = 'btn btn-success w-100';
+                button.innerHTML = '<i class="fas fa-cloud-download-alt"></i> <span id="autoSyncText">Auto News Sync: ON</span>';
+            } else {
+                button.className = 'btn btn-outline-success w-100';
+                button.innerHTML = '<i class="fas fa-cloud-download-alt"></i> <span id="autoSyncText">Auto News Sync: OFF</span>';
+            }
+        }
+    }
+
+    async manualNewsSync() {
+        try {
+            const endpoint = 'api/Admin/sync-news';
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            
+            this.showNotification('Starting manual news sync...', 'info');
+            
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.showNotification(`Manual sync completed! Added ${data.articlesAdded} new articles`, 'success');
+                    // Optionally refresh admin stats
+                    this.loadAdminStats();
+                } else {
+                    this.showNotification(data.message || 'Manual sync failed', 'error');
+                }
+            } else {
+                throw new Error(`HTTP ${response.status}`);
+            }
+        } catch (error) {
+            console.error('Error during manual news sync:', error);
+            this.showNotification('Error during manual news sync', 'error');
+        }
+    }
+
+    async testNewsSync() {
+        try {
+            const endpoint = 'api/Admin/test-sync-news';
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            
+            // Show loading state
+            const testButton = document.getElementById('testNewsSync');
+            const originalText = testButton.innerHTML;
+            testButton.disabled = true;
+            testButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
+            
+            this.showNotification('Starting test news sync (6 articles)...', 'info');
+            
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.showNotification(`${data.message}`, 'success');
+                    // Optionally refresh admin stats
+                    this.loadAdminStats();
+                } else {
+                    this.showNotification(data.message || 'Test sync failed', 'error');
+                }
+            } else {
+                throw new Error(`HTTP ${response.status}`);
+            }
+        } catch (error) {
+            console.error('Error during test news sync:', error);
+            this.showNotification('Error during test news sync: ' + error.message, 'error');
+        } finally {
+            // Restore button state
+            const testButton = document.getElementById('testNewsSync');
+            testButton.disabled = false;
+            testButton.innerHTML = '<i class="fas fa-flask"></i> Test News Sync (6 articles)';
+        }
+    }
+
+    async loadAdminStats() {
+        try {
+            const endpoint = 'api/Admin/dashboard-stats';
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    // Update dashboard stats in UI
+                    this.updateDashboardStats(data.stats);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading admin stats:', error);
+        }
+    }
+
+    updateDashboardStats(stats) {
+        // Update stats cards if they exist
+        const totalUsersEl = document.getElementById('totalUsers');
+        const activeUsersEl = document.getElementById('activeUsers');
+        const totalArticlesEl = document.getElementById('totalArticles');
+        const pendingReportsEl = document.getElementById('pendingReports');
+        
+        if (totalUsersEl) totalUsersEl.textContent = stats.totalUsers || 0;
+        if (activeUsersEl) activeUsersEl.textContent = stats.activeUsers || 0;
+        if (totalArticlesEl) totalArticlesEl.textContent = stats.totalArticles || 0;
+        if (pendingReportsEl) pendingReportsEl.textContent = stats.pendingReports || 0;
     }
 }
 

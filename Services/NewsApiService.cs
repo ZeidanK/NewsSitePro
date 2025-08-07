@@ -9,6 +9,7 @@ namespace NewsSite.Services
         Task<List<NewsApiArticle>> FetchEverythingAsync(string query, int pageSize = 20);
         Task<List<NewsApiArticle>> FetchSourceArticlesAsync(string sources, int pageSize = 20);
         Task<int> SyncNewsArticlesToDatabase();
+        Task<int> TestSyncNewsArticles(int articlesPerCategory = 2);
         Task<bool> CreateSystemUserIfNotExists();
     }
 
@@ -235,6 +236,99 @@ namespace NewsSite.Services
                 return string.Empty;
             
             return input.Length <= maxLength ? input : input.Substring(0, maxLength);
+        }
+
+        public async Task<int> TestSyncNewsArticles(int articlesPerCategory = 2)
+        {
+            try
+            {
+                _logger.LogInformation("Starting TEST news sync process with limited articles...");
+                
+                // Ensure system user exists 
+                var systemUserExists = await CreateSystemUserIfNotExists();
+                if (!systemUserExists)
+                {
+                    _logger.LogError("Failed to create or verify system user. Aborting sync.");
+                    return 0;
+                }
+                
+                int totalArticlesAdded = 0;
+                
+                // Only test with first 3 categories to save API calls
+                var testCategories = _settings.Categories.Take(3).ToList();
+                _logger.LogInformation($"TEST: Syncing {articlesPerCategory} articles each for {testCategories.Count} categories: {string.Join(", ", testCategories)}");
+                
+                // Fetch articles from limited categories
+                foreach (var category in testCategories)
+                {
+                    try
+                    {
+                        _logger.LogInformation($"TEST: Fetching {articlesPerCategory} articles for category: {category}");
+                        var articles = await FetchTopHeadlinesAsync(category, "us", articlesPerCategory);
+                        
+                        _logger.LogInformation($"TEST: Retrieved {articles.Count} articles for category: {category}");
+                        
+                        foreach (var apiArticle in articles)
+                        {
+                            try
+                            {
+                                // Check if article has required fields
+                                if (string.IsNullOrWhiteSpace(apiArticle.Title))
+                                {
+                                    _logger.LogWarning("TEST: Skipping article with empty title");
+                                    continue;
+                                }
+
+                                // Create NewsArticle object
+                                var newsArticle = new NewsArticle
+                                {
+                                    Title = TruncateString(apiArticle.Title, 100),
+                                    Content = TruncateString(apiArticle.Content ?? apiArticle.Description ?? "", 4000),
+                                    SourceURL = TruncateString(apiArticle.Url, 500),
+                                    SourceName = TruncateString(apiArticle.Source?.Name ?? "Unknown", 100),
+                                    ImageURL = TruncateString(apiArticle.UrlToImage, 255),
+                                    PublishDate = apiArticle.PublishedAt,
+                                    Category = TruncateString(category, 50),
+                                    UserID = 1, // Using admin user
+                                    Username = "NewsBot [TEST]" // Mark as test
+                                };
+
+                                _logger.LogDebug($"TEST: Attempting to create article: {newsArticle.Title}");
+                                
+                                var articleId = _dbServices.CreateNewsArticle(newsArticle);
+                                if (articleId > 0)
+                                {
+                                    totalArticlesAdded++;
+                                    _logger.LogInformation($"TEST: ✓ Created article ID {articleId}: {newsArticle.Title}");
+                                }
+                                else
+                                {
+                                    _logger.LogWarning($"TEST: ✗ Failed to create article: {newsArticle.Title}");
+                                }
+                            }
+                            catch (Exception articleEx)
+                            {
+                                _logger.LogError(articleEx, $"TEST: Error creating individual article: {apiArticle.Title}");
+                            }
+                        }
+                        
+                        // Small delay between categories
+                        await Task.Delay(1000);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"TEST: Error syncing articles for category: {category}");
+                    }
+                }
+
+                _logger.LogInformation($"TEST: Sync completed. Added {totalArticlesAdded} new articles out of {testCategories.Count * articlesPerCategory} attempted");
+                return totalArticlesAdded;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "TEST: Error during news sync");
+                return 0;
+            }
         }
     }
 }
