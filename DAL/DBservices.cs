@@ -870,7 +870,7 @@ public class DBservices
         try
         {
             con = connect("myProjDB");
-            string sql = "SELECT COUNT(*) FROM NewsSitePro2025_NewsArticles";
+            string sql = "SELECT COUNT(*) FROM NewsSitePro2025_NewsArticles WHERE IsDeleted = 0 OR IsDeleted IS NULL";
             cmd = new SqlCommand(sql, con);
             var result = cmd.ExecuteScalar();
             return Convert.ToInt32(result);
@@ -1103,7 +1103,7 @@ public class DBservices
                 result = await cmd.ExecuteScalarAsync();
                 stats.BannedUsers = result != null ? (int)result : 0;
                 
-                cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_NewsArticles", con);
+                cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_NewsArticles WHERE IsDeleted = 0 OR IsDeleted IS NULL", con);
                 result = await cmd.ExecuteScalarAsync();
                 stats.TotalPosts = result != null ? (int)result : 0;
                 
@@ -1119,7 +1119,7 @@ public class DBservices
                 result = cmd.ExecuteScalar();
                 stats.TodayRegistrations = result != null ? (int)result : 0;
                 
-                cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_NewsArticles WHERE CAST(PublishDate AS DATE) = CAST(GETDATE() AS DATE)", con);
+                cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_NewsArticles WHERE CAST(PublishDate AS DATE) = CAST(GETDATE() AS DATE) AND (IsDeleted = 0 OR IsDeleted IS NULL)", con);
                 result = cmd.ExecuteScalar();
                 stats.TodayPosts = result != null ? (int)result : 0;
             }
@@ -2542,7 +2542,7 @@ public class DBservices
         {
             con = connect("myProjDB");
             
-            var getPostAuthorQuery = "SELECT UserID FROM NewsSitePro2025_NewsArticles WHERE ArticleID = @PostID";
+            var getPostAuthorQuery = "SELECT UserID FROM NewsSitePro2025_NewsArticles WHERE ArticleID = @PostID AND (IsDeleted = 0 OR IsDeleted IS NULL)";
             cmd = new SqlCommand(getPostAuthorQuery, con);
             cmd.Parameters.AddWithValue("@PostID", postId);
             var postAuthorId = await cmd.ExecuteScalarAsync();
@@ -3549,7 +3549,7 @@ SqlDataReader? reader = null;
             }
 
             sql += @"
-                WHERE na.ArticleID = @ArticleID";
+                WHERE na.ArticleID = @ArticleID AND (na.IsDeleted = 0 OR na.IsDeleted IS NULL)";
 
             SqlCommand cmd = new SqlCommand(sql, con);
             cmd.Parameters.AddWithValue("@ArticleID", articleId);
@@ -3609,7 +3609,7 @@ SqlDataReader? reader = null;
 
             SqlCommand cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_NewsArticle_Delete", con, paramDic);
             int result = await cmd.ExecuteNonQueryAsync();
-            success = result > 0;
+            success = result < 0;
         }
         catch (Exception)
         {
@@ -3622,13 +3622,13 @@ SqlDataReader? reader = null;
                     con = connect("myProjDB");
                 }
                 
-                string sql = "DELETE FROM NewsArticles WHERE ArticleID = @ArticleID";
+                string sql = "UPDATE NewsSitePro2025_NewsArticles SET IsDeleted = 1, DeletedAt = GETDATE() WHERE ArticleID = @ArticleID AND IsDeleted = 0";
 
                 SqlCommand cmd = new SqlCommand(sql, con);
                 cmd.Parameters.AddWithValue("@ArticleID", articleId);
 
                 int result = await cmd.ExecuteNonQueryAsync();
-                success = result > 0;
+                success = result < 0;
             }
             catch (Exception)
             {

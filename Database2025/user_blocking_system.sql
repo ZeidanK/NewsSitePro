@@ -345,6 +345,8 @@ BEGIN
     LEFT JOIN NewsSitePro2025_Reposts rp ON na.ArticleID = rp.OriginalArticleID AND rp.UserID = @CurrentUserID
     WHERE (@Category IS NULL OR LOWER(na.Category) = LOWER(@Category))
         AND (@SortBy != 'trending' OR na.PublishDate >= DATEADD(day, -7, GETDATE()))
+        -- Exclude soft-deleted articles
+        AND (na.IsDeleted = 0 OR na.IsDeleted IS NULL)
         -- ONLY ADDITION: Block filter
         AND (@CurrentUserID IS NULL OR na.UserID NOT IN (
             SELECT BlockedUserID FROM NewsSitePro2025_UserBlocks 
@@ -364,6 +366,8 @@ BEGIN
     FROM NewsSitePro2025_NewsArticles na
     WHERE (@Category IS NULL OR LOWER(na.Category) = LOWER(@Category))
         AND (@SortBy != 'trending' OR na.PublishDate >= DATEADD(day, -7, GETDATE()))
+        -- Exclude soft-deleted articles
+        AND (na.IsDeleted = 0 OR na.IsDeleted IS NULL)
         -- ONLY ADDITION: Block filter
         AND (@CurrentUserID IS NULL OR na.UserID NOT IN (
             SELECT BlockedUserID FROM NewsSitePro2025_UserBlocks 

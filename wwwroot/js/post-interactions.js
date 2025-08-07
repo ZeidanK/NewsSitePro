@@ -307,11 +307,37 @@ window.PostCardInteractions = {
         window.location.href = window.ApiConfig.getApiUrl(`./Posts/Edit/${postId}`);
     },
 
-    deletePost(postId) {
+    async deletePost(postId) {
         if (confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
-            console.log('Deleting post:', postId);
-            // Implement delete logic here
-            this.showMessage('Post deleted successfully', 'success');
+            try {
+                const apiUrl = window.ApiConfig ? window.ApiConfig.getApiUrl(`api/posts/${postId}`) : `/api/posts/${postId}`;
+                const response = await fetch(apiUrl, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    this.showMessage(result.message || 'Post deleted successfully', 'success');
+                    
+                    // Remove the post from the UI
+                    const postElement = document.querySelector(`[data-post-id="${postId}"]`);
+                    if (postElement) {
+                        postElement.style.transition = 'opacity 0.3s ease-out';
+                        postElement.style.opacity = '0';
+                        setTimeout(() => {
+                            postElement.remove();
+                        }, 300);
+                    }
+                } else {
+                    this.showMessage(result.message || 'Failed to delete post', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting post:', error);
+                this.showMessage('Failed to delete post. Please try again.', 'error');
+            }
         }
     }
 };

@@ -127,7 +127,7 @@ namespace NewsSitePro.Models
             if (currentUser?.Id == profileUserId)
             {
                 // Viewing own profile
-                context.CanEdit = true;
+                context.CanEdit = false; // Temporarily disabled until edit functionality is implemented
                 context.CanDelete = true;
             }
 
@@ -214,7 +214,7 @@ namespace NewsSitePro.Models
             if (context.IsOwnPost)
             {
                 context.ShowFollowButton = false;
-                context.CanEdit = true;
+                context.CanEdit = false; // Temporarily disabled until edit functionality is implemented
                 context.CanDelete = true;
                 context.CanReport = false;
                 context.CanBlock = false;
@@ -273,7 +273,7 @@ namespace NewsSitePro.Models
             if (context.IsOwnPost)
             {
                 context.ShowFollowButton = false;
-                context.CanEdit = true;
+                context.CanEdit = false; // Temporarily disabled until edit functionality is implemented
                 context.CanDelete = true;
                 context.CanReport = false;
                 context.CanBlock = false;

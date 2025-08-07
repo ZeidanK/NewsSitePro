@@ -172,9 +172,9 @@
                                 <i class="fas fa-ellipsis-h"></i>
                             </button>
                             <div class="mobile-menu-dropdown" id="mobileMenu-@post.ArticleID">
-                                @if (context.CanEdit)
+                                @if (false ) // Example condition to show edit button not implemented
                                 {
-                                    <button class="action-btn edit-btn" onclick="editPost(@post.ArticleID); hideMobileMenu(@post.ArticleID)">
+                                    <button class="action-btn edit-btn"  hideMobileMenu(@post.ArticleID)">
                                         <i class="fas fa-edit"></i>
                                         <span>Edit</span>
                                     </button>
