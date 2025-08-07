@@ -45,15 +45,38 @@ else
 <div class="user-profile-container">
     <div class="profile-header">
         <div class="user-avatar">
-            @if (!string.IsNullOrEmpty(Model.UserProfile?.ProfilePicture))
+            @if (Model.IsOwnProfile)
             {
-                <img src="@Model.UserProfile.ProfilePicture" alt="@Model.UserProfile.Username" class="avatar-circle profile-image" />
+                <div class="avatar-clickable" style="cursor: pointer; position: relative;">
+                    @if (!string.IsNullOrEmpty(Model.UserProfile?.ProfilePicture))
+                    {
+                        <img src="@Model.UserProfile.ProfilePicture" alt="@Model.UserProfile.Username" class="avatar-circle profile-image" />
+                    }
+                    else
+                    {
+                        <div class="avatar-circle">
+                            @(Model.UserProfile?.Username?.Substring(0,1).ToUpper() ?? "?")
+                        </div>
+                    }
+                    <div class="avatar-overlay">
+                        <i class="fas fa-camera"></i>
+                        <span>Change Photo</span>
+                    </div>
+                </div>
+                <input type="file" id="avatarInput" accept="image/*" style="display: none;" />
             }
             else
             {
-                <div class="avatar-circle">
-                    @(Model.UserProfile?.Username?.Substring(0,1).ToUpper() ?? "?")
-                </div>
+                @if (!string.IsNullOrEmpty(Model.UserProfile?.ProfilePicture))
+                {
+                    <img src="@Model.UserProfile.ProfilePicture" alt="@Model.UserProfile.Username" class="avatar-circle profile-image" />
+                }
+                else
+                {
+                    <div class="avatar-circle">
+                        @(Model.UserProfile?.Username?.Substring(0,1).ToUpper() ?? "?")
+                    </div>
+                }
             }
         </div>
         <div class="user-info">
@@ -142,40 +165,6 @@ else
         }
 
         <div class="tab-content" id="activity-tab">
-            <div class="activity-overview">
-                <h3>Activity Overview</h3>
-                <div class="activity-grid">
-                    <div class="activity-card">
-                        <i class="fas fa-edit"></i>
-                        <div>
-                            <h4>Articles Published</h4>
-                            <p>@Model.UserProfile?.Activity?.PostsCount total articles</p>
-                        </div>
-                    </div>
-                    <div class="activity-card">
-                        <i class="fas fa-thumbs-up"></i>
-                        <div>
-                            <h4>Engagement</h4>
-                            <p>@Model.UserProfile?.Activity?.LikesCount likes given to other posts</p>
-                        </div>
-                    </div>
-                    <div class="activity-card">
-                        <i class="fas fa-bookmark"></i>
-                        <div>
-                            <h4>Curated Content</h4>
-                            <p>@Model.UserProfile?.Activity?.SavedCount articles saved for later</p>
-                        </div>
-                    </div>
-                    <div class="activity-card">
-                        <i class="fas fa-users"></i>
-                        <div>
-                            <h4>Community</h4>
-                            <p>@Model.UserProfile?.Activity?.FollowersCount followers</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Recent Activity Section -->
             <div class="recent-activity-section">
                 <h3>Recent Activity</h3>
@@ -224,6 +213,79 @@ else
 <link rel="stylesheet" href="~/css/mobile-responsive.css" />
 <link rel="stylesheet" href="~/css/site.css" />
 
+<style>
+    /* Avatar overlay styles for profile picture change */
+    .avatar-clickable {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .avatar-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 50%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        color: white;
+        font-size: 0.8rem;
+        text-align: center;
+    }
+    
+    .avatar-overlay i {
+        font-size: 1.5rem;
+        margin-bottom: 4px;
+    }
+    
+    .avatar-clickable:hover .avatar-overlay {
+        opacity: 1;
+    }
+    
+    /* Toast styles for notifications */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+    }
+    
+    .toast {
+        background: #333;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        opacity: 0;
+        transform: translateX(100%);
+        transition: all 0.3s ease;
+        max-width: 300px;
+    }
+    
+    .toast.show {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    
+    .toast.toast-success {
+        background: #28a745;
+    }
+    
+    .toast.toast-error {
+        background: #dc3545;
+    }
+    
+    .toast.toast-info {
+        background: #17a2b8;
+    }
+</style>
+
 @section Scripts {
     <!-- Required JS files are already included in _Layout.cshtml -->
     <script src="~/js/userprofile.js"></script>
@@ -254,6 +316,11 @@ else
             // Set up follow functionality if available
             if (window.followStatusManager) {
                 setupFollowHandler();
+            }
+            
+            // Set up avatar upload functionality for own profile
+            if (window.profileContext.isOwnProfile) {
+                setupAvatarUpload();
             }
         });
 
@@ -528,6 +595,122 @@ else
             } catch (error) {
                 console.error('Error refreshing user stats:', error);
             }
+        }
+        
+        function setupAvatarUpload() {
+            const avatarClickable = document.querySelector('.avatar-clickable');
+            const avatarInput = document.getElementById('avatarInput');
+            
+            if (!avatarClickable || !avatarInput) return;
+            
+            // Make avatar clickable
+            avatarClickable.addEventListener('click', function() {
+                avatarInput.click();
+            });
+            
+            // Handle file selection
+            avatarInput.addEventListener('change', async function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                // Validate file type
+                if (!file.type.startsWith('image/')) {
+                    showToast('Please select an image file', 'error');
+                    return;
+                }
+
+                // Validate file size (5MB max)
+                if (file.size > 5 * 1024 * 1024) {
+                    showToast('File size must be less than 5MB', 'error');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    showToast('Uploading profile picture...', 'info');
+                    
+                    const response = await fetch(window.ApiConfig.getApiUrl('/api/User/UploadProfilePic'), {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + (localStorage.getItem('jwtToken') || getCookie('jwtToken'))
+                        },
+                        body: formData
+                    });
+
+                    const result = await response.json();
+                    if (response.ok && result.success) {
+                        showToast('Profile picture updated successfully!', 'success');
+                        
+                        // Update the avatar display
+                        const avatarContainer = document.querySelector('.avatar-clickable');
+                        if (avatarContainer) {
+                            avatarContainer.innerHTML = `
+                                <img src="${result.imageUrl}" alt="${window.profileContext.username}" class="avatar-circle profile-image" />
+                                <div class="avatar-overlay">
+                                    <i class="fas fa-camera"></i>
+                                    <span>Change Photo</span>
+                                </div>
+                            `;
+                        }
+                        
+                        // Refresh the page after a short delay to update header avatar
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                        
+                    } else {
+                        showToast(result.message || 'Failed to upload profile picture', 'error');
+                    }
+                } catch (error) {
+                    console.error('Avatar upload error:', error);
+                    showToast('Network error occurred', 'error');
+                }
+            });
+        }
+        
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            
+            const toastContainer = document.querySelector('.toast-container') || createToastContainer();
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 100);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function createToastContainer() {
+            const container = document.createElement('div');
+            container.className = 'toast-container';
+            container.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 9999;
+            `;
+            document.body.appendChild(container);
+            return container;
+        }
+        
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
         }
     </script>
 }
