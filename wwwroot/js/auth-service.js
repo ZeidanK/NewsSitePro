@@ -183,7 +183,7 @@ class AuthService {
     updateHeader() {
         // DISABLED: Header content is now managed by _HeaderPartial.cshtml
         // The HTML partial now handles all header navigation instead of JavaScript
-        //return;
+        return;
         
         /* OLD CODE - COMMENTED OUT*/
         const header = document.querySelector('header nav');
@@ -213,6 +213,7 @@ class AuthService {
             postLink.href = '/Post';
             postLink.textContent = 'Post';
             header.appendChild(postLink);
+            
 
             // Notifications with dropdown
             const notificationContainer = document.createElement('div');

@@ -452,5 +452,5 @@ style.textContent = `
     .toast-notification {
         animation: slideInRight 0.3s ease-out;
     }
-`;
+`; 
 document.head.appendChild(style);
