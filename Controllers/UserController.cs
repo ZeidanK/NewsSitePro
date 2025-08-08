@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 using NewsSite.BL;
 using NewsSite.BL.Services;
 using NewsSite.Models;
+using NewsSite.Services;
 
 namespace NewsSite.Controllers
 {
@@ -19,11 +20,13 @@ namespace NewsSite.Controllers
     {
         private readonly IUserService _userService;
         private readonly INewsService _newsService;
+        private readonly IApiConfigurationService _apiConfigService;
 
-        public UserController(IUserService userService, INewsService newsService)
+        public UserController(IUserService userService, INewsService newsService, IApiConfigurationService apiConfigService)
         {
             _userService = userService;
             _newsService = newsService;
+            _apiConfigService = apiConfigService;
         }
 
         [HttpGet("{id}")]
@@ -316,7 +319,7 @@ namespace NewsSite.Controllers
                 }
 
                 // Update user's profile picture in database
-                var imageUrl = $"/uploads/profile-pictures/{fileName}";
+                var imageUrl = $"{_apiConfigService.GetApiUrl("")}/uploads/profile-pictures/{fileName}";
                 var updateSuccess = await _userService.UpdateUserProfilePicAsync(currentUserId.Value, imageUrl);
 
                 if (updateSuccess)

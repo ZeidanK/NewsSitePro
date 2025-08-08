@@ -1,14 +1,24 @@
 using System.ComponentModel.DataAnnotations;
 
+// ----------------------------------------------------------------------------------
+// Requests.cs
+//
+// This file contains request models for user actions and API endpoints in the NewsSitePro application.
+// These models are used to validate and transfer data for login, registration, profile updates, post creation,
+// preferences, password changes, and reporting. Comments are added to key classes for clarity.
+// ----------------------------------------------------------------------------------
+
 namespace NewsSite.Models
 {
     public class LoginRequest
+    // Request model for user login
     {
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
     }
 
     public class RegisterRequest
+    // Request model for user registration
     {
         [Required(ErrorMessage = "Name is required.")]
         public string Name { get; set; } = string.Empty;
@@ -23,12 +33,14 @@ namespace NewsSite.Models
     }
 
     public class UpdateUserRequest
+    // Request model for updating user information
     {
         public string Name { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
     }
 
     public class CreatePostRequest
+    // Request model for creating a new post
     {
         [Required(ErrorMessage = "Title is required.")]
         [StringLength(100, ErrorMessage = "Title must be at most 100 characters.")]
@@ -48,6 +60,7 @@ namespace NewsSite.Models
     }
 
     public class UpdatePreferencesRequest
+    // Request model for updating user notification and content preferences
     {
         public string Categories { get; set; } = string.Empty;
         public bool EmailNotifications { get; set; }
@@ -56,6 +69,7 @@ namespace NewsSite.Models
     }
 
     public class UpdateProfileRequest
+    // Request model for updating user profile information
     {
         [Required(ErrorMessage = "Username is required.")]
         [StringLength(100, ErrorMessage = "Username must be at most 100 characters.")]
@@ -66,6 +80,7 @@ namespace NewsSite.Models
     }
 
     public class ChangePasswordRequest
+    // Request model for changing a user's password
     {
         [Required(ErrorMessage = "Current password is required.")]
         public string CurrentPassword { get; set; } = string.Empty;
@@ -80,6 +95,7 @@ namespace NewsSite.Models
     }
 
     public class ReportRequest
+    // Request model for reporting content or users
     {
         [StringLength(255, ErrorMessage = "Reason must be at most 255 characters.")]
         public string? Reason { get; set; }

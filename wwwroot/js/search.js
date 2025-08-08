@@ -178,9 +178,9 @@ class SearchManager {
         const id = item.dataset.id;
         
         if (type === 'post') {
-            window.location.href = `/Post/${id}`;
+            window.location.href = window.ApiConfig.getApiUrl(`/Post/${id}`);
         } else if (type === 'user') {
-            window.location.href = `/UserProfile?userId=${id}`;
+            window.location.href = window.ApiConfig.getApiUrl(`/UserProfile?userId=${id}`);
         }
     }
     

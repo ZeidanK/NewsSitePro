@@ -1,10 +1,17 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using NewsSite.BL;
 using NewsSitePro.Models;
 
 public class IndexModel : PageModel
 {
+    /* COMMENTED OUT - Index page now redirects to /post
     public HeaderViewModel HeaderData { get; set; } = new HeaderViewModel();
+// Index.cshtml.cs
+//
+// Code-behind for the NewsSitePro home page. Loads initial posts, user info,
+// and follow status for the feed. Main logic is in OnGet().
+// ------------------------------------------------------------------------------
     public List<NewsArticle> Posts { get; set; } = new List<NewsArticle>();
     public Dictionary<int, bool> FollowStatusMap { get; set; } = new Dictionary<int, bool>();
     private readonly DBservices _dbService;
@@ -13,11 +20,19 @@ public class IndexModel : PageModel
     { 
         _dbService = new DBservices();
     }
+    */
 
-    public void OnGet() 
+    public IActionResult OnGet() 
     {
+        // Redirect to the post page instead of loading the index
+        return RedirectToPage("/Post");
+
+        /* COMMENTED OUT - Original index page logic
         var jwt = Request.Cookies["jwtToken"];
         User? currentUser = null;
+    /// <summary>
+    /// Loads initial posts, user info, and follow status for the home feed.
+    /// </summary>
         int? currentUserId = null;
 
         if (!string.IsNullOrEmpty(jwt))
@@ -74,5 +89,6 @@ public class IndexModel : PageModel
             Console.WriteLine($"Error loading posts: {ex.Message}");
             Posts = new List<NewsArticle>();
         }
+        */
     }
 }

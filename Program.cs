@@ -26,6 +26,15 @@ builder.Services.Configure<NewsSitePro.Models.SystemSettingsOptions>(
 // Register DBservices for dependency injection
 builder.Services.AddScoped<DBservices>();
 
+// ---------------- What is Dependency Injection? ----------------
+// Dependency Injection (DI) is a way for the code to get the objects it needs (like services or helpers)
+// without creating them directly. Instead, you "ask" for what you need, and ASP.NET Core gives it to you.
+// This makes the code easier to change, test, and reuse. For example, if you need to use a news service,
+// you just ask for INewsService, and the system provides the right version for you.
+//
+// In the lines below, we tell ASP.NET Core which classes to use for each interface or service.
+// When the controllers or other classes need something, DI will automatically provide it.
+// ---------------------------------------------------------------
 // Register Business Layer Services
 builder.Services.AddScoped<NewsSite.BL.Services.NotificationService>();
 builder.Services.AddScoped<NewsSite.BL.Services.IUserService, NewsSite.BL.Services.UserService>();
@@ -34,6 +43,7 @@ builder.Services.AddScoped<NewsSite.BL.Services.ICommentService, NewsSite.BL.Ser
 builder.Services.AddScoped<NewsSite.BL.Services.IAdminService, NewsSite.BL.Services.AdminService>();
 builder.Services.AddScoped<NewsSite.BL.Interfaces.IRepostService, NewsSite.BL.Services.RepostService>();
 builder.Services.AddScoped<NewsSite.BL.Services.IUserBlockService, NewsSite.BL.Services.UserBlockService>();
+builder.Services.AddScoped<NewsSite.BL.Services.IGoogleOAuthService, NewsSite.BL.Services.GoogleOAuthService>();
 // PostService removed - using NewsService directly for article operations
 
 // Register HttpClient for News API
@@ -45,11 +55,18 @@ builder.Services.AddScoped<INewsApiService, NewsApiService>();
 // Register Recommendation Service
 builder.Services.AddScoped<IRecommendationService, RecommendationService>();
 
-// Register Background Service for automatic news fetching
 builder.Services.AddHostedService<NewsApiBackgroundService>();
 
-// Register Background Service for trending topics calculation
+
+// Register background service that runs in the background and fetches news articles automatically
+builder.Services.AddHostedService<NewsApiBackgroundService>();
+
+// Register background service that calculates trending topics periodically
 builder.Services.AddHostedService<TrendingTopicsBackgroundService>();
+
+// Register API Configuration Service for accessing API settings and context
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<NewsSite.Services.IApiConfigurationService, NewsSite.Services.ApiConfigurationService>();
 
 // Configure authentication
 builder.Services.AddAuthentication(options =>
@@ -100,40 +117,19 @@ builder.Services.AddAuthentication(options =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+if (true)
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 else
 {
-    // Configure Swagger for production with proper base path
-    app.UseSwagger(c =>
-    {
-        c.RouteTemplate = "swagger/{documentName}/swagger.json";
-        c.PreSerializeFilters.Add((swaggerDoc, httpReq) =>
-        {
-            var pathBase = httpReq.PathBase.ToString();
-            if (!string.IsNullOrEmpty(pathBase))
-            {
-                swaggerDoc.Servers = new List<Microsoft.OpenApi.Models.OpenApiServer>
-                {
-                    new Microsoft.OpenApi.Models.OpenApiServer { Url = pathBase }
-                };
-            }
-        });
-    });
-    
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("./swagger/v1/swagger.json", "NewsSitePro API V1");
-        c.RoutePrefix = "swagger";
-    });
+
 }
 
 app.UseHttpsRedirection();
 
-// Configure for subdirectory deployment
+// If deploying to a subdirectory, set the base path for all routes
 var pathBase = builder.Configuration["PathBase"];
 if (!string.IsNullOrEmpty(pathBase))
 {
@@ -148,15 +144,22 @@ app.UseCookiePolicy(new CookiePolicyOptions
     
 });
 
-// Order is important!
-app.UseAuthentication(); // Add this before UseAuthorization
+
+// Order is important! Authentication must come before Authorization
+app.UseAuthentication();
 app.UseAuthorization();
 
 
 app.UseCors(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
 
+
+// Serve static files (CSS, JS, images, etc.)
 app.UseStaticFiles();
+
+// Map controller routes (API endpoints)
 app.MapControllers();
+
+// Map Razor Pages routes (for server-rendered pages)
 app.MapRazorPages();
 
 app.Run();

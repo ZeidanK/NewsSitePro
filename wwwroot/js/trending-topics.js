@@ -5,21 +5,9 @@
 
 class TrendingTopics {
     constructor() {
-        this.apiBaseUrl = this.getApiUrl();
         this.container = document.getElementById('trendingList');
         this.refreshInterval = null;
         this.init();
-    }
-
-    /**
-     * Get the correct API URL based on current environment
-     */
-    getApiUrl() {
-        const protocol = window.location.protocol;
-        const hostname = window.location.hostname;
-        const port = window.location.port;
-        const portSuffix = port && port !== '80' && port !== '443' ? `:${port}` : '';
-        return `${protocol}//${hostname}${portSuffix}`;
     }
 
     /**
@@ -41,7 +29,7 @@ class TrendingTopics {
      */
     async loadTrendingTopics() {
         try {
-            const response = await fetch(`${this.apiBaseUrl}/api/trending/sidebar`, {
+            const response = await fetch(window.ApiConfig.getApiUrl('/api/trending/sidebar'), {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json'
@@ -123,7 +111,7 @@ class TrendingTopics {
                 trending: 'true'
             });
 
-            window.location.href = `/Search?${searchParams.toString()}`;
+            window.location.href = window.ApiConfig.getApiUrl(`/Search?${searchParams.toString()}`);
         } catch (error) {
             console.error('Error handling topic click:', error);
         }
@@ -212,7 +200,7 @@ class TrendingTopics {
                 params.append('category', category);
             }
 
-            const response = await fetch(`${this.apiBaseUrl}/api/trending?${params.toString()}`, {
+            const response = await fetch(window.ApiConfig.getApiUrl(`/api/trending?${params.toString()}`), {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json'

@@ -169,10 +169,27 @@ namespace NewsSite.Controllers
                 int? currentUserId = NewsSite.BL.User.GetCurrentUserId(Request, User);
                 
                 // Get current user object for context creation
-                User? currentUser = await GetCurrentUserAsync(currentUserId ?? 0);
+                User? currentUser = null;
+                if (currentUserId.HasValue && currentUserId.Value > 0)
+                {
+                    currentUser = await GetCurrentUserAsync(currentUserId.Value);
+                }
 
+                // DEBUG: Log what's being called
+                _logger.LogInformation($"[DEBUG] Calling NewsService.GetAllNewsArticlesAsync with currentUserId: {currentUserId}");
                 var articles = await _newsService.GetAllNewsArticlesAsync(page, limit, category, currentUserId);
+                //var articles = await _DBservices.GetAllNewsArticlesWithBlockFilter(page, limit, category, currentUserId);
                 
+                // DEBUG: Log article count and first few article authors
+                _logger.LogInformation($"[DEBUG] Retrieved {articles.Count} articles");
+                if (articles.Count > 0)
+                {
+                    var firstFew = articles.Take(3);
+                    foreach (var art in firstFew)
+                    {
+                        _logger.LogInformation($"[DEBUG] Article {art.ArticleID} by User {art.UserID} ({art.Username})");
+                    }
+                }
                 // Load follow status for all post authors if user is logged in
                 Dictionary<int, bool> followStatusMap = new Dictionary<int, bool>();
                 if (currentUserId.HasValue)
@@ -314,18 +331,10 @@ namespace NewsSite.Controllers
 
                 // Get trending posts using the Business Logic layer
                 int articlesToFetch = page * limit; // Fetch enough for pagination
-                var allTrendingPosts = await _newsService.GetTrendingArticlesAsync(articlesToFetch);
+                var trendingPosts = await _newsService.GetTrendingArticlesAsync(articlesToFetch, category, currentUserId);
                 
-                // Apply category filter if specified
-                if (!string.IsNullOrEmpty(category) && category != "all")
-                {
-                    allTrendingPosts = allTrendingPosts
-                        .Where(a => string.Equals(a.Category, category, StringComparison.OrdinalIgnoreCase))
-                        .ToList();
-                }
-                
-                // Apply pagination
-                var trendingPosts = allTrendingPosts
+                // Apply pagination (since we might get more than needed)
+                var paginatedPosts = trendingPosts
                     .Skip((page - 1) * limit)
                     .Take(limit)
                     .ToList();
@@ -334,11 +343,11 @@ namespace NewsSite.Controllers
                 Dictionary<int, bool> followStatusMap = new Dictionary<int, bool>();
                 if (currentUserId.HasValue)
                 {
-                    followStatusMap = await LoadFollowStatusMapAsync(currentUserId.Value, trendingPosts);
+                    followStatusMap = await LoadFollowStatusMapAsync(currentUserId.Value, paginatedPosts);
                 }
                 
                 // Create enhanced view model with context-aware rendering
-                var viewModel = CreatePostsListViewModel(trendingPosts, currentUser, "trending", followStatusMap);
+                var viewModel = CreatePostsListViewModel(paginatedPosts, currentUser, "trending", followStatusMap);
                 
                 return View("_PostsList", viewModel);
             }
@@ -697,6 +706,166 @@ namespace NewsSite.Controllers
         }
 
         /// <summary>
+        /// Admin endpoint to publish multiple articles at once (bulk publish)
+        /// </summary>
+        [HttpPost("publish-articles")]
+        public async Task<IActionResult> PublishArticles([FromBody] PublishArticlesRequest request)
+        {
+            try
+            {
+                // Verify admin permissions
+                if (!IsCurrentUserAdmin())
+                {
+                    return Forbid("Admin access required");
+                }
+
+                if (request.Articles == null || !request.Articles.Any())
+                {
+                    return BadRequest(new { success = false, message = "No articles provided" });
+                }
+
+                int publishedCount = 0;
+                int systemUserId = GetSystemUserId();
+                var errors = new List<string>();
+
+                foreach (var article in request.Articles)
+                {
+                    try
+                    {
+                        var newsArticle = new NewsArticle
+                        {
+                            Title = article.Title,
+                            Content = article.Content,
+                            ImageURL = article.ImageUrl,
+                            SourceURL = article.SourceUrl,
+                            SourceName = article.SourceName,
+                            Category = article.Category,
+                            PublishDate = DateTime.Now,
+                            UserID = systemUserId,
+                            LikesCount = 0,
+                            ViewsCount = 0
+                        };
+
+                        int articleId = await _newsService.CreateNewsArticleAsync(newsArticle);
+                        if (articleId > 0)
+                        {
+                            publishedCount++;
+                        }
+                        else
+                        {
+                            errors.Add($"Failed to save article: {article.Title}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        errors.Add($"Error publishing '{article.Title}': {ex.Message}");
+                        _logger.LogError(ex, "Error publishing individual article: {Title}", article.Title);
+                    }
+                }
+
+                _logger.LogInformation($"Bulk publish completed: {publishedCount}/{request.Articles.Count()} articles published");
+
+                return Ok(new { 
+                    success = true, 
+                    published = publishedCount,
+                    total = request.Articles.Count(),
+                    errors = errors,
+                    message = $"Successfully published {publishedCount} out of {request.Articles.Count()} articles"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in bulk publish operation");
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "An error occurred during bulk publishing: " + ex.Message 
+                });
+            }
+        }
+
+        /// <summary>
+        /// Public endpoint to publish articles - requires user authentication but not admin
+        /// </summary>
+        [HttpPost("publish")]
+        public async Task<IActionResult> PublishArticleForUser([FromBody] PublishArticlesRequest request)
+        {
+            try
+            {
+                // Check if user is logged in
+                var currentUserId = NewsSite.BL.User.GetCurrentUserId(Request, User);
+                if (!currentUserId.HasValue || currentUserId.Value <= 0)
+                {
+                    return Unauthorized(new { 
+                        success = false, 
+                        message = "You must be logged in to publish articles",
+                        requiresLogin = true 
+                    });
+                }
+
+                if (request.Articles == null || !request.Articles.Any())
+                {
+                    return BadRequest(new { success = false, message = "No articles provided" });
+                }
+
+                int publishedCount = 0;
+                var errors = new List<string>();
+
+                foreach (var article in request.Articles)
+                {
+                    try
+                    {
+                        var newsArticle = new NewsArticle
+                        {
+                            Title = article.Title,
+                            Content = article.Content,
+                            ImageURL = article.ImageUrl,
+                            SourceURL = article.SourceUrl,
+                            SourceName = article.SourceName,
+                            Category = article.Category,
+                            PublishDate = DateTime.Now,
+                            UserID = currentUserId.Value, // Use the logged-in user's ID
+                            LikesCount = 0,
+                            ViewsCount = 0
+                        };
+
+                        int articleId = await _newsService.CreateNewsArticleAsync(newsArticle);
+                        if (articleId > 0)
+                        {
+                            publishedCount++;
+                        }
+                        else
+                        {
+                            errors.Add($"Failed to save article: {article.Title}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        errors.Add($"Error publishing '{article.Title}': {ex.Message}");
+                        _logger.LogError(ex, "Error publishing individual article: {Title}", article.Title);
+                    }
+                }
+
+                _logger.LogInformation($"User publish completed: {publishedCount}/{request.Articles.Count()} articles published by user {currentUserId}");
+
+                return Ok(new { 
+                    success = true, 
+                    published = publishedCount,
+                    total = request.Articles.Count(),
+                    errors = errors,
+                    message = $"Successfully published {publishedCount} out of {request.Articles.Count()} articles"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in user publish operation");
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "An error occurred during publishing: " + ex.Message 
+                });
+            }
+        }
+
+        /// <summary>
         /// Get published articles for admin review
         /// Returns articles with admin-specific metadata
         /// </summary>
@@ -878,6 +1047,177 @@ namespace NewsSite.Controllers
                 }
             };
         }
+
+        //==========================================================================================
+        // SIMPLE API ENDPOINTS FOR FRONTEND COMPATIBILITY
+        //==========================================================================================
+
+        /// <summary>
+        /// GET: /api/saved - Simple endpoint for saved articles (frontend compatibility)
+        /// Returns JSON array of saved articles for the authenticated user
+        /// </summary>
+        [HttpGet("/api/saved")]
+        public async Task<ActionResult<List<NewsArticle>>> GetSavedArticlesApi()
+        {
+            try
+            {
+                var userId = NewsSite.BL.User.GetCurrentUserId(Request, User);
+                if (userId == null)
+                {
+                    return Unauthorized("User must be logged in to view saved articles");
+                }
+
+                var savedArticles = await _newsService.GetSavedArticlesByUserAsync(userId.Value, 1, 20);
+                return Ok(savedArticles);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching saved articles API");
+                return StatusCode(500, "Error fetching saved articles");
+            }
+        }
+
+        /// <summary>
+        /// GET: /api/shared - Simple endpoint for posts from followed users (frontend compatibility)
+        /// Returns JSON array of posts from users the current user follows
+        /// </summary>
+        [HttpGet("/api/shared")]
+        public async Task<ActionResult<List<NewsArticle>>> GetSharedArticlesApi()
+        {
+            try
+            {
+                var userId = NewsSite.BL.User.GetCurrentUserId(Request, User);
+                if (userId == null)
+                {
+                    return Unauthorized("User must be logged in to view following feed");
+                }
+
+                var followingPosts = await _newsService.GetFollowingPostsAsync(userId.Value, 1, 20);
+                return Ok(followingPosts);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching following posts API");
+                return StatusCode(500, "Error fetching following posts");
+            }
+        }
+
+        /// <summary>
+        /// GET: /api/posts - Simple endpoint for all posts (frontend compatibility)
+        /// Returns JSON array of all posts with proper user context
+        /// </summary>
+        [HttpGet("/api/posts")]
+        public async Task<ActionResult<List<NewsArticle>>> GetAllPostsApi([FromQuery] int page = 1, [FromQuery] int limit = 20)
+        {
+            try
+            {
+                var userId = NewsSite.BL.User.GetCurrentUserId(Request, User);
+                var articles = await _newsService.GetAllNewsArticlesAsync(page, limit, null, userId);
+                return Ok(articles);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching all posts API");
+                return StatusCode(500, "Error fetching posts");
+            }
+        }
+
+        /// <summary>
+        /// GET: /api/tags - Simple endpoint for available categories/tags (frontend compatibility)
+        /// Returns JSON array of available news categories
+        /// </summary>
+        [HttpGet("/api/tags")]
+        public ActionResult<List<string>> GetTagsApi()
+        {
+            var categories = new List<string> 
+            { 
+                "general", "business", "entertainment", "health", 
+                "science", "sports", "technology" 
+            };
+            return Ok(categories);
+        }
+
+        /// <summary>
+        /// Public endpoint to browse news from external APIs
+        /// Used by public News page for users to browse articles
+        /// </summary>
+        [HttpPost("browse-external")]
+        public async Task<ActionResult> BrowseExternalNews([FromBody] PublicFetchNewsRequest request)
+        {
+            try
+            {
+                _logger.LogInformation("BrowseExternalNews called with request: {@Request}", request);
+
+                List<NewsApiArticle> articles = new List<NewsApiArticle>();
+
+                try
+                {
+                    // Fetch articles based on request type and filters
+                    switch (request.Type.ToLower())
+                    {
+                        case "top-headlines":
+                            _logger.LogInformation("Fetching top headlines for category: {Category}, country: {Country}", 
+                                request.Category, request.Country);
+                            
+                            if (!string.IsNullOrEmpty(request.Sources))
+                            {
+                                // For now, use everything endpoint with source in query
+                                // You can enhance this later with a dedicated sources method
+                                string sourceQuery = $"source:{request.Sources.Split(',')[0]}";
+                                articles = await _newsApiService.FetchEverythingAsync(sourceQuery, request.PageSize);
+                            }
+                            else
+                            {
+                                articles = await _newsApiService.FetchTopHeadlinesAsync(
+                                    request.Category ?? "general", request.Country ?? "us", request.PageSize);
+                            }
+                            break;
+
+                        case "everything":
+                            _logger.LogInformation("Fetching everything for category: {Category}", request.Category);
+                            string query = !string.IsNullOrEmpty(request.Category) && request.Category != "general" 
+                                ? request.Category 
+                                : "news";
+                            articles = await _newsApiService.FetchEverythingAsync(query, request.PageSize);
+                            break;
+
+                        case "breaking":
+                            _logger.LogInformation("Fetching breaking news");
+                            articles = await _newsApiService.FetchEverythingAsync("breaking news", request.PageSize);
+                            break;
+
+                        default:
+                            _logger.LogInformation("Using default: top headlines");
+                            articles = await _newsApiService.FetchTopHeadlinesAsync(
+                                request.Category ?? "general", request.Country ?? "us", request.PageSize);
+                            break;
+                    }
+                }
+                catch (Exception apiEx)
+                {
+                    _logger.LogWarning(apiEx, "Failed to fetch from News API, returning mock data for testing");
+                    
+                    // Return mock data for testing when API is not configured
+                    articles = CreateMockNewsArticles(request.Category ?? "general");
+                }
+
+                _logger.LogInformation("Successfully fetched {Count} articles for public browsing", articles.Count);
+
+                return Ok(new { 
+                    success = true, 
+                    articles = articles, 
+                    message = $"Successfully found {articles.Count} articles" 
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error browsing external news");
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "Failed to fetch news: " + ex.Message
+                });
+            }
+        }
     }
 
     // REQUEST/RESPONSE MODELS FOR ADMIN ENDPOINTS
@@ -895,6 +1235,19 @@ namespace NewsSite.Controllers
     }
 
     /// <summary>
+    /// Request model for public news browsing
+    /// Used by public News page with additional source filtering
+    /// </summary>
+    public class PublicFetchNewsRequest
+    {
+        public string Type { get; set; } = "top-headlines"; // top-headlines, everything, breaking
+        public string? Category { get; set; } = "general";
+        public string? Country { get; set; } = "us";
+        public string? Sources { get; set; } = null; // e.g., "bbc-news,cnn,reuters"
+        public int PageSize { get; set; } = 20;
+    }
+
+    /// <summary>
     /// Request model for publishing articles
     /// Contains all necessary data to create a NewsArticle
     /// </summary>
@@ -907,5 +1260,13 @@ namespace NewsSite.Controllers
         public string? SourceName { get; set; }
         public string Category { get; set; } = "general";
         public string PublishDate { get; set; } = DateTime.Now.ToString();
+    }
+
+    /// <summary>
+    /// Request model for publishing multiple articles at once
+    /// </summary>
+    public class PublishArticlesRequest
+    {
+        public IEnumerable<PublishArticleRequest> Articles { get; set; } = new List<PublishArticleRequest>();
     }
 }

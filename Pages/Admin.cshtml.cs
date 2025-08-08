@@ -3,11 +3,23 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using NewsSite.BL;
 using NewsSitePro.Models;
 
+// ------------------------------------------------------------------------------
+// Admin.cshtml.cs
+//
+// This code-behind file implements the logic for the Admin Panel page in NewsSitePro.
+// It provides dashboard stats, user management, activity logs, user reports, and AJAX
+// endpoints for admin actions (ban, unban, deactivate, resolve reports, etc). Helper
+// methods handle authentication and user/admin checks. Key classes, properties, and
+// functions are commented for clarity.
+// ------------------------------------------------------------------------------
 namespace NewsSite.Pages
 {
   
+        // Header data for layout and navigation
 
+        // List of news articles for admin view
     public class AdminModel : PageModel
+        // Database service for admin operations
     {
         public HeaderViewModel HeaderData { get; set; } = new HeaderViewModel();
         public List<NewsArticle> Posts { get; set; } = new List<NewsArticle>();
@@ -16,23 +28,37 @@ namespace NewsSite.Pages
         public AdminModel()
         {
             dbService = new DBservices();
+        // Total number of users
         }
+        // Number of active users
 
+        // Number of banned users
         // Properties for dashboard stats
+        // Total number of posts
         public int TotalUsers { get; set; }
+        // Total number of user reports
         public int ActiveUsers { get; set; }
         public int BannedUsers { get; set; }
         public int TotalPosts { get; set; }
+        // List of users for admin table
         public int TotalReports { get; set; }
+        // Recent admin activity logs
 
+        // List of pending user reports
         // Properties for user management
         public List<AdminUserView> Users { get; set; } = new List<AdminUserView>();
+        /// <summary>
+        /// Loads the admin panel page, checks authentication, and populates dashboard stats.
+        /// </summary>
         public List<ActivityLog> RecentActivity { get; set; } = new List<ActivityLog>();
         public List<UserReport> PendingReports { get; set; } = new List<UserReport>();
 
         public async Task<IActionResult> OnGetAsync()
         {
             Console.WriteLine("=== ADMIN PAGE ACCESSED ===");
+        /// <summary>
+        /// Loads dashboard statistics from the database.
+        /// </summary>
 
             try
             {
@@ -43,58 +69,92 @@ namespace NewsSite.Pages
                 if (string.IsNullOrEmpty(jwt))
                 {
                     Console.WriteLine("No JWT token found, redirecting to login");
+        /// <summary>
+        /// Checks if the current user is an admin.
+        /// </summary>
                     return RedirectToPage("/Login");
                 }
 
                 var user = new User().ExtractUserFromJWT(jwt);
                 Console.WriteLine($"Extracted user ID: {user.Id}, Name: {user.Name}, IsAdmin from JWT: {user.IsAdmin}");
+        /// <summary>
+        /// Gets the current user's ID from JWT.
+        /// </summary>
 
                 var currentUser = dbService.GetUserById(user.Id);
                 Console.WriteLine($"User from DB - ID: {currentUser?.Id}, Name: {currentUser?.Name}, IsAdmin: {currentUser?.IsAdmin}");
 
                 if (currentUser?.IsAdmin != true)
                 {
+        /// <summary>
+        /// Bans a user (AJAX endpoint).
+        /// </summary>
                     Console.WriteLine("User is not admin, returning Forbid");
                     return Forbid();
                 }
 
                 // Initialize with minimal data to avoid database issues
+        /// <summary>
+        /// Unbans a user (AJAX endpoint).
+        /// </summary>
                 Users = new List<AdminUserView>();
                 RecentActivity = new List<ActivityLog>();
                 PendingReports = new List<UserReport>();
 
                 // Try to load real dashboard stats
+        /// <summary>
+        /// Deactivates a user (AJAX endpoint).
+        /// </summary>
                 try
                 {
                     var stats = await dbService.GetAdminDashboardStats();
                     TotalUsers = stats.TotalUsers;
                     ActiveUsers = stats.ActiveUsers;
+        /// <summary>
+        /// Gets filtered users for admin table (AJAX endpoint).
+        /// </summary>
                     BannedUsers = stats.BannedUsers;
                     TotalPosts = stats.TotalPosts;
                     TotalReports = stats.TotalReports;
                     Console.WriteLine($"Loaded stats: Users={TotalUsers}, Active={ActiveUsers}, Banned={BannedUsers}, Posts={TotalPosts}, Reports={TotalReports}");
                 }
+        /// <summary>
+        /// Gets user details for admin view (AJAX endpoint).
+        /// </summary>
                 catch (Exception statsEx)
                 {
                     Console.WriteLine($"Error loading dashboard stats: {statsEx.Message}");
                     // Set default stats
                     TotalUsers = 0;
+        /// <summary>
+        /// Gets recent activity logs (AJAX endpoint).
+        /// </summary>
                     ActiveUsers = 0;
                     BannedUsers = 0;
                     TotalPosts = 0;
                     TotalReports = 0;
                 }
+        /// <summary>
+        /// Gets all user reports (AJAX endpoint).
+        /// </summary>
 
                 Console.WriteLine("Returning admin page successfully");
                 return Page();
             }
             catch (Exception ex)
+        /// <summary>
+        /// Resolves a user report (AJAX endpoint).
+        /// </summary>
             {
                 Console.WriteLine($"=== ADMIN PAGE ERROR ===");
                 Console.WriteLine($"Error: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 Console.WriteLine($"Inner exception: {ex.InnerException?.Message}");
                 Console.WriteLine("=========================");
+    // Helper classes for admin requests
+    /// <summary>
+    /// Request model for banning a user
+    /// </summary>
                 TempData["Error"] = "Failed to load admin panel: " + ex.Message;
                 return RedirectToPage("/Error");
             }
@@ -102,6 +162,9 @@ namespace NewsSite.Pages
 
         private async Task LoadDashboardStats()
         {
+    /// <summary>
+    /// Request model for resolving a user report
+    /// </summary>
             var stats = await dbService.GetAdminDashboardStats();
             TotalUsers = stats.TotalUsers;
             ActiveUsers = stats.ActiveUsers;
@@ -288,10 +351,15 @@ namespace NewsSite.Pages
             try
             {
                 var userDetails = await dbService.GetUserDetailsForAdmin(userId);
+                if (userDetails == null)
+                {
+                    return new JsonResult(new { success = false, message = "User not found" });
+                }
                 return new JsonResult(new { success = true, user = userDetails });
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Error getting user details: {ex.Message}");
                 return new JsonResult(new { success = false, message = "Error: " + ex.Message });
             }
         }

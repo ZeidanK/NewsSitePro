@@ -27,12 +27,28 @@ namespace NewsSite.Controllers
 
 
         [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginRequest request)
+        public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             var user = new User(_config);
             var token = user.LogIn(request.Password, request.Email);
             if (token == null)
                 return Unauthorized("Invalid credentials or user locked.");
+
+            // Create user session through BL layer (proper architecture)
+            try
+            {
+                var deviceInfo = Request.Headers["User-Agent"].ToString();
+                var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+                var userAgent = Request.Headers["User-Agent"].ToString();
+                
+                // Create session using User class method
+                await user.CreateUserSessionAsync(deviceInfo, ipAddress, userAgent, 24);
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail login
+                Console.WriteLine($"Failed to create user session: {ex.Message}");
+            }
 
             return Ok(new { token });
         }

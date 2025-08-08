@@ -19,7 +19,6 @@ namespace NewsSite.Pages
         private readonly DBservices _dbService;
 
         // Properties for dashboard statistics - displayed in page header
-        public int PendingNewsCount { get; set; } = 0;
         public int PublishedTodayCount { get; set; } = 0;
         public int TotalArticlesCount { get; set; } = 0;
         public string? ErrorMessage { get; set; }
@@ -91,18 +90,13 @@ namespace NewsSite.Pages
                 var todayArticles = allArticles?.Where(a => a.PublishDate.Date == today).ToList();
                 PublishedTodayCount = todayArticles?.Count ?? 0;
 
-                // For now, set pending count to 0 - can be enhanced with actual pending system
-                PendingNewsCount = 0;
-
-                // TODO: Implement actual pending/approval system
-                // This would involve adding status columns to articles table
-                // and tracking article workflow states (pending, approved, published, rejected)
+                // TODO: Implement efficient COUNT queries instead of loading all articles
+                // Use DBservices.GetTotalArticlesCount() and GetTodayPublishedCount()
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error loading news statistics: {ex.Message}");
                 // Set default values on error
-                PendingNewsCount = 0;
                 PublishedTodayCount = 0;
                 TotalArticlesCount = 0;
             }
@@ -197,7 +191,7 @@ namespace NewsSite.Pages
         /// AJAX endpoint for fetching news articles with filtering
         /// Future implementation for dynamic news loading
         /// </summary>
-        public async Task<IActionResult> OnGetNewsArticlesAsync(string filter = "all", int page = 1, int pageSize = 20)
+        public IActionResult OnGetNewsArticles(string filter = "all", int page = 1, int pageSize = 20)
         {
             if (!IsCurrentUserAdmin())
             {
@@ -205,7 +199,7 @@ namespace NewsSite.Pages
             }
 
             // TODO: Implement filtered news retrieval
-            // This would support different filters like pending, approved, published, rejected
+            // This would support different filters like fetched, published
             
             return new JsonResult(new { success = true, articles = new List<object>(), totalCount = 0 });
         }
@@ -214,7 +208,7 @@ namespace NewsSite.Pages
         /// AJAX endpoint for updating article status
         /// Future implementation for news approval workflow
         /// </summary>
-        public async Task<IActionResult> OnPostUpdateArticleStatusAsync([FromBody] UpdateArticleStatusRequest request)
+        public IActionResult OnPostUpdateArticleStatus([FromBody] UpdateArticleStatusRequest request)
         {
             if (!IsCurrentUserAdmin())
             {
@@ -222,7 +216,7 @@ namespace NewsSite.Pages
             }
 
             // TODO: Implement article status updates
-            // This would handle approve, reject, publish, edit operations
+            // This would handle publish, edit operations
             
             return new JsonResult(new { success = true, message = "Article status updated successfully" });
         }

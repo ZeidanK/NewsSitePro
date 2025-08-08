@@ -1,6 +1,15 @@
-@model NewsSite.BL.Post
+@* @model NewsSite.BL.Post
 
+<!-- ------------------------------------------------------------------------------
+     _PostPartial.cshtml
+
+     This partial view renders a single post in NewsSitePro, including user info,
+     article details, interaction buttons (like, comment, share), and a comments section.
+     It supports shared posts, displays stats, and provides interactive features via JS.
+     Key sections and interactive elements are commented for clarity.
+------------------------------------------------------------------------------ -->
 <div class="post-container" data-post-id="@Model.PostID">
+    <h6>postpartial.cshtml</h6>
     <div class="post-header">
         <div class="user-info">
             <img src="@(Model.UserProfilePicture ?? "/uploads/profile-pictures/user_1_20250723_110716_92e835da.jpeg")"
@@ -10,6 +19,7 @@
                 <h4 class="username">@Model.UserName</h4>
                 @if (Model.IsShared)
                 {
+                    <!-- Shared post info: shows original poster -->
                     <span class="shared-info">shared from 
                         <img src="@(Model.OriginalPosterProfileImageURL ?? "/images/default-avatar.png")" 
                              alt="@Model.OriginalPosterName" 
@@ -23,6 +33,7 @@
         <div class="post-actions-menu">
             <button class="btn-menu" onclick="togglePostMenu(@Model.PostID)">⋯</button>
             <div id="post-menu-@Model.PostID" class="post-menu hidden">
+                <!-- Post menu: share/report actions -->
                 <a href="#" onclick="sharePost(@Model.PostID)">Share</a>
                 <a href="#" onclick="reportPost(@Model.PostID)">Report</a>
             </div>
@@ -35,6 +46,7 @@
             <div class="article-content">
                 @if (!string.IsNullOrEmpty(Model.Article.ImageURL))
                 {
+                    <!-- Article image -->
                     <div class="article-image">
                         <img src="@Model.Article.ImageURL" alt="@Model.Article.Title" />
                     </div>
@@ -49,6 +61,7 @@
                     
                     @if (!string.IsNullOrEmpty(Model.Article.Content))
                     {
+                        <!-- Article excerpt -->
                         <p class="article-excerpt">@Model.Article.Content.Substring(0, Math.Min(200, Model.Article.Content.Length))@(Model.Article.Content.Length > 200 ? "..." : "")</p>
                     }
                     
@@ -70,17 +83,20 @@
         </div>
         
         <div class="interaction-buttons">
+            <!-- Like button: toggles like state -->
             <button class="btn-interaction like-btn @(Model.IsLikedByCurrentUser ? "liked" : "")" 
                     onclick="toggleLike(@Model.PostID)">
                 <i class="fas fa-heart"></i>
                 <span>@(Model.IsLikedByCurrentUser ? "Unlike" : "Like")</span>
             </button>
             
+            <!-- Comment button: toggles comments section -->
             <button class="btn-interaction comment-btn" onclick="toggleComments(@Model.PostID)">
                 <i class="fas fa-comment"></i>
                 <span>Comment</span>
             </button>
             
+            <!-- Share button: triggers share action -->
             <button class="btn-interaction share-btn" onclick="sharePost(@Model.PostID)">
                 <i class="fas fa-share"></i>
                 <span>Share</span>
@@ -89,6 +105,7 @@
     </div>
 
     <!-- Comments Section -->
+    <!-- Comments section: add/view comments, load more -->
     <div id="comments-section-@Model.PostID" class="comments-section hidden">
         <div class="comment-form">
             <textarea id="comment-input-@Model.PostID" 
@@ -102,6 +119,7 @@
             {
                 @foreach (var comment in Model.Comments.Take(3))
                 {
+                    <!-- Single comment -->
                     <div class="comment">
                         <img src="@(comment.UserProfileImageURL ?? "/images/default-avatar.png")" 
                              alt="@comment.UserName" 
@@ -115,6 +133,7 @@
                 }
                 @if (Model.Comments.Count > 3)
                 {
+                    <!-- Load more comments button -->
                     <button onclick="loadMoreComments(@Model.PostID)" class="btn-load-more">
                         Load @(Model.Comments.Count - 3) more comments
                     </button>
@@ -347,4 +366,4 @@
     font-size: 14px;
     padding: 5px 0;
 }
-</style>
+</style> *@

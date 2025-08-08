@@ -46,7 +46,7 @@ namespace NewsSite.BL.Services
                 RelatedEntityType = "Post",
                 RelatedEntityID = postId,
                 FromUserID = likedByUserId,
-                ActionUrl = $"/Posts/Details/{postId}"
+                ActionUrl = $"/Post/{postId}"
             };
 
             Console.WriteLine($"[NotificationService] Creating notification request for user {postOwnerId}: {request.Message}");
@@ -80,7 +80,7 @@ namespace NewsSite.BL.Services
                 RelatedEntityType = "Post",
                 RelatedEntityID = postId,
                 FromUserID = commentByUserId,
-                ActionUrl = $"/Posts/Details/{postId}#comment-{commentId}"
+                ActionUrl = $"/Post/{postId}#comment-{commentId}"
             };
 
             return await _dbService.CreateNotification(request);
@@ -104,7 +104,7 @@ namespace NewsSite.BL.Services
                 RelatedEntityType = "User",
                 RelatedEntityID = followerId,
                 FromUserID = followerId,
-                ActionUrl = $"/User/Profile/{followerId}"
+                ActionUrl = $"/UserProfile/{followerId}"
             };
 
             return await _dbService.CreateNotification(request);
@@ -133,7 +133,7 @@ namespace NewsSite.BL.Services
                 RelatedEntityType = "Post",
                 RelatedEntityID = postId,
                 FromUserID = sharedByUserId,
-                ActionUrl = $"/Posts/Details/{postId}"
+                ActionUrl = $"/Post/{postId}"
             };
 
             return await _dbService.CreateNotification(request);
@@ -159,7 +159,7 @@ namespace NewsSite.BL.Services
                 RelatedEntityType = "Post",
                 RelatedEntityID = postId,
                 FromUserID = authorId,
-                ActionUrl = $"/Posts/Details/{postId}"
+                ActionUrl = $"/Post/{postId}"
             };
 
             return await _dbService.CreateNotification(request);
@@ -229,7 +229,7 @@ namespace NewsSite.BL.Services
                 RelatedEntityType = "Post",
                 RelatedEntityID = postId,
                 FromUserID = commentedByUserId,
-                ActionUrl = $"/Posts/Details/{postId}#comment-{commentId}"
+                ActionUrl = $"/Post/{postId}#comment-{commentId}"
             };
 
             var result = await _dbService.CreateNotification(request);
@@ -271,7 +271,7 @@ namespace NewsSite.BL.Services
                 RelatedEntityType = "Comment",
                 RelatedEntityID = parentCommentId,
                 FromUserID = repliedByUserId,
-                ActionUrl = $"/Posts/Details/{postId}#comment-{commentId}"
+                ActionUrl = $"/Post/{postId}#comment-{commentId}"
             };
 
             var result = await _dbService.CreateNotification(request);

@@ -1,5 +1,16 @@
 using NewsSite.BL;
 
+// ----------------------------------------------------------------------------------
+// INotificationService.cs
+//
+// This interface defines the contract for notification-related operations in the business logic layer.
+// It centralizes all methods for creating, retrieving, and managing notifications triggered by user actions
+// (such as likes, comments, follows, shares, reposts, admin messages, and system alerts). By using an interface,
+// the codebase supports dependency injection, testability, and separation of concerns, allowing different
+// implementations for notification delivery and storage. All methods are asynchronous to ensure efficient,
+// non-blocking operations, especially when interacting with databases or external services.
+// ----------------------------------------------------------------------------------
+
 namespace NewsSite.BL.Interfaces
 {
     public interface INotificationService

@@ -20,7 +20,7 @@ async function loadBlockedUsers() {
                 container.innerHTML = blocks.map(b => `
     <div class="blocked-user-item d-flex justify-content-between align-items-center p-2 border mb-2">
         <div>
-            <strong>${b.username}</strong><br/>
+            <strong>${b.blockedUsername}</strong><br/>
             <small>Blocked on ${new Date(b.blockDate).toLocaleDateString()}</small>
         </div>
         <button class="btn btn-sm btn-success" onclick="unblockUser(${b.blockedUserID})">Unblock</button>

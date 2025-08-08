@@ -3,6 +3,14 @@
 @{
     ViewData["Title"] = "Error";
 }
+<!-- ------------------------------------------------------------------------------
+     Error.cshtml
+
+     This Razor page displays a user-friendly error message when an unexpected issue
+     occurs in NewsSitePro. It shows the request ID (if available), provides options
+     to go home, go back, or retry, and informs users that the team is working to fix
+     the problem. Key sections are commented for clarity.
+------------------------------------------------------------------------------ -->
 
 <div class="container mt-5">
     <div class="row justify-content-center">
@@ -15,6 +23,7 @@
                     </h4>
                 </div>
                 <div class="card-body">
+                    <!-- Show request ID if available -->
                     @if (Model.ShowRequestId)
                     {
                         <p class="text-muted mb-3">
@@ -22,6 +31,7 @@
                         </p>
                     }
                     
+                    <!-- Main error message and options -->
                     <div class="text-center py-4">
                         <i class="fas fa-bug fa-3x text-danger mb-3"></i>
                         <h5>We encountered an unexpected error</h5>
@@ -30,6 +40,7 @@
                         </p>
                     </div>
                     
+                    <!-- Navigation buttons: home, back, retry -->
                     <div class="d-flex justify-content-center gap-3 mt-4">
                         <a href="/" class="btn btn-primary">
                             <i class="fas fa-home"></i> Go Home

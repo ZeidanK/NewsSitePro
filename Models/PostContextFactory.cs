@@ -127,7 +127,7 @@ namespace NewsSitePro.Models
             if (currentUser?.Id == profileUserId)
             {
                 // Viewing own profile
-                context.CanEdit = true;
+                context.CanEdit = false; // Temporarily disabled until edit functionality is implemented
                 context.CanDelete = true;
             }
 
@@ -214,7 +214,7 @@ namespace NewsSitePro.Models
             if (context.IsOwnPost)
             {
                 context.ShowFollowButton = false;
-                context.CanEdit = true;
+                context.CanEdit = false; // Temporarily disabled until edit functionality is implemented
                 context.CanDelete = true;
                 context.CanReport = false;
                 context.CanBlock = false;
@@ -273,7 +273,7 @@ namespace NewsSitePro.Models
             if (context.IsOwnPost)
             {
                 context.ShowFollowButton = false;
-                context.CanEdit = true;
+                context.CanEdit = false; // Temporarily disabled until edit functionality is implemented
                 context.CanDelete = true;
                 context.CanReport = false;
                 context.CanBlock = false;
@@ -304,24 +304,29 @@ namespace NewsSitePro.Models
         }
 
         /// <summary>
-        /// Applies interaction context (likes, saves, etc.)
+        /// Applies interaction context (likes, saves, etc.) using actual post data
+        /// This ensures the context reflects the real user interaction state from the database
         /// </summary>
         public static void ApplyInteractionContext(PostDisplayContext context, User? currentUser, NewsArticle post)
         {
             if (currentUser == null)
             {
+                // Guest users - show counts but no personal interaction state
                 context.IsLiked = false;
                 context.IsSaved = false;
-                context.ShowLikeButton = true;
-                context.ShowSaveButton = false; // Hide save for guests
+                context.ShowLikeButton = false; // Guests can't interact
+                context.ShowSaveButton = false;
+                context.ShowShareButton = true; // Guests can still share
+                context.ShowCommentButton = true; // Guests can view comments
                 return;
             }
 
-            // TODO: Implement actual interaction checks with database
-            // For now, use the post properties if available
+            // Apply the actual user interaction state from the NewsArticle model
+            // This is populated by the database queries in DBservices with proper user context
             context.IsLiked = post.IsLiked;
             context.IsSaved = post.IsSaved;
             
+            // Enable interaction buttons for authenticated users
             context.ShowLikeButton = true;
             context.ShowSaveButton = true;
             context.ShowShareButton = true;

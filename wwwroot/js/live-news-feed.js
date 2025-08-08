@@ -58,7 +58,7 @@ class LiveNewsFeed {
     async checkForNewPosts() {
         try {
             const lastPostId = this.getLastPostId();
-            const response = await fetch(`/api/news/new?since=${lastPostId}`);
+            const response = await fetch(window.ApiConfig.getApiUrl(`/api/news/new?since=${lastPostId}`));
             if (response.ok) {
                 const newPosts = await response.json();
                 newPosts.forEach(post => this.addNewPostToFeed(post));
@@ -229,7 +229,7 @@ class LiveNewsFeed {
             this.showLoadingSpinner();
             
             try {
-                const response = await fetch(`/api/news/feed?page=${page}&pageSize=10`);
+                const response = await fetch(window.ApiConfig.getApiUrl(`/api/news/feed?page=${page}&pageSize=10`));
                 if (response.ok) {
                     const data = await response.json();
                     if (data.posts.length > 0) {
@@ -314,7 +314,7 @@ class LiveNewsFeed {
     async applyFilter(filter) {
         try {
             this.showLoadingOverlay();
-            const response = await fetch(`/api/news/feed?filter=${filter}&page=1&pageSize=20`);
+            const response = await fetch(window.ApiConfig.getApiUrl(`/api/news/feed?filter=${filter}&page=1&pageSize=20`));
             if (response.ok) {
                 const data = await response.json();
                 this.newsContainer.innerHTML = '';
@@ -380,7 +380,7 @@ class LiveNewsFeed {
 // Advanced engagement features
 async function toggleLike(postId) {
     try {
-        const response = await fetch(`/api/posts/${postId}/like`, {
+        const response = await fetch(window.ApiConfig.getApiUrl(`/api/posts/${postId}/like`), {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`,
@@ -456,7 +456,7 @@ async function handlePostLike(postId) {
 
     try {
         // This would connect to your existing like API
-        const response = await fetch(`/api/Posts/${postId}/like`, {
+        const response = await fetch(window.ApiConfig.getApiUrl(`/api/Posts/${postId}/like`), {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,

@@ -12,9 +12,10 @@
 
     <div class="tags" id="tagsContainer"></div>
 
-    <div class="tags">
-      <button onclick="showShared()">Shared by others</button>
-      <button onclick="showSaved()">Saved</button>
+    <div class="tags" id="feedTabs">
+      <button id="followingBtn" onclick="showShared()" style="display: none;">Following</button>
+      <button onclick="showTrending()">Trending</button>
+      <button id="savedBtn" onclick="showSaved()" style="display: none;">Saved</button>
     </div>
 
     <div id="newsContainer">Loading...</div>
@@ -23,6 +24,27 @@
   <script>
     let allPosts = [];
     let selectedTags = new Set();
+    let currentFeed = "all"; // Track current feed type
+
+    // Check if user is logged in and show/hide appropriate buttons
+    function checkAuthAndUpdateUI() {
+      const jwt = localStorage.getItem('jwtToken');
+      const isLoggedIn = jwt && jwt.trim() !== '';
+      
+      // Show/hide following button based on authentication
+      const followingBtn = document.getElementById('followingBtn');
+      if (followingBtn) {
+        followingBtn.style.display = isLoggedIn ? 'inline-block' : 'none';
+      }
+      
+      // Show/hide saved button based on authentication
+      const savedBtn = document.getElementById('savedBtn');
+      if (savedBtn) {
+        savedBtn.style.display = isLoggedIn ? 'inline-block' : 'none';
+      }
+      
+      return isLoggedIn;
+    }
 
     async function loadTags() {
       try {
@@ -39,6 +61,7 @@
         allBtn.textContent = 'All';
         allBtn.onclick = () => {
           selectedTags.clear();
+          currentFeed = "all";
           displayPosts("All");
           updateButtonStyles();
         };
@@ -62,6 +85,7 @@
       } else {
         selectedTags.add(tag);
       }
+      currentFeed = "filtered";
       displayPosts([...selectedTags]);
       updateButtonStyles();
     }
@@ -71,16 +95,39 @@
       buttons.forEach(btn => {
         const tag = btn.textContent;
         if (tag === 'All') {
-          btn.classList.toggle('active', selectedTags.size === 0);
+          btn.classList.toggle('active', selectedTags.size === 0 && currentFeed === "all");
         } else {
           btn.classList.toggle('active', selectedTags.has(tag));
         }
       });
+
+      // Update feed tab styles
+      const feedButtons = document.querySelectorAll('#feedTabs button');
+      feedButtons.forEach(btn => {
+        btn.classList.remove('active');
+      });
+      
+      // Highlight active feed button
+      if (currentFeed === "following") {
+        document.querySelector('#feedTabs button[onclick="showShared()"]')?.classList.add('active');
+      } else if (currentFeed === "trending") {
+        document.querySelector('#feedTabs button[onclick="showTrending()"]')?.classList.add('active');
+      } else if (currentFeed === "saved") {
+        document.querySelector('#feedTabs button[onclick="showSaved()"]')?.classList.add('active');
+      }
     }
 
     async function fetchNews() {
       try {
-        const response = await fetch('/api/posts');
+        const jwt = localStorage.getItem('jwtToken');
+        const headers = {};
+        if (jwt) {
+          headers['Authorization'] = 'Bearer ' + jwt;
+        }
+        
+        const response = await fetch('/api/posts', {
+          headers: headers
+        });
         allPosts = await response.json();
         displayPosts("All");
       } catch (err) {
@@ -88,49 +135,112 @@
       }
     }
 
-    function displayPosts(tags) {
+    function displayPosts(posts) {
       const container = document.getElementById("newsContainer");
 
-      let filtered = [];
-      if (tags === "All" || tags.length === 0) {
-        filtered = allPosts;
+      // If posts is a string like "All" or an array of tags, filter allPosts
+      if (typeof posts === "string" || Array.isArray(posts) && posts.every(p => typeof p === "string")) {
+        let filtered = [];
+        if (posts === "All" || posts.length === 0) {
+          filtered = allPosts;
+        } else {
+          const tags = Array.isArray(posts) ? posts : [posts];
+          filtered = allPosts.filter(post => tags.includes(post.Category));
+        }
+        
+        container.innerHTML = filtered.map(post => `
+          <div class="post">
+            <h3>${post.Title}</h3>
+            <p>${post.Content}</p>
+            <small>Category: ${post.Category}</small>
+          </div>
+        `).join("");
       } else {
-        filtered = allPosts.filter(post => tags.includes(post.tag));
+        // If posts is an actual array of post objects, display them directly
+        container.innerHTML = posts.map(post => `
+          <div class="post">
+            <h3>${post.Title}</h3>
+            <p>${post.Content}</p>
+            <small>Category: ${post.Category}</small>
+            ${post.Username ? `<small>By: ${post.Username}</small>` : ''}
+          </div>
+        `).join("");
       }
-
-      container.innerHTML = filtered.map(post => `
-        <div class="post">
-          <h3>${post.title}</h3>
-          <p>${post.content}</p>
-          <small>Tag: ${post.tag}</small>
-        </div>
-      `).join("");
     }
 
     async function showShared() {
       try {
-        const res = await fetch('/api/shared');
+        const jwt = localStorage.getItem('jwtToken');
+        if (!jwt) {
+          alert("Please log in to view posts from users you follow");
+          return;
+        }
+        
+        currentFeed = "following";
+        const res = await fetch('/api/shared', {
+          headers: { 'Authorization': 'Bearer ' + jwt }
+        });
         const sharedPosts = await res.json();
-        displayPosts(sharedPosts);
+        displayPosts(sharedPosts); // Pass the actual posts array
+        updateButtonStyles();
       } catch (e) {
         alert("Failed to load shared posts");
+      }
+    }
+
+    async function showTrending() {
+      try {
+        currentFeed = "trending";
+        
+        // Use the news posts/rendered endpoint with trending feed
+        const response = await fetch('/api/news/posts/rendered?page=1&limit=10&feed=trending');
+        if (response.ok) {
+          const html = await response.text();
+          document.getElementById("newsContainer").innerHTML = html;
+        } else {
+          // Fallback to API endpoint if rendered endpoint fails
+          const fallbackResponse = await fetch('/api/trending');
+          const trendingTopics = await fallbackResponse.json();
+          
+          // Display trending topics in a simple format
+          const container = document.getElementById("newsContainer");
+          container.innerHTML = trendingTopics.Topics.map(topic => `
+            <div class="post trending-topic">
+              <h3>${topic.Topic}</h3>
+              <p>Category: ${topic.Category}</p>
+              <small>Trend Score: ${topic.TrendScore.toFixed(1)} | ${topic.TotalInteractions} interactions</small>
+            </div>
+          `).join("");
+        }
+        updateButtonStyles();
+      } catch (e) {
+        console.error("Failed to load trending content:", e);
+        alert("Failed to load trending content");
       }
     }
 
     async function showSaved() {
       try {
         const jwt = localStorage.getItem('jwtToken');
+        if (!jwt) {
+          alert("Please log in to view your saved posts");
+          return;
+        }
+        
+        currentFeed = "saved";
         const res = await fetch('/api/saved', {
           headers: { 'Authorization': 'Bearer ' + jwt }
         });
         const savedPosts = await res.json();
-        displayPosts(savedPosts);
+        displayPosts(savedPosts); // Pass the actual posts array
+        updateButtonStyles();
       } catch (e) {
         alert("Failed to load saved posts");
       }
     }
 
     // Initialize
+    checkAuthAndUpdateUI();
     loadTags();
     fetchNews();
   </script>

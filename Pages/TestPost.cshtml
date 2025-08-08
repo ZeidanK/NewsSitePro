@@ -169,7 +169,7 @@
         // Fallback functions for all post interactions
         if (typeof openPost === 'undefined') {
             window.openPost = function(postId) {
-                window.location.href = `/Post?id=${postId}`;
+                window.location.href = window.ApiConfig.getApiUrl(`/Post?id=${postId}`);
             };
         }
         
@@ -201,7 +201,7 @@
                 }
                 
                 // Make API call to add comment
-                fetch('/api/Comments', {
+                fetch(window.ApiConfig.getApiUrl('/api/Comments'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -291,11 +291,11 @@
                 if (navigator.share) {
                     navigator.share({
                         title: document.querySelector('.post-title').textContent,
-                        url: window.location.origin + `/Post?id=${postId}`
+                        url: window.ApiConfig.getApiUrl(`/Post?id=${postId}`)
                     });
                 } else {
                     // Fallback: copy to clipboard
-                    const url = window.location.origin + `/Post?id=${postId}`;
+                    const url = window.ApiConfig.getApiUrl(`/Post?id=${postId}`);
                     navigator.clipboard.writeText(url).then(() => {
                         alert('Post URL copied to clipboard!');
                     });
@@ -305,7 +305,7 @@
         
         if (typeof editPost === 'undefined') {
             window.editPost = function(postId) {
-                window.location.href = `/EditPost?id=${postId}`;
+                window.location.href = window.ApiConfig.getApiUrl(`/EditPost?id=${postId}`);
             };
         }
         
@@ -443,7 +443,7 @@
                 const showFollowBtn = document.getElementById('showFollowBtn').checked;
                 
                 // Make API call to get new context rendering
-                const response = await fetch(`/api/Debug/TestPost/Context`, {
+                const response = await fetch(window.ApiConfig.getApiUrl('/api/Debug/TestPost/Context'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

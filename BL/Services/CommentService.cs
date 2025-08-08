@@ -1,6 +1,17 @@
 using NewsSite.BL;
 using NewsSite.BL.Services;
 
+// ----------------------------------------------------------------------------------
+// CommentService.cs
+//
+// This class implements comment-related business logic for the NewsSitePro application. It provides
+// methods for creating, updating, deleting, and retrieving comments on posts and reposts, and integrates
+// with NotificationService to send notifications for comment actions. The service enforces business rules
+// (such as content validation, ownership checks, and time limits) and interacts with the database layer
+// through DBservices. All methods are asynchronous for efficient, non-blocking operations. Comments are
+// added to key functions for clarity.
+// ----------------------------------------------------------------------------------
+
 namespace NewsSite.BL.Services
 {
     /// <summary>
@@ -20,6 +31,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<List<Comment>> GetCommentsByPostIdAsync(int postId)
+        // Get all comments for a specific post
         {
             if (postId <= 0)
             {
@@ -35,6 +47,7 @@ namespace NewsSite.BL.Services
         /// <param name="comment">Comment to create</param>
         /// <returns>True if comment was created successfully</returns>
         public async Task<bool> CreateCommentAsync(Comment comment)
+        // Create a new comment and send notification to post owner
         {
             // Business logic validation
             if (string.IsNullOrWhiteSpace(comment.Content))
@@ -112,6 +125,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<bool> UpdateCommentAsync(int commentId, int userId, string content)
+        // Update an existing comment (only by author, within 24 hours)
         {
             // Business logic validation
             if (commentId <= 0)
@@ -147,6 +161,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<bool> DeleteCommentAsync(int commentId, int userId)
+        // Delete a comment (only by author)
         {
             if (commentId <= 0 || userId <= 0)
             {
@@ -169,6 +184,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<Comment?> GetCommentByIdAsync(int commentId)
+        // Get a specific comment by its ID
         {
             if (commentId <= 0)
             {
@@ -180,6 +196,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<int> GetCommentsCountAsync(int postId)
+        // Get the number of comments for a specific post
         {
             if (postId <= 0)
             {
@@ -191,6 +208,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<string> ToggleCommentLikeAsync(int commentId, int userId)
+        // Like or unlike a comment, and send notification if liked
         {
             if (commentId <= 0 || userId <= 0)
             {
@@ -246,6 +264,7 @@ namespace NewsSite.BL.Services
         /// <param name="repostComment">Repost comment to create</param>
         /// <returns>True if comment was created successfully</returns>
         public async Task<bool> CreateRepostCommentAsync(RepostComment repostComment)
+        // Create a comment on a repost and send notification to repost owner
         {
             // Business logic validation
             if (string.IsNullOrWhiteSpace(repostComment.Content))
@@ -337,6 +356,7 @@ namespace NewsSite.BL.Services
         /// <param name="repostId">ID of the repost</param>
         /// <returns>List of repost comments</returns>
         public async Task<List<RepostComment>> GetCommentsByRepostIdAsync(int repostId)
+        // Get all comments for a specific repost
         {
             if (repostId <= 0)
             {
@@ -352,6 +372,7 @@ namespace NewsSite.BL.Services
         /// <param name="commentId">ID of the comment</param>
         /// <returns>RepostComment or null if not found</returns>
         public async Task<RepostComment> GetRepostCommentByIdAsync(int commentId)
+        // Get a specific repost comment by its ID
         {
             if (commentId <= 0)
             {
@@ -369,6 +390,7 @@ namespace NewsSite.BL.Services
         /// <param name="content">New content for the comment</param>
         /// <returns>True if update was successful</returns>
         public async Task<bool> UpdateRepostCommentAsync(int commentId, int userId, string content)
+        // Update a repost comment (only by author)
         {
             // Business logic validation
             if (commentId <= 0)
@@ -413,6 +435,7 @@ namespace NewsSite.BL.Services
         /// <param name="userId">ID of the user requesting deletion</param>
         /// <returns>True if deletion was successful</returns>
         public async Task<bool> DeleteRepostCommentAsync(int commentId, int userId)
+        // Delete a repost comment (only by author)
         {
             if (commentId <= 0)
             {

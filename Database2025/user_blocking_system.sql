@@ -282,57 +282,97 @@ IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'NewsSitePro202
 GO
 
 CREATE PROCEDURE [dbo].[NewsSitePro2025_sp_NewsArticles_GetWithBlockFilter]
-    @CurrentUserID INT = NULL,
     @PageNumber INT = 1,
-    @PageSize INT = 20,
-    @Category NVARCHAR(50) = NULL
+    @PageSize INT = 10,
+    @Category NVARCHAR(50) = NULL,
+    @CurrentUserID INT = NULL,
+    @SortBy NVARCHAR(20) = 'recent'
 AS
 BEGIN
     SET NOCOUNT ON;
     
     DECLARE @Offset INT = (@PageNumber - 1) * @PageSize;
     
+    -- EXACT COPY OF WORKING GetAll WITH ONLY BLOCK FILTER ADDED
     SELECT 
         na.ArticleID,
         na.Title,
         na.Content,
+        na.ImageURL,
         na.SourceURL,
         na.SourceName,
-        na.ImageURL,
-        na.PublishDate,
         na.Category,
+        na.PublishDate,
         na.UserID,
         u.Username,
         u.ProfilePicture as UserProfilePicture,
-        ISNULL(l.LikesCount, 0) as LikesCount,
-        ISNULL(v.ViewsCount, 0) as ViewsCount,
-        CASE WHEN ul.UserID IS NOT NULL THEN 1 ELSE 0 END as IsLiked,
-        CASE WHEN sa.UserID IS NOT NULL THEN 1 ELSE 0 END as IsSaved
+        -- Like information with proper aggregation
+        COALESCE(lc.LikesCount, 0) as LikesCount,
+        CASE WHEN al.UserID IS NOT NULL THEN 1 ELSE 0 END as IsLiked,
+        -- Save information
+        CASE WHEN sa.UserID IS NOT NULL THEN 1 ELSE 0 END as IsSaved,
+        -- View count from actual views table
+        COALESCE(vc.ViewsCount, 0) as ViewsCount,
+        -- Repost count from reposts table
+        COALESCE(rc.RepostCount, 0) as RepostCount,
+        -- Check if current user reposted this article
+        CASE WHEN rp.UserID IS NOT NULL THEN 1 ELSE 0 END as IsReposted
     FROM NewsSitePro2025_NewsArticles na
     INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
+    -- Aggregate likes count
     LEFT JOIN (
-        SELECT ArticleID, COUNT(*) as LikesCount 
-        FROM NewsSitePro2025_ArticleLikes 
+        SELECT ArticleID, COUNT(*) as LikesCount
+        FROM NewsSitePro2025_ArticleLikes
         GROUP BY ArticleID
-    ) l ON na.ArticleID = l.ArticleID
+    ) lc ON na.ArticleID = lc.ArticleID
+    -- Aggregate views count
     LEFT JOIN (
-        SELECT ArticleID, COUNT(*) as ViewsCount 
-        FROM NewsSitePro2025_ArticleViews 
+        SELECT ArticleID, COUNT(*) as ViewsCount
+        FROM NewsSitePro2025_ArticleViews
         GROUP BY ArticleID
-    ) v ON na.ArticleID = v.ArticleID
-    LEFT JOIN NewsSitePro2025_ArticleLikes ul ON na.ArticleID = ul.ArticleID AND ul.UserID = @CurrentUserID
+    ) vc ON na.ArticleID = vc.ArticleID
+    -- Aggregate repost count
+    LEFT JOIN (
+        SELECT OriginalArticleID, COUNT(*) as RepostCount
+        FROM NewsSitePro2025_Reposts
+        GROUP BY OriginalArticleID
+    ) rc ON na.ArticleID = rc.OriginalArticleID
+    -- Check if current user liked this article
+    LEFT JOIN NewsSitePro2025_ArticleLikes al ON na.ArticleID = al.ArticleID AND al.UserID = @CurrentUserID
+    -- Check if current user saved this article
     LEFT JOIN NewsSitePro2025_SavedArticles sa ON na.ArticleID = sa.ArticleID AND sa.UserID = @CurrentUserID
-    WHERE (@Category IS NULL OR na.Category = @Category)
-      AND (@CurrentUserID IS NULL OR NOT EXISTS (
-          SELECT 1 FROM NewsSitePro2025_UserBlocks ub 
-          WHERE ub.BlockerUserID = @CurrentUserID 
-            AND ub.BlockedUserID = na.UserID 
-            AND ub.IsActive = 1
-      ))
-      AND u.IsActive = 1
-      AND u.IsBanned = 0
-    ORDER BY na.PublishDate DESC
-    OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
+    -- Check if current user reposted this article
+    LEFT JOIN NewsSitePro2025_Reposts rp ON na.ArticleID = rp.OriginalArticleID AND rp.UserID = @CurrentUserID
+    WHERE (@Category IS NULL OR LOWER(na.Category) = LOWER(@Category))
+        AND (@SortBy != 'trending' OR na.PublishDate >= DATEADD(day, -7, GETDATE()))
+        -- Exclude soft-deleted articles
+        AND (na.IsDeleted = 0 OR na.IsDeleted IS NULL)
+        -- ONLY ADDITION: Block filter
+        AND (@CurrentUserID IS NULL OR na.UserID NOT IN (
+            SELECT BlockedUserID FROM NewsSitePro2025_UserBlocks 
+            WHERE BlockerUserID = @CurrentUserID AND IsActive = 1
+        ))
+    ORDER BY 
+        CASE 
+            WHEN @SortBy = 'trending' THEN (COALESCE(lc.LikesCount, 0) * 3 + COALESCE(vc.ViewsCount, 0) + COALESCE(rc.RepostCount, 0) * 5)
+            ELSE 0
+        END DESC,
+        na.PublishDate DESC
+    OFFSET @Offset ROWS
+    FETCH NEXT @PageSize ROWS ONLY;
+    
+    -- Also return total count for pagination
+    SELECT COUNT(*) as TotalCount
+    FROM NewsSitePro2025_NewsArticles na
+    WHERE (@Category IS NULL OR LOWER(na.Category) = LOWER(@Category))
+        AND (@SortBy != 'trending' OR na.PublishDate >= DATEADD(day, -7, GETDATE()))
+        -- Exclude soft-deleted articles
+        AND (na.IsDeleted = 0 OR na.IsDeleted IS NULL)
+        -- ONLY ADDITION: Block filter
+        AND (@CurrentUserID IS NULL OR na.UserID NOT IN (
+            SELECT BlockedUserID FROM NewsSitePro2025_UserBlocks 
+            WHERE BlockerUserID = @CurrentUserID AND IsActive = 1
+        ));
 END
 GO
 

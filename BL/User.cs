@@ -9,7 +9,15 @@ using Microsoft.AspNetCore.Http;
 
 namespace NewsSite.BL
 {
-    public class User
+// ----------------------------------------------------------------------------------
+// User.cs
+//
+// This file contains the User model and related admin/user view models for the NewsSitePro application.
+// The User class provides properties and methods for authentication, profile management, JWT generation,
+// session creation, and extracting user info from tokens. Additional classes support admin dashboards,
+// activity logs, and user reports. Comments are added to key classes and functions for clarity.
+// ----------------------------------------------------------------------------------
+    public partial class User
     {
 
         private int id;
@@ -96,7 +104,7 @@ namespace NewsSite.BL
             return dBservices.UpdateUser(user);
         }
 
-        public string LogIn(string password, string email)
+        public string? LogIn(string password, string email)
         {
             DBservices dBservices = new DBservices();
             // Retrieve user by email
@@ -182,9 +190,9 @@ namespace NewsSite.BL
 
             var claims = new[]
     {
-        new Claim(JwtRegisteredClaimNames.Sub, this.Email), // Standard subject claim
+        new Claim(JwtRegisteredClaimNames.Sub, this.Email ?? ""), // Standard subject claim
         new Claim("id", this.Id.ToString()), // Standard name identifier
-        new Claim("name", this.Name),
+        new Claim("name", this.Name ?? ""),
 
         new Claim("isAdmin", this.IsAdmin.ToString()),
         new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
@@ -195,6 +203,40 @@ namespace NewsSite.BL
                 audience: audience,
                 claims: claims,
                 expires: DateTime.Now.AddHours(1),
+                signingCredentials: credentials
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        // Public method for external access to JWT generation
+        public string GenerateJwtTokenExternal()
+        {
+            if (_config == null)
+                throw new InvalidOperationException("Configuration is required for JWT generation");
+
+            var key = ((IConfiguration)_config)["Jwt:Key"];
+            var issuer = ((IConfiguration)_config)["Jwt:Issuer"];
+            var audience = ((IConfiguration)_config)["Jwt:Audience"];
+
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
+            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, this.Email ?? ""), 
+                new Claim("id", this.Id.ToString()), 
+                new Claim("name", this.Name ?? ""),
+                new Claim("isAdmin", this.IsAdmin.ToString()),
+                new Claim("isGoogleUser", this.IsGoogleUser.ToString()),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: issuer,
+                audience: audience,
+                claims: claims,
+                expires: DateTime.Now.AddHours(24), // Extended to 24 hours for better UX
                 signingCredentials: credentials
             );
 
@@ -312,6 +354,43 @@ namespace NewsSite.BL
         //     return dBservices.GetUserPostsCount(userId);
         // }
 
+        /// <summary>
+        /// Creates a user session for the current user after successful login
+        /// </summary>
+        /// <param name="deviceInfo">Device information from request headers</param>
+        /// <param name="ipAddress">IP address of the client</param>
+        /// <param name="userAgent">User agent string from the client</param>
+        /// <param name="expiryHours">Session expiry in hours (default 24)</param>
+        /// <returns>UserSession object if successful, null if failed</returns>
+        public async Task<UserSession?> CreateUserSessionAsync(string? deviceInfo, string? ipAddress, string? userAgent, int expiryHours = 24)
+        {
+            try
+            {
+                DBservices dbService = new DBservices();
+                
+                // Generate session token
+                var sessionToken = Guid.NewGuid().ToString();
+                
+                // Create session in database
+                var session = await dbService.CreateUserSessionAsync(
+                    this.Id,
+                    sessionToken,
+                    deviceInfo,
+                    ipAddress,
+                    userAgent,
+                    expiryHours
+                );
+                
+                return session;
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't throw - session creation shouldn't fail login
+                Console.WriteLine($"Failed to create user session: {ex.Message}");
+                return null;
+            }
+        }
+
     
     }
 
@@ -328,6 +407,8 @@ namespace NewsSite.BL
     public string Status { get; set; } = string.Empty;
     public int PostCount { get; set; }
     public int LikesReceived { get; set; }
+    public int FollowersCount { get; set; }
+    public int FollowingCount { get; set; }
     public bool IsAdmin { get; set; }
 }
 

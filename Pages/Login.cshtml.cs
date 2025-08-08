@@ -3,28 +3,36 @@ using Microsoft.AspNetCore.Mvc;
 using NewsSitePro.Models;
 using NewsSite.BL;
 using NewsSite.Models;
+using NewsSite.Services;
 //using NewsSite.Pages
 namespace NewsSite.Pages;
 
 public class LoginModel : PageModel
 {
+    private readonly IApiConfigurationService _apiConfigurationService;
+
+    public LoginModel(IApiConfigurationService apiConfigurationService)
+    {
+        _apiConfigurationService = apiConfigurationService;
+    }
+
     [BindProperty]
-    public string Email { get; set; }
+    public string Email { get; set; } = string.Empty;
     [BindProperty]
-    public string Password { get; set; }
-    public HeaderViewModel HeaderData { get; set; }
+    public string Password { get; set; } = string.Empty;
+    public HeaderViewModel HeaderData { get; set; } = new HeaderViewModel();
     public void OnGet()
     {
         //ViewData["HeaderData"] = new HeaderViewModel
         //{
-        //    UserName = null,
+        //    UserName = null, 
         //    NotificationCount = 0,
         //    CurrentPage = "Login"
         //};
         HeaderData = new HeaderViewModel
         {
-            UserName = User.Identity.IsAuthenticated ? User.Identity.Name : "Guest",
-            NotificationCount = User.Identity.IsAuthenticated ? 3 : 0, // Example
+            UserName = User.Identity?.IsAuthenticated == true ? User.Identity.Name ?? "Guest" : "Guest",
+            NotificationCount = User.Identity?.IsAuthenticated == true ? 3 : 0, // Example
             CurrentPage = "Login"
         };
     }
@@ -35,7 +43,8 @@ public class LoginModel : PageModel
 
         using var httpClient = new HttpClient();
         var loginRequest = new { Email = Email, Password = Password };
-        var response = await httpClient.PostAsJsonAsync("https://localhost:5001/api/Auth/login", loginRequest);
+        var apiUrl = _apiConfigurationService.GetApiUrl("api/Auth/login");
+        var response = await httpClient.PostAsJsonAsync(apiUrl, loginRequest);
 
         if (response.IsSuccessStatusCode)
         {
@@ -53,7 +62,7 @@ public class LoginModel : PageModel
 
     public class LoginResponse
     {
-        public string token { get; set; }
+        public string token { get; set; } = string.Empty;
     }
 
 }

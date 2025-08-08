@@ -1,191 +1,23 @@
 @page
 @model IndexModel
-@using NewsSitePro.Models
 @{
     Layout = "~/Pages/Shared/_Layout.cshtml";
-    ViewData["HeaderData"] = Model.HeaderData;
-    ViewData["Title"] = "Home - NewsSitePro";
+    ViewData["Title"] = "Loading - NewsSitePro";
 }
 
-<link rel="stylesheet" href="~/css/post-card.css" />
-<link rel="stylesheet" href="~/css/index.css" />
-<link rel="stylesheet" href="~/css/mobile-responsive.css" />
-
-<div class="home-container"> 
-    <!-- Feed Container -->
-    <div class="feed-container">
-        <div class="feed-header">
-            <h2>Latest News</h2>
-            <div class="feed-controls">
-                <button class="feed-tab active" data-feed="all">All</button>
-                <button class="feed-tab" data-feed="following">Following</button>
-                <button class="feed-tab" data-feed="trending">Trending</button>
-            </div>
-        </div>
-
-        <!-- Loading State -->
-        <div id="loading" class="loading-state">
-            <i class="fas fa-spinner fa-spin"></i> Loading posts...
-        </div>
-
-        <!-- Posts Container -->
-        <div id="postsContainer" class="posts-container">
-            <!-- Initial posts will be loaded here -->
-            @if (Model.Posts != null && Model.Posts.Any())
-            {
-                @foreach (var post in Model.Posts)
-                {
-                    @await Component.InvokeAsync("PostCard", new PostCardViewModel 
-                    { 
-                        Post = post, 
-                        Context = PostContextFactory.CreateFeedContext(Model.HeaderData?.user, post, "all", Model.FollowStatusMap),
-                        CurrentUser = Model.HeaderData?.user
-                    })
-                }
-            }
-        </div>
-
-        <!-- Load More Button -->
-        <div class="load-more-container" style="display: none;">
-            <button id="loadMoreBtn" class="btn btn-outline-primary btn-load-more">
-                <i class="fas fa-plus"></i> Load More Posts
-            </button>
-        </div>
-
-        <!-- Empty State -->
-        <div id="emptyState" class="empty-state" style="display: none;">
-            <i class="fas fa-newspaper"></i>
-            <h3>No posts available</h3>
-            <p>Be the first to share some news!</p>
-            <a href="~/Post" class="btn btn-primary">
-                <i class="fas fa-plus"></i> Create Post
-            </a>
-        </div>
+<!-- Simple loading page - user will be redirected to /post by the code-behind -->
+<div style="display: flex; justify-content: center; align-items: center; height: 50vh;">
+    <div>
+        <h2>Loading...</h2>
+        <p>Redirecting to news feed...</p>
     </div>
 </div>
 
-@section Scripts {
-<script src="~/js/post-interactions.js"></script>
 <script>
-    let currentPage = 2; // Start at 2 since page 1 is already loaded server-side
-    let currentFeed = 'all';
-    let isLoading = false;
-    let hasMorePosts = true;
-
-    document.addEventListener('DOMContentLoaded', function() {
-        initializeFeed();
-        setupFeedTabs();
-        setupLoadMore();
-    });
-
-    function initializeFeed() {
-        // Check if we have initial posts
-        const postsContainer = document.getElementById('postsContainer');
-        const hasInitialPosts = postsContainer.children.length > 0;
-        
-        if (hasInitialPosts) {
-            document.getElementById('loading').style.display = 'none';
-            document.querySelector('.load-more-container').style.display = 'block';
-        } else {
-            loadPosts(1, true);
+    // Fallback client-side redirect if server redirect fails
+    setTimeout(function() {
+        if (window.location.pathname === '/') {
+            window.location.href = '/post';
         }
-    }
-
-    function setupFeedTabs() {
-        document.querySelectorAll('.feed-tab').forEach(tab => {
-            tab.addEventListener('click', function() {
-                const feedType = this.dataset.feed;
-                if (feedType !== currentFeed) {
-                    // Update active tab
-                    document.querySelectorAll('.feed-tab').forEach(t => t.classList.remove('active'));
-                    this.classList.add('active');
-                    
-                    // Reset and load new feed
-                    currentFeed = feedType;
-                    currentPage = 1;
-                    hasMorePosts = true;
-                    loadPosts(1, true);
-                }
-            });
-        });
-    }
-
-    function setupLoadMore() {
-        document.getElementById('loadMoreBtn').addEventListener('click', function() {
-            if (!isLoading && hasMorePosts) {
-                loadPosts(currentPage, false);
-            }
-        });
-    }
-
-    async function loadPosts(page = 1, replace = false) {
-        if (isLoading) return;
-        
-        isLoading = true;
-        const loading = document.getElementById('loading');
-        const container = document.getElementById('postsContainer');
-        const loadMoreContainer = document.querySelector('.load-more-container');
-        const emptyState = document.getElementById('emptyState');
-
-        // Show loading state
-        if (replace) {
-            loading.style.display = 'block';
-            container.innerHTML = '';
-            loadMoreContainer.style.display = 'none';
-            emptyState.style.display = 'none';
-        } else {
-            document.getElementById('loadMoreBtn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
-        }
-
-        try {
-            // Fetch server-rendered HTML from ViewComponent endpoint
-            const response = await fetch(`/api/news/posts/rendered?page=${page}&limit=10&feed=${currentFeed}`);
-            
-            if (response.ok) {
-                const htmlContent = await response.text();
-                
-                if (replace) {
-                    container.innerHTML = htmlContent;
-                } else {
-                    container.insertAdjacentHTML('beforeend', htmlContent);
-                }
-
-                // Check if we got any content
-                const newPosts = container.querySelectorAll('.post-card');
-                const postsOnThisPage = replace ? newPosts.length : newPosts.length - (page - 1) * 10;
-                
-                if (postsOnThisPage === 0) {
-                    if (replace) {
-                        emptyState.style.display = 'block';
-                    } else {
-                        hasMorePosts = false;
-                        loadMoreContainer.style.display = 'none';
-                    }
-                } else {
-                    currentPage = page + 1;
-                    hasMorePosts = postsOnThisPage === 10; // If we got less than 10, no more posts
-                    
-                    if (hasMorePosts) {
-                        loadMoreContainer.style.display = 'block';
-                    } else {
-                        loadMoreContainer.style.display = 'none';
-                    }
-                }
-            } else {
-                showError('Failed to load posts. Please try again.');
-            }
-        } catch (error) {
-            console.error('Error loading posts:', error);
-            showError('An error occurred while loading posts.');
-        } finally {
-            isLoading = false;
-            loading.style.display = 'none';
-            document.getElementById('loadMoreBtn').innerHTML = '<i class="fas fa-plus"></i> Load More Posts';
-        }
-    }
-
-    function showError(message) {
-        PostCardInteractions.showMessage(message, 'error');
-    }
+    }, 1000);
 </script>
-}

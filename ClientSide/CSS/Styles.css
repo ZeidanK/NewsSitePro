@@ -25,6 +25,39 @@ h1, h2, h3 {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
+/* Feed tabs styling */
+.feed-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.feed-tab {
+    padding: 10px 20px;
+    background-color: #e9ecef;
+    border: 1px solid #ccc;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    color: #333;
+    text-decoration: none;
+}
+
+.feed-tab:hover {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.feed-tab.active {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
 /* Form & Input */
 .auth-form {
     display: flex;

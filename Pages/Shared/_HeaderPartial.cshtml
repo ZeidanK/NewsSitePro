@@ -1,30 +1,87 @@
 @model NewsSitePro.Models.HeaderViewModel
 
+<!-- ------------------------------------------------------------------------------
+     _HeaderPartial.cshtml
+
+     This partial view renders the main header and navigation bar for NewsSitePro.
+     It shows only icons with the same navigation routes as the left sidebar.
+------------------------------------------------------------------------------ -->
 <header class="main-header">
     <nav class="header-nav">
-        <div class="header-brand">
-            <a href="/" class="brand-link">
-                <span class="brand-icon">📰</span>
-                <span class="brand-text">NewsSitePro</span>
+        <!-- Icon-only navigation matching left sidebar -->
+        <div class="header-nav-icons">
+            <a href="~/" class="nav-btn" title="Home">
+                <span class="nav-icon">🏠</span>
             </a>
-        </div>
-        
-        <div class="header-controls" id="headerControls">
-            <!-- Will be populated by auth service -->
-        </div>
-        
-        <!-- Notification Dropdown -->
-        <div class="notification-dropdown" id="notificationDropdown">
-            <div class="notification-header">
-                <h4>Notifications</h4>
-                <button class="mark-all-read" onclick="authService.markAllNotificationsRead()">Mark all as read</button>
+            <a href="~/Search" class="nav-btn" title="Search">
+                <span class="nav-icon">🔍</span>
+            </a>
+            <a href="~/News" class="nav-btn" title="Latest News">
+                <span class="nav-icon">📰</span>
+            </a>
+            <a href="~/Features" class="nav-btn" title="Features">
+                <span class="nav-icon">✨</span>
+            </a>
+            
+            <!-- Auth Required Items -->
+            <a href="~/UserProfile" class="nav-btn" data-auth-required title="Profile">
+                <span class="nav-icon">👤</span>
+            </a>
+            <!-- Notifications with dropdown -->
+            <div class="notification-container nav-btn" data-auth-required>
+                <button class="notification-btn" onclick="authService.toggleNotificationDropdown()" title="Notifications">
+                    <span class="nav-icon">🔔</span>
+                    <span class="notification-badge" style="display: none;"></span>
+                </button>
+                
+                <!-- Enhanced Notification dropdown -->
+                <div class="notification-dropdown enhanced-dropdown" id="notificationDropdown">
+                    <div class="dropdown-header">
+                        <div class="header-content">
+                            <h6><i class="fas fa-bell"></i> Notifications</h6>
+                            <div class="header-actions">
+                                <button class="mark-all-read-btn" onclick="authService.markAllNotificationsRead()" title="Mark All Read">
+                                    <i class="fas fa-check-double"></i>
+                                </button>
+                                <a href="/Notifications" class="settings-btn" title="Notification Settings">
+                                    <i class="fas fa-cog"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dropdown-content" id="notificationContent">
+                        <div class="loading">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            Loading notifications...
+                        </div>
+                    </div>
+                    <div class="dropdown-footer">
+                        <a href="/Notifications" class="view-all-btn">
+                            <i class="fas fa-list"></i>
+                            View All Notifications
+                        </a>
+                    </div>
+                </div>
             </div>
-            <div class="notification-content" id="notificationContent">
-                <!-- Notifications will be loaded here -->
-            </div>
-            <div class="notification-footer">
-                <a href="/Notifications" class="view-all-link">View all notifications</a>
-            </div>
+            <a href="~/SavedArticles" class="nav-btn" data-auth-required title="Saved Articles">
+                <span class="nav-icon">🔖</span>
+            </a>
+            <a href="~/Admin" class="nav-btn" data-auth-required data-admin-only style="display: none;" title="Admin Panel">
+                <span class="nav-icon">⚙️</span>
+            </a>
+            
+            <!-- Logout Button -->
+            <button class="nav-btn logout-btn" id="logoutBtn" data-auth-required title="Logout">
+                <span class="nav-icon">🚪</span>
+            </button>
+            
+            <!-- Guest Only Items -->
+            <a href="~/Login" class="nav-btn" data-guest-only title="Login">
+                <span class="nav-icon">🔐</span>
+            </a>
+            <a href="~/Register" class="nav-btn" data-guest-only title="Register">
+                <span class="nav-icon">✍️</span>
+            </a>
         </div>
     </nav>
 </header>

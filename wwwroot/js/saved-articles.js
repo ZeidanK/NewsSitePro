@@ -87,7 +87,7 @@ class SavedArticlesManager {
                 search: this.currentSearch
             });
 
-            const url = `/api/News/posts/saved?${params}`;
+            const url = window.ApiConfig.getApiUrl(`/api/News/posts/saved?${params}`);
             console.log('[SavedArticles] Loading saved articles from:', url);
 
             const response = await fetch(url, {
@@ -103,7 +103,7 @@ class SavedArticlesManager {
                 this.renderArticles(html);
                 this.updateResultsCount();
             } else if (response.status === 401) {
-                window.location.href = '/Login';
+                window.location.href = window.ApiConfig.getApiUrl('/Login');
             } else {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }

@@ -204,7 +204,7 @@ class PostInteractions {
         }
 
         try {
-            const response = await fetch('/api/posts/save', {
+            const response = await fetch(window.ApiConfig.getApiUrl('/api/posts/save'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -237,7 +237,7 @@ class PostInteractions {
         }
 
         try {
-            const response = await fetch('/api/posts/save-live-article', {
+            const response = await fetch(window.ApiConfig.getApiUrl('/api/posts/save-live-article'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -273,7 +273,7 @@ class PostInteractions {
         if (!reason) return;
 
         try {
-            const response = await fetch('/api/posts/report', {
+            const response = await fetch(window.ApiConfig.getApiUrl('/api/posts/report'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -347,7 +347,7 @@ class PostInteractions {
      */
     async logShareEvent(postId, platform) {
         try {
-            await fetch('/api/analytics/share', {
+            await fetch(window.ApiConfig.getApiUrl('/api/analytics/share'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

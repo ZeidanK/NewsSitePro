@@ -1,0 +1,156 @@
+@page
+@model NewsSite.Pages.GoogleOAuthCallbackModel
+@{
+    ViewData["Title"] = "Google OAuth Callback";
+}
+<!-- ------------------------------------------------------------------------------
+     GoogleOAuthCallback.cshtml
+
+     This page handles the callback from Google OAuth login. It processes the
+     authorization code, exchanges it for tokens, and logs the user in or shows
+     an error. Key functions in the script are commented for clarity.
+------------------------------------------------------------------------------ -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Processing Google Login...</title>
+    <style>
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+            margin-bottom: 20px;
+        }
+        @@keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error {
+            color: #e74c3c;
+            margin-top: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading">
+        <div class="spinner"></div>
+        <p>Processing your Google login...</p>
+        <div id="error" class="error" style="display: none;"></div>
+    </div>
+
+    <script>
+        // API Configuration for this standalone page
+        window.ApiConfig = {
+            getBaseUrl: function() {
+                const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+                const port = isLocalhost ? ":7128" : "";
+                const address = isLocalhost ? "https://localhost" : "https://proj.ruppin.ac.il/cgroup4/test2/tar1";
+                
+                return `${address}${port}`;
+            },
+            
+            getApiUrl: function(endpoint) {
+                const baseUrl = this.getBaseUrl();
+                const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+                return `${baseUrl}${cleanEndpoint}`;
+            }
+        };
+
+        // Main logic: process Google OAuth callback and handle login
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                // Get authorization code from URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const authorizationCode = urlParams.get('code');
+                const error = urlParams.get('error');
+
+                if (error) {
+                    showError('Google authentication was cancelled or failed.');
+                    return;
+                }
+
+                if (!authorizationCode) {
+                    showError('No authorization code received from Google.');
+                    return;
+                }
+
+                // Exchange code for tokens
+                const response = await fetch(window.ApiConfig.getApiUrl('/api/GoogleOAuth/callback'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        authorizationCode: authorizationCode,
+                        deviceInfo: getDeviceInfo(),
+                        ipAddress: null, // Will be set by server
+                        userAgent: navigator.userAgent
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Store token and redirect
+                    if (data.token) {
+                        localStorage.setItem('jwtToken', data.token);
+                        
+                        // Store user info
+                        if (data.user) {
+                            localStorage.setItem('currentUser', JSON.stringify(data.user));
+                        }
+                    }
+
+                    // Show success message briefly then redirect
+                    document.querySelector('.loading p').textContent = 
+                        data.isNewUser ? 'Account created successfully! Redirecting...' : 'Login successful! Redirecting...';
+                    
+                    setTimeout(() => {
+                        window.location.href = window.ApiConfig.getApiUrl('/');
+                    }, 1500);
+                } else {
+                    showError(data.message || 'Google authentication failed.');
+                }
+            } catch (error) {
+                console.error('OAuth callback error:', error);
+                showError('An error occurred during authentication. Please try again.');
+            }
+        });
+
+        // Show error message and redirect to login
+        function showError(message) {
+            document.querySelector('.spinner').style.display = 'none';
+            document.querySelector('.loading p').textContent = 'Authentication Failed';
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            
+            // Redirect to login page after 3 seconds
+            setTimeout(() => {
+                window.location.href = window.ApiConfig.getApiUrl('/Login');
+            }, 3000);
+        }
+
+        // Get device type for logging
+        function getDeviceInfo() {
+            const userAgent = navigator.userAgent;
+            if (userAgent.includes('Mobile')) return 'Mobile';
+            if (userAgent.includes('Tablet')) return 'Tablet';
+            return 'Desktop';
+        }
+    </script>
+</body>
+</html>

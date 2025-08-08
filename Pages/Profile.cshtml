@@ -226,7 +226,7 @@
             formData.append('file', file);
 
             try {
-                const response = await fetch('/api/User/UploadProfilePic', {
+                const response = await fetch(window.ApiConfig.getApiUrl('/api/User/UploadProfilePic'), {
                     method: 'POST',
                     headers: {
                         'Authorization': 'Bearer ' + (localStorage.getItem('jwtToken') || getCookie('jwtToken'))
@@ -280,7 +280,7 @@
             };
 
             try {
-                const response = await fetch('/api/User/UpdateProfile', {
+                const response = await fetch(window.ApiConfig.getApiUrl('/api/User/UpdateProfile'), {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -319,7 +319,7 @@
             };
 
             try {
-                const response = await fetch('/api/User/UpdatePreferences', {
+                const response = await fetch(window.ApiConfig.getApiUrl('/api/User/UpdatePreferences'), {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -357,7 +357,7 @@
             }
 
             try {
-                const response = await fetch('/api/Auth/update', {
+                const response = await fetch(window.ApiConfig.getApiUrl('/api/Auth/update'), {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -383,7 +383,7 @@
         // Load user stats
         async function loadUserStats() {
             try {
-                const response = await fetch('/api/User/Stats', {
+                const response = await fetch(window.ApiConfig.getApiUrl('/api/User/Stats'), {
                     headers: {
                         'Authorization': 'Bearer ' + (localStorage.getItem('jwtToken') || getCookie('jwtToken'))
                     }

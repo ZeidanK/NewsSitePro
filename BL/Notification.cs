@@ -1,8 +1,17 @@
 using System.ComponentModel.DataAnnotations;
 
+// ----------------------------------------------------------------------------------
+// Notification.cs
+//
+// This file contains models for notifications and notification preferences in the NewsSitePro application.
+// These models are used to represent notifications, user preferences, summaries, and request/response objects
+// for notification-related features. Comments are added to key classes for clarity.
+// ----------------------------------------------------------------------------------
+
 namespace NewsSite.BL
 {
     public class Notification
+    // Model for a single notification sent to a user
     {
         public int ID { get; set; }
         // Add NotificationID as an alias for ID for compatibility
@@ -21,6 +30,7 @@ namespace NewsSite.BL
     }
 
     public class NotificationPreference
+    // Model for a user's notification preferences
     {
         public int ID { get; set; }
         public int UserID { get; set; }
@@ -31,6 +41,7 @@ namespace NewsSite.BL
     }
 
     public class NotificationSummary
+    // Model for a summary of a user's notifications
     {
         public int TotalUnread { get; set; }
         public int TotalCount { get; set; } // Add this property for total notifications
@@ -40,6 +51,7 @@ namespace NewsSite.BL
     }
 
     public class CreateNotificationRequest
+    // Request model for creating a notification
     {
         [Required]
         public int UserID { get; set; }
@@ -60,12 +72,14 @@ namespace NewsSite.BL
     }
 
     public class UpdateNotificationPreferencesRequest
+    // Request model for updating notification preferences
     {
         public int UserID { get; set; }
         public Dictionary<string, NotificationPreferenceSettings> Preferences { get; set; } = new Dictionary<string, NotificationPreferenceSettings>();
     }
 
     public class NotificationPreferenceSettings
+    // Model for individual notification preference settings
     {
         public bool IsEnabled { get; set; } = true;
         public bool EmailNotification { get; set; } = false;
@@ -74,6 +88,7 @@ namespace NewsSite.BL
 
     // Notification types enum for consistency
     public static class NotificationTypes
+    // Constants for notification types used throughout the system
     {
         public const string Like = "Like";
         public const string Comment = "Comment";

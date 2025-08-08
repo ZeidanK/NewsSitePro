@@ -1,5 +1,15 @@
 using NewsSite.BL;
 
+// ----------------------------------------------------------------------------------
+// AdminService.cs
+//
+// This class implements admin-related business logic for the NewsSitePro application. It provides
+// methods for managing users, handling bans/unbans, retrieving admin dashboard stats, processing reports,
+// logging admin actions, and validating business rules. The service interacts with the database layer
+// through DBservices and enforces rules to protect admin accounts and ensure proper moderation. All methods
+// are asynchronous for efficient, non-blocking operations. Comments are added to key functions for clarity.
+// ----------------------------------------------------------------------------------
+
 namespace NewsSite.BL.Services
 {
     /// <summary>
@@ -16,11 +26,13 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<AdminDashboardStats> GetAdminDashboardStatsAsync()
+        // Get statistics for the admin dashboard (user counts, activity, etc.)
         {
             return await _dbService.GetAdminDashboardStats();
         }
 
         public async Task<List<AdminUserView>> GetAllUsersForAdminAsync(int page, int pageSize)
+        // Get a paginated list of all users for admin view
         {
             // Business logic validation
             if (page < 1) page = 1;
@@ -30,6 +42,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<List<AdminUserView>> GetFilteredUsersForAdminAsync(int page, int pageSize, string search, string status, string joinDate)
+        // Get a filtered, paginated list of users for admin view
         {
             // Business logic validation
             if (page < 1) page = 1;
@@ -39,11 +52,13 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<int> GetFilteredUsersCountAsync(string search, string status, string joinDate)
+        // Get the count of users matching filter criteria
         {
             return await _dbService.GetFilteredUsersCount(search, status, joinDate);
         }
 
         public async Task<AdminUserDetails> GetUserDetailsForAdminAsync(int userId)
+        // Get detailed information about a specific user for admin
         {
             if (userId <= 0)
             {
@@ -54,6 +69,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<bool> BanUserAsync(int userId, string reason, int durationDays, int adminId)
+        // Ban a user for a specified duration, with business rule checks
         {
             // Business logic validation
             if (userId <= 0 || adminId <= 0)
@@ -99,6 +115,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<bool> UnbanUserAsync(int userId, int adminId)
+        // Unban a user
         {
             if (userId <= 0)
             {
@@ -117,6 +134,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<bool> DeactivateUserAsync(int userId)
+        // Deactivate a user account
         { 
             if (userId <= 0)
             {
@@ -127,6 +145,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<bool> ActivateUserAsync(int userId)
+        // Activate a user account
         { 
             if (userId <= 0)
             {
@@ -137,6 +156,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<List<ActivityLog>> GetActivityLogsAsync(int page, int pageSize)
+        // Get a paginated list of activity logs for admin review
         {
             // Business logic validation
             if (page < 1) page = 1;
@@ -146,6 +166,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<List<ActivityLog>> GetRecentActivityLogsAsync(int count)
+        // Get a list of recent activity logs
         {
             if (count < 1 || count > 50) count = 10; // Limit count
 
@@ -153,16 +174,19 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<List<UserReport>> GetPendingReportsAsync()
+        // Get a list of user reports that are pending review
         {
             return await _dbService.GetPendingReports();
         }
 
         public async Task<List<UserReport>> GetAllReportsAsync()
+        // Get a list of all user reports
         {
             return await _dbService.GetAllReports();
         }
 
         public async Task<bool> ResolveReportAsync(int reportId, string action, string notes, int adminId)
+        // Resolve a user report with a specified action and notes
         {
             // Business logic validation
             if (reportId <= 0 || adminId <= 0)
@@ -189,6 +213,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<bool> LogAdminActionAsync(int adminId, string action, string details)
+        // Log an admin action for auditing purposes
         {
             if (adminId <= 0)
             {

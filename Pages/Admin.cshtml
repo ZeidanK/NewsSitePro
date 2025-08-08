@@ -6,6 +6,15 @@
     ViewData["HeaderData"] = Model.HeaderData;
     ViewData["Title"] = "Admin Panel - User Management";
 }
+<!-- ------------------------------------------------------------------------------
+     Admin.cshtml
+
+     This Razor page implements the Admin Panel for NewsSitePro. It provides dashboards
+     for user and post statistics, search/filter controls, user management table, activity logs,
+     user reports, and modals for admin actions (ban, bulk actions, resolve reports, etc).
+     The page is designed for platform administrators to monitor, manage, and maintain security.
+     Key sections and modals are commented for clarity.
+------------------------------------------------------------------------------ -->
  
 
 <link rel="stylesheet" href="~/css/post-card.css" />
@@ -17,6 +26,7 @@
         <p class="text-muted">Manage users, monitor activity, and maintain platform security</p>
     </div>
 
+    <!-- Admin Stats Dashboard: user and post statistics -->
     <!-- Admin Stats Dashboard -->
     <div class="row mb-4">
         <div class="col-md-3">
@@ -57,6 +67,7 @@
         </div>
     </div>
 
+    <!-- Search and Filter Controls: user search, status, join date, reset/export -->
     <!-- Search and Filter Controls -->
     <div class="admin-controls mb-4">
         <div class="row">
@@ -83,19 +94,28 @@
                     <option value="year">This Year</option>
                 </select>
             </div>
-            <div class="col-md-2">
-                <button id="resetFilters" class="btn btn-outline-secondary w-100">
-                    <i class="fas fa-undo"></i> Reset
-                </button>
+                <div class="col-md-2">
+                    <button id="resetFilters" class="btn btn-outline-secondary w-100">
+                        <i class="fas fa-undo"></i> Reset
+                    </button>
+                </div>
+                <div class="col-md-2">
+                    <button id="autoNewsSync" class="btn btn-outline-success w-100" title="Toggle automatic news sync from external APIs">
+                        <i class="fas fa-cloud-download-alt"></i> <span id="autoSyncText">Auto News Sync: OFF</span>
+                    </button>
+                </div>
             </div>
-            <div class="col-md-2">
-                <button id="exportData" class="btn btn-success w-100">
-                    <i class="fas fa-download"></i> Export
-                </button>
+            
+            <!-- Manual Test Sync Row -->
+            <div class="row mt-2">
+                <div class="col-md-8"></div>
+                <div class="col-md-4">
+                    <button id="testNewsSync" class="btn btn-outline-warning w-100" title="Test news sync with 6 articles (2 from first 3 categories)">
+                        <i class="fas fa-flask"></i> Test News Sync (6 articles)
+                    </button>
+                </div>
             </div>
-        </div>
-    </div>
-
+        </div>    <!-- User Management Table: user list and actions -->
     <!-- User Management Table -->
     <div class="admin-table-container">
         <table class="table admin-table" id="usersTable">
@@ -117,6 +137,7 @@
             </tbody>
         </table>
         
+        <!-- Pagination: user list navigation -->
         <!-- Pagination -->
         <nav aria-label="Users pagination">
             <ul class="pagination justify-content-center" id="usersPagination">
@@ -125,6 +146,7 @@
         </nav>
     </div>
 
+    <!-- Activity Logs Section: recent admin actions -->
     <!-- Activity Logs Section -->
     <div class="admin-section mt-5">
         <h3><i class="fas fa-history"></i> Recent Activity Logs</h3>
@@ -146,6 +168,7 @@
         </div>
     </div>
 
+    <!-- Reports Section: user reports and actions -->
     <!-- Reports Section -->
     <div class="admin-section mt-5">
         <h3><i class="fas fa-flag"></i> User Reports</h3>
@@ -169,6 +192,7 @@
     </div>
 </div>
 
+<!-- User Action Modals: ban, details, bulk actions, resolve report -->
 <!-- User Action Modals -->
 <!-- Ban User Modal -->
 <div class="modal fade" id="banUserModal" tabindex="-1">
@@ -290,4 +314,20 @@
 
 @section Styles {
     <link rel="stylesheet" href="~/css/admin-panel.css">
+    <style>
+        /* Hide right sidebar on Admin page */
+        .right-sidebar {
+            display: none !important;
+        }
+        /* Adjust main content to use full width when right sidebar is hidden */
+        .main-content {
+            max-width: 100% !important;
+            margin-right: 0 !important;
+        }
+        /* Ensure admin container uses full available space */
+        .admin-container {
+            max-width: 100%;
+            padding: 0 15px;
+        }
+    </style>
 }

@@ -181,6 +181,11 @@ class AuthService {
     }
 
     updateHeader() {
+        // DISABLED: Header content is now managed by _HeaderPartial.cshtml
+        // The HTML partial now handles all header navigation instead of JavaScript
+        return;
+        
+        /* OLD CODE - COMMENTED OUT*/
         const header = document.querySelector('header nav');
         if (!header) return;
 
@@ -208,6 +213,7 @@ class AuthService {
             postLink.href = '/Post';
             postLink.textContent = 'Post';
             header.appendChild(postLink);
+            
 
             // Notifications with dropdown
             const notificationContainer = document.createElement('div');
@@ -290,6 +296,7 @@ class AuthService {
             registerLink.textContent = 'Register';
             header.appendChild(registerLink);
         }
+       /* END OF OLD CODE */
     }
 
     updateSidebar() {
@@ -463,25 +470,27 @@ class AuthService {
 
     async markNotificationRead(notificationId) {
         try {
-            const apiUrl = window.ApiConfig.getApiUrl('Notifications?handler=MarkAsRead');
+            const apiUrl = window.ApiConfig.getApiUrl(`api/Notification/mark-read/${notificationId}`);
             const response = await fetch(apiUrl, {
-                method: 'POST',
+                method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'RequestVerificationToken': this.getAntiForgeryToken()
-                },
-                body: JSON.stringify(notificationId)
+                    'Authorization': `Bearer ${this.getToken()}`
+                }
             });
 
             if (response.ok) {
-                const notificationItem = document.querySelector(`[data-id="${notificationId}"]`);
-                if (notificationItem) {
-                    notificationItem.classList.remove('unread');
-                    notificationItem.classList.add('read');
-                    const markBtn = notificationItem.querySelector('.mark-read-btn-small');
-                    if (markBtn) markBtn.remove();
+                const result = await response.json();
+                if (result.success) {
+                    const notificationItem = document.querySelector(`[data-id="${notificationId}"]`);
+                    if (notificationItem) {
+                        notificationItem.classList.remove('unread');
+                        notificationItem.classList.add('read');
+                        const markBtn = notificationItem.querySelector('.mark-read-btn-small');
+                        if (markBtn) markBtn.remove();
+                    }
+                    this.updateNotificationCount();
                 }
-                this.updateNotificationCount();
             }
         } catch (error) {
             console.error('Error marking notification as read:', error);
@@ -490,19 +499,22 @@ class AuthService {
 
     async markAllNotificationsRead() {
         try {
-            const apiUrl = window.ApiConfig.getApiUrl('Notifications?handler=MarkAllAsRead');
+            const apiUrl = window.ApiConfig.getApiUrl('api/Notification/mark-all-read');
             const response = await fetch(apiUrl, {
-                method: 'POST',
+                method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'RequestVerificationToken': this.getAntiForgeryToken()
+                    'Authorization': `Bearer ${this.getToken()}`
                 }
             });
 
             if (response.ok) {
-                this.notificationCount = 0;
-                this.updateNotificationBadge();
-                await this.loadRecentNotifications();
+                const result = await response.json();
+                if (result.success) {
+                    this.notificationCount = 0;
+                    this.updateNotificationBadge();
+                    await this.loadRecentNotifications();
+                }
             }
         } catch (error) {
             console.error('Error marking all notifications as read:', error);
@@ -514,7 +526,7 @@ class AuthService {
             this.removeToken();
             this.setUnauthenticated();
             this.updateUI();
-            window.location.href = '/Login';
+            window.location.href = window.ApiConfig.getApiUrl('/Login');
         } catch (error) {
             console.error('Logout error:', error);
         }

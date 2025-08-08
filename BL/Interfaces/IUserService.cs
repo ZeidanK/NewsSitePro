@@ -1,5 +1,16 @@
 using NewsSite.BL;
 
+// ----------------------------------------------------------------------------------
+// IUserService.cs
+//
+// This interface defines the contract for user-related operations in the business logic layer.
+// It centralizes methods for creating, updating, searching, and managing users, as well as handling
+// user profiles, passwords, bans, follows, and interests. By using an interface, the codebase supports
+// dependency injection, testability, and separation of concerns, allowing different implementations for
+// user management. All methods are asynchronous to ensure efficient, non-blocking operations, especially
+// when interacting with databases or external services.
+// ----------------------------------------------------------------------------------
+
 namespace NewsSite.BL.Services
 {
     public interface IUserService

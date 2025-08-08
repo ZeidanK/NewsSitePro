@@ -25,12 +25,12 @@
 
 /* Search Form */
 .search-form-container {
-    background: var(--card-bg);
+    background: #ffffff;
     border-radius: 16px;
     padding: 25px;
     margin-bottom: 30px;
-    box-shadow: var(--shadow-md);
-    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border: 1px solid #e1e8ed;
 }
 
 .search-input-container {
@@ -41,17 +41,17 @@
 .search-input {
     width: 100%;
     padding: 15px 50px 15px 20px;
-    border: 2px solid var(--border-color);
+    border: 2px solid #e1e8ed;
     border-radius: 25px;
     font-size: 1rem;
-    background: var(--input-bg);
-    color: var(--text-primary);
+    background: #ffffff;
+    color: #14171a;
     transition: all 0.3s ease;
 }
 
 .search-input:focus {
     outline: none;
-    border-color: var(--primary-color);
+    border-color: #1da1f2;
     box-shadow: 0 0 0 3px rgba(29, 161, 242, 0.1);
 }
 
@@ -60,7 +60,7 @@
     right: 5px;
     top: 50%;
     transform: translateY(-50%);
-    background: var(--primary-color);
+    background: #1da1f2;
     color: white;
     border: none;
     border-radius: 50%;
@@ -232,15 +232,16 @@
 }
 
 .search-result-card {
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
+    background: #ffffff;
+    border: 1px solid #e1e8ed;
     border-radius: 12px;
     padding: 20px;
     transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .search-result-card:hover {
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
     transform: translateY(-2px);
 }
 

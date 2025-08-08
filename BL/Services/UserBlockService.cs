@@ -1,5 +1,15 @@
 using NewsSite.BL;
 
+// ----------------------------------------------------------------------------------
+// UserBlockService.cs
+//
+// This class implements user blocking logic for the NewsSitePro application. It provides methods for
+// blocking and unblocking users, checking block status, retrieving blocked users, and getting block statistics.
+// The service enforces business rules (such as validation and self-block prevention) and interacts with the
+// database layer through DBservices. All methods are asynchronous for efficient, non-blocking operations.
+// Comments are added to key functions for clarity.
+// ----------------------------------------------------------------------------------
+
 namespace NewsSite.BL.Services
 {
     public interface IUserBlockService
@@ -17,11 +27,13 @@ namespace NewsSite.BL.Services
         private readonly DBservices _dbService;
 
         public UserBlockService(DBservices dbService)
+        // Constructor: injects the database service
         {
             _dbService = dbService;
         }
 
         public async Task<BlockResult> BlockUserAsync(int blockerUserID, int blockedUserID, string? reason = null)
+        // Block a user, with validation and error handling
         {
             // Business logic validation
             if (blockerUserID <= 0)
@@ -56,6 +68,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<BlockResult> UnblockUserAsync(int blockerUserID, int blockedUserID)
+        // Unblock a user, with validation and error handling
         {
             // Business logic validation
             if (blockerUserID <= 0)
@@ -79,6 +92,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<bool> IsUserBlockedAsync(int blockerUserID, int blockedUserID)
+        // Check if a user is blocked by another user
         {
             if (blockerUserID <= 0 || blockedUserID <= 0)
             {
@@ -96,6 +110,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<List<UserBlock>> GetBlockedUsersAsync(int blockerUserID, int pageNumber = 1, int pageSize = 20)
+        // Get a paginated list of users blocked by a specific user
         {
             // Business logic validation
             if (blockerUserID <= 0)
@@ -117,6 +132,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<UserBlockStats> GetUserBlockStatsAsync(int userID)
+        // Get statistics about blocks for a user
         {
             if (userID <= 0)
             {
@@ -134,6 +150,7 @@ namespace NewsSite.BL.Services
         }
 
         public async Task<MutualBlockCheck> CheckMutualBlockAsync(int userID1, int userID2)
+        // Check if two users have blocked each other
         {
             if (userID1 <= 0 || userID2 <= 0)
             {

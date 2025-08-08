@@ -87,11 +87,14 @@ namespace NewsSitePro.Models
                 ShowFullContent = false,
                 ContentPreviewLength = 200,
                 ContainerClass = "post-card post-saved",
-                IsSaved = true // Always true in saved context
+                IsSaved = true // Always true in saved context - user has saved this article
             };
 
             PostContextFactory.ApplyUserContext(context, currentUser, post);
             PostContextFactory.ApplyInteractionContext(context, currentUser, post);
+            
+            // Override IsSaved since we're in saved articles context
+            context.IsSaved = true;
 
             return context;
         }

@@ -716,6 +716,166 @@ namespace NewsSite.Controllers
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
+
+        // Auto Refresh Control Endpoints for Admin Panel
+        [HttpGet("auto-refresh/status")]
+        public async Task<IActionResult> GetAutoRefreshStatus()
+        {
+            try
+            {
+                if (!await IsCurrentUserAdminAsync())
+                {
+                    return StatusCode(403, new { success = false, message = "Admin access required" });
+                }
+
+                // Get auto refresh status from cache first, then default to false
+                var memoryCache = HttpContext.RequestServices.GetService<IMemoryCache>();
+                var isEnabled = false; // Default to disabled
+
+                if (memoryCache != null && memoryCache.TryGetValue("AdminPanel:AutoRefresh:Enabled", out var cachedValue))
+                {
+                    isEnabled = (bool)cachedValue;
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    isEnabled = isEnabled,
+                    refreshIntervalMinutes = 5,
+                    lastRefreshTime = DateTime.Now
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost("auto-refresh/toggle")]
+        public async Task<IActionResult> ToggleAutoRefresh([FromBody] ToggleServiceRequest request)
+        {
+            try
+            {
+                if (!await IsCurrentUserAdminAsync())
+                {
+                    return StatusCode(403, new { success = false, message = "Admin access required" });
+                }
+
+                // Store the setting in cache
+                var memoryCache = HttpContext.RequestServices.GetService<IMemoryCache>();
+                if (memoryCache != null)
+                {
+                    // Store with a long expiration time (24 hours) to persist across requests
+                    memoryCache.Set("AdminPanel:AutoRefresh:Enabled", request.Enabled, TimeSpan.FromHours(24));
+                }
+
+                // Log the admin action
+                var user = await GetCurrentUserFromJwt();
+                if (user != null)
+                {
+                    await _adminService.LogAdminActionAsync(user.Id, 
+                        $"Admin panel auto refresh {(request.Enabled ? "enabled" : "disabled")}", 
+                        $"Admin panel auto refresh was {(request.Enabled ? "enabled" : "disabled")} by admin");
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"Auto refresh {(request.Enabled ? "enabled" : "disabled")} successfully",
+                    isEnabled = request.Enabled,
+                    refreshIntervalMinutes = 5
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost("sync-news")]
+        public async Task<IActionResult> ManualNewsSync()
+        {
+            try
+            {
+                if (!await IsCurrentUserAdminAsync())
+                {
+                    return StatusCode(403, new { success = false, message = "Admin access required" });
+                }
+
+                // Get the news API service
+                var newsApiService = HttpContext.RequestServices.GetService<INewsApiService>();
+                if (newsApiService == null)
+                {
+                    return StatusCode(500, new { success = false, message = "News API service not available" });
+                }
+
+                // Trigger manual sync
+                var articlesAdded = await newsApiService.SyncNewsArticlesToDatabase();
+
+                // Log the admin action
+                var user = await GetCurrentUserFromJwt();
+                if (user != null)
+                {
+                    await _adminService.LogAdminActionAsync(user.Id, 
+                        "Manual news sync triggered", 
+                        $"Manual news sync completed, {articlesAdded} articles added");
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"Manual sync completed successfully",
+                    articlesAdded = articlesAdded
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost("test-sync-news")]
+        public async Task<IActionResult> TestNewsSync()
+        {
+            try
+            {
+                if (!await IsCurrentUserAdminAsync())
+                {
+                    return StatusCode(403, new { success = false, message = "Admin access required" });
+                }
+
+                // Get the news API service
+                var newsApiService = HttpContext.RequestServices.GetService<INewsApiService>();
+                if (newsApiService == null)
+                {
+                    return StatusCode(500, new { success = false, message = "News API service not available" });
+                }
+
+                // Trigger test sync (2 articles per category, first 3 categories only)
+                var articlesAdded = await newsApiService.TestSyncNewsArticles(2);
+
+                // Log the admin action
+                var user = await GetCurrentUserFromJwt();
+                if (user != null)
+                {
+                    await _adminService.LogAdminActionAsync(user.Id, 
+                        "Test news sync triggered", 
+                        $"Test news sync completed, {articlesAdded} articles added");
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"Test sync completed! Added {articlesAdded} new articles (2 per category from first 3 categories)",
+                    articlesAdded = articlesAdded,
+                    note = "Check the News page to see new articles marked with [TEST]"
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
     }
 
     // Request/Response Models

@@ -51,6 +51,26 @@ public class DBservices
 
         return cmd;
     }
+    
+    //---------------------------------------------------------------------------------
+    // Helper method to check if a column exists in the SqlDataReader
+    //---------------------------------------------------------------------------------
+    private bool HasColumn(SqlDataReader reader, string columnName)
+    {
+        try
+        {
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                if (reader.GetName(i).Equals(columnName, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
     //--------------------------------------------------------------------------------------------------
     // This method creates a connection to the database according to the connectionString name in the appsettings.json 
     //--------------------------------------------------------------------------------------------------
@@ -282,7 +302,7 @@ public class DBservices
             };
             cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Users_Insert", con, paramDic);
             int affectedRows = cmd.ExecuteNonQuery();
-            return affectedRows > 0;
+            return affectedRows < 0;
         }
         catch (Exception)
         {
@@ -422,6 +442,14 @@ public class DBservices
     // News Articles Database Methods
     //--------------------------------------------------------------------------------------------------
     
+    /// <summary>
+    /// Gets all news articles with pagination, optional category filter, and user interaction context
+    /// </summary>
+    /// <param name="pageNumber">Page number for pagination</param>
+    /// <param name="pageSize">Number of articles per page</param>
+    /// <param name="category">Optional category filter</param>
+    /// <param name="currentUserId">Current user ID for interaction context (liked/saved status)</param>
+    /// <returns>List of NewsArticle objects with complete interaction data</returns>
     public List<NewsArticle> GetAllNewsArticles(int pageNumber = 1, int pageSize = 10, string? category = null, int? currentUserId = null)
     {
         SqlConnection? con = null;
@@ -437,8 +465,7 @@ public class DBservices
                 { "@PageNumber", pageNumber },
                 { "@PageSize", pageSize },
                 { "@Category", (object?)category ?? DBNull.Value },
-                {"@CurrentUserID",currentUserId }
-
+                { "@CurrentUserID", currentUserId.HasValue ? (object)currentUserId.Value : DBNull.Value }
             };
 
             cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_NewsArticles_GetAll", con, paramDic);
@@ -458,17 +485,16 @@ public class DBservices
                     PublishDate = Convert.ToDateTime(reader["PublishDate"]),
                     UserID = Convert.ToInt32(reader["UserID"]),
                     Username = reader["Username"]?.ToString(),
+                    UserProfilePicture = reader["ProfilePicture"]?.ToString(),
                     LikesCount = Convert.ToInt32(reader["LikesCount"]),
                     ViewsCount = Convert.ToInt32(reader["ViewsCount"]),
-                    UserProfilePicture = reader["ProfilePicture"]?.ToString()
+                    // Use the stored procedure's calculated values (now that columns exist)
+                    IsLiked = Convert.ToInt32(reader["IsLiked"]) == 1,
+                    IsSaved = Convert.ToInt32(reader["IsSaved"]) == 1,
+                    // Add repost data from stored procedure
+                    RepostCount = reader.IsDBNull("RepostCount") ? 0 : Convert.ToInt32(reader["RepostCount"]),
+                    IsReposted = reader.IsDBNull("IsReposted") ? false : Convert.ToInt32(reader["IsReposted"]) == 1
                 };
-
-                // Check if current user liked/saved this article
-                if (currentUserId.HasValue)
-                {
-                    article.IsLiked = CheckUserLikedArticle(article.ArticleID, currentUserId.Value);
-                    article.IsSaved = CheckUserSavedArticle(article.ArticleID, currentUserId.Value);
-                }
 
                 articles.Add(article);
             }
@@ -496,12 +522,21 @@ public class DBservices
         try
         {
             con = connect("myProjDB");
+            
+            // Debug logging
+            Console.WriteLine($"[DBservices] GetAllNewsArticlesWithBlockFilter called with:");
+            Console.WriteLine($"  - pageNumber: {pageNumber}");
+            Console.WriteLine($"  - pageSize: {pageSize}");
+            Console.WriteLine($"  - category: {category ?? "NULL"}");
+            Console.WriteLine($"  - currentUserId: {currentUserId?.ToString() ?? "NULL"}");
+            
             var paramDic = new Dictionary<string, object>
             {
-                { "@CurrentUserID", (object?)currentUserId ?? DBNull.Value },
+                { "@CurrentUserID", currentUserId.HasValue ? (object)currentUserId.Value : DBNull.Value },
                 { "@PageNumber", pageNumber },
                 { "@PageSize", pageSize },
-                { "@Category", (object?)category ?? DBNull.Value }
+                { "@Category", (object?)category ?? DBNull.Value },
+                { "@SortBy", "recent" }  // Add missing SortBy parameter
             };
 
             try
@@ -527,15 +562,22 @@ public class DBservices
                         ViewsCount = Convert.ToInt32(reader["ViewsCount"]),
                         UserProfilePicture = reader["UserProfilePicture"]?.ToString(),
                         IsLiked = reader["IsLiked"] != DBNull.Value && Convert.ToBoolean(reader["IsLiked"]),
-                        IsSaved = reader["IsSaved"] != DBNull.Value && Convert.ToBoolean(reader["IsSaved"])
+                        IsSaved = reader["IsSaved"] != DBNull.Value && Convert.ToBoolean(reader["IsSaved"]),
+                        // Add repost data from stored procedure
+                        RepostCount = reader.IsDBNull("RepostCount") ? 0 : Convert.ToInt32(reader["RepostCount"]),
+                        IsReposted = reader.IsDBNull("IsReposted") ? false : Convert.ToInt32(reader["IsReposted"]) == 1
                     };
 
                     articles.Add(article);
                 }
+                
+                Console.WriteLine($"[DBservices] Stored procedure returned {articles.Count} articles");
             }
-            catch
+            catch (Exception spEx)
             {
+                Console.WriteLine($"[DBservices] Stored procedure failed: {spEx.Message}");
                 // Fallback to regular GetAllNewsArticles if stored procedure fails
+                Console.WriteLine("[DBservices] Falling back to GetAllNewsArticles");
                 return GetAllNewsArticles(pageNumber, pageSize, category, currentUserId);
             }
         }
@@ -716,6 +758,78 @@ public class DBservices
         }
     }
 
+    /// <summary>
+    /// Toggles repost on an article
+    /// </summary>
+    /// <param name="articleId">ID of the article to repost/unrepost</param>
+    /// <param name="userId">ID of the user performing the action</param>
+    /// <returns>String indicating the action performed ("reposted" or "unreposted")</returns>
+    public string ToggleRepost(int articleId, int userId)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@OriginalArticleID", articleId },
+                { "@UserID", userId }
+            };
+
+            try
+            {
+                // Try to use stored procedure first
+                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Reposts_Toggle", con, paramDic);
+                var result = cmd.ExecuteScalar();
+                return result?.ToString() ?? "error";
+            }
+            catch
+            {
+                // Fallback to direct SQL query
+                cmd?.Dispose();
+                
+                // Check if repost exists
+                var checkQuery = "SELECT COUNT(*) FROM NewsSitePro2025_Reposts WHERE OriginalArticleID = @OriginalArticleID AND UserID = @UserID";
+                cmd = new SqlCommand(checkQuery, con);
+                cmd.Parameters.AddWithValue("@OriginalArticleID", articleId);
+                cmd.Parameters.AddWithValue("@UserID", userId);
+                
+                var exists = Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+                
+                if (exists)
+                {
+                    // Remove repost
+                    cmd?.Dispose();
+                    cmd = new SqlCommand("DELETE FROM NewsSitePro2025_Reposts WHERE OriginalArticleID = @OriginalArticleID AND UserID = @UserID", con);
+                    cmd.Parameters.AddWithValue("@OriginalArticleID", articleId);
+                    cmd.Parameters.AddWithValue("@UserID", userId);
+                    cmd.ExecuteNonQuery();
+                    return "unreposted";
+                }
+                else
+                {
+                    // Add repost
+                    cmd?.Dispose();
+                    cmd = new SqlCommand("INSERT INTO NewsSitePro2025_Reposts (OriginalArticleID, UserID, RepostDate) VALUES (@OriginalArticleID, @UserID, GETDATE())", con);
+                    cmd.Parameters.AddWithValue("@OriginalArticleID", articleId);
+                    cmd.Parameters.AddWithValue("@UserID", userId);
+                    cmd.ExecuteNonQuery();
+                    return "reposted";
+                }
+            }
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
+
     public bool RecordArticleView(int articleId, int? userId = null)
     {
         SqlConnection? con = null;
@@ -737,6 +851,33 @@ public class DBservices
         catch (Exception)
         {
             return false;
+        }
+        finally
+        {
+            con?.Close();
+        }
+    }
+
+    /// <summary>
+    /// Get total count of published news articles
+    /// </summary>
+    /// <returns>Total number of news articles in the database</returns>
+    public int GetTotalNewsArticlesCount()
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            string sql = "SELECT COUNT(*) FROM NewsSitePro2025_NewsArticles WHERE IsDeleted = 0 OR IsDeleted IS NULL";
+            cmd = new SqlCommand(sql, con);
+            var result = cmd.ExecuteScalar();
+            return Convert.ToInt32(result);
+        }
+        catch (Exception)
+        {
+            return 0;
         }
         finally
         {
@@ -800,9 +941,9 @@ public class DBservices
                 
                 string sql = @"
                     SELECT 
-                        (SELECT COUNT(*) FROM NewsArticles WHERE UserID = @UserID) as PostsCount,
-                        (SELECT COUNT(*) FROM UserLikes ul INNER JOIN NewsArticles na ON ul.ArticleID = na.ArticleID WHERE na.UserID = @UserID) as LikesCount,
-                        (SELECT COUNT(*) FROM SavedArticles WHERE UserID = @UserID) as SavedCount,
+                        (SELECT COUNT(*) FROM NewsSitePro2025_NewsArticles WHERE UserID = @UserID) as PostsCount,
+                        (SELECT COUNT(*) FROM NewsSitePro2025_ArticleLikes ul INNER JOIN NewsSitePro2025_NewsArticles na ON ul.ArticleID = na.ArticleID WHERE na.UserID = @UserID) as LikesCount,
+                        (SELECT COUNT(*) FROM NewsSitePro2025_SavedArticles WHERE UserID = @UserID) as SavedCount,
                         (SELECT COUNT(*) FROM NewsSitePro2025_UserFollows WHERE FollowedUserID = @UserID) as FollowersCount,
                         (SELECT COUNT(*) FROM NewsSitePro2025_UserFollows WHERE FollowerUserID = @UserID) as FollowingCount";
                 
@@ -962,7 +1103,7 @@ public class DBservices
                 result = await cmd.ExecuteScalarAsync();
                 stats.BannedUsers = result != null ? (int)result : 0;
                 
-                cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_NewsArticles", con);
+                cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_NewsArticles WHERE IsDeleted = 0 OR IsDeleted IS NULL", con);
                 result = await cmd.ExecuteScalarAsync();
                 stats.TotalPosts = result != null ? (int)result : 0;
                 
@@ -978,7 +1119,7 @@ public class DBservices
                 result = cmd.ExecuteScalar();
                 stats.TodayRegistrations = result != null ? (int)result : 0;
                 
-                cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_NewsArticles WHERE CAST(PublishDate AS DATE) = CAST(GETDATE() AS DATE)", con);
+                cmd = new SqlCommand("SELECT COUNT(*) FROM NewsSitePro2025_NewsArticles WHERE CAST(PublishDate AS DATE) = CAST(GETDATE() AS DATE) AND (IsDeleted = 0 OR IsDeleted IS NULL)", con);
                 result = cmd.ExecuteScalar();
                 stats.TodayPosts = result != null ? (int)result : 0;
             }
@@ -1173,6 +1314,7 @@ public class DBservices
                         Id = reader.GetInt32("UserID"),
                         Username = reader.GetString("Username"),
                         Email = reader.GetString("Email"),
+                        ProfilePicture = reader.IsDBNull("ProfilePicture") ? null : reader.GetString("ProfilePicture"),
                         JoinDate = reader.GetDateTime("JoinDate"),
                         LastActivity = reader.IsDBNull("LastActivity") ? null : reader.GetDateTime("LastActivity"),
                         PostCount = reader.GetInt32("PostCount"),
@@ -1261,7 +1403,7 @@ public class DBservices
                 var whereClause = whereConditions.Count > 0 ? "WHERE " + string.Join(" AND ", whereConditions) : "";
                 
                 var query = $@"
-                    SELECT u.UserID, u.Username AS Username, u.Email, u.Bio, u.JoinDate, u.LastActivity, 
+                    SELECT u.UserID, u.Username AS Username, u.Email, u.ProfilePicture, u.Bio, u.JoinDate, u.LastActivity, 
                            u.IsAdmin, u.IsActive, u.IsBanned, u.BannedUntil,
                            COALESCE(pc.PostCount, 0) AS PostCount,
                            COALESCE(lc.LikesReceived, 0) AS LikesReceived
@@ -1298,6 +1440,7 @@ public class DBservices
                         Id = reader.GetInt32("UserID"),
                         Username = reader.GetString("Username"),
                         Email = reader.GetString("Email"),
+                        ProfilePicture = reader.IsDBNull("ProfilePicture") ? null : reader.GetString("ProfilePicture"),
                         JoinDate = reader.GetDateTime("JoinDate"),
                         LastActivity = reader.IsDBNull("LastActivity") ? null : reader.GetDateTime("LastActivity"),
                         PostCount = reader.GetInt32("PostCount"),
@@ -1467,11 +1610,14 @@ public class DBservices
                         Id = reader.GetInt32("UserID"),
                         Username = reader.GetString("Username"),
                         Email = reader.GetString("Email"),
+                        ProfilePicture = reader.IsDBNull("ProfilePicture") ? null : reader.GetString("ProfilePicture"),
                         Bio = reader.IsDBNull("Bio") ? null : reader.GetString("Bio"),
                         JoinDate = reader.GetDateTime("JoinDate"),
                         LastActivity = reader.IsDBNull("LastActivity") ? null : reader.GetDateTime("LastActivity"),
                         PostCount = reader.GetInt32("PostCount"),
                         LikesReceived = reader.GetInt32("LikesReceived"),
+                        FollowersCount = reader.IsDBNull("FollowersCount") ? 0 : reader.GetInt32("FollowersCount"),
+                        FollowingCount = reader.IsDBNull("FollowingCount") ? 0 : reader.GetInt32("FollowingCount"),
                         IsAdmin = reader.GetBoolean("IsAdmin"),
                         BannedUntil = reader.IsDBNull("BannedUntil") ? null : reader.GetDateTime("BannedUntil"),
                         BanReason = reader.IsDBNull("BanReason") ? null : reader.GetString("BanReason")
@@ -1509,10 +1655,12 @@ public class DBservices
                 }
                 
                 var query = @"
-                    SELECT u.UserID, u.Username AS Username, u.Email, u.Bio, u.JoinDate, u.LastActivity, 
+                    SELECT u.UserID, u.Username AS Username, u.Email, u.ProfilePicture, u.Bio, u.JoinDate, u.LastActivity, 
                            u.IsAdmin, u.IsActive, u.IsBanned, u.BannedUntil, u.BanReason,
                            COALESCE(pc.PostCount, 0) AS PostCount,
-                           COALESCE(lc.LikesReceived, 0) AS LikesReceived
+                           COALESCE(lc.LikesReceived, 0) AS LikesReceived,
+                           COALESCE(fc.FollowersCount, 0) AS FollowersCount,
+                           COALESCE(fg.FollowingCount, 0) AS FollowingCount
                     FROM NewsSitePro2025_Users u
                     LEFT JOIN (
                         SELECT UserID, COUNT(*) AS PostCount 
@@ -1527,6 +1675,18 @@ public class DBservices
                         WHERE na.UserID = @UserId
                         GROUP BY na.UserID
                     ) lc ON u.UserID = lc.UserID
+                    LEFT JOIN (
+                        SELECT FollowedUserID, COUNT(*) AS FollowersCount
+                        FROM NewsSitePro2025_UserFollows
+                        WHERE FollowedUserID = @UserId
+                        GROUP BY FollowedUserID
+                    ) fc ON u.UserID = fc.FollowedUserID
+                    LEFT JOIN (
+                        SELECT FollowerUserID, COUNT(*) AS FollowingCount
+                        FROM NewsSitePro2025_UserFollows
+                        WHERE FollowerUserID = @UserId
+                        GROUP BY FollowerUserID
+                    ) fg ON u.UserID = fg.FollowerUserID
                     WHERE u.UserID = @UserId";
 
                 cmd = new SqlCommand(query, con);
@@ -1540,11 +1700,14 @@ public class DBservices
                         Id = reader.GetInt32("UserID"),
                         Username = reader.GetString("Username"),
                         Email = reader.GetString("Email"),
+                        ProfilePicture = reader.IsDBNull("ProfilePicture") ? null : reader.GetString("ProfilePicture"),
                         Bio = reader.IsDBNull("Bio") ? null : reader.GetString("Bio"),
                         JoinDate = reader.GetDateTime("JoinDate"),
                         LastActivity = reader.IsDBNull("LastActivity") ? null : reader.GetDateTime("LastActivity"),
                         PostCount = reader.GetInt32("PostCount"),
                         LikesReceived = reader.GetInt32("LikesReceived"),
+                        FollowersCount = reader.GetInt32("FollowersCount"),
+                        FollowingCount = reader.GetInt32("FollowingCount"),
                         IsAdmin = reader.GetBoolean("IsAdmin"),
                         BannedUntil = reader.IsDBNull("BannedUntil") ? null : reader.GetDateTime("BannedUntil"),
                         BanReason = reader.IsDBNull("BanReason") ? null : reader.GetString("BanReason")
@@ -2401,7 +2564,7 @@ public class DBservices
         {
             con = connect("myProjDB");
             
-            var getPostAuthorQuery = "SELECT UserID FROM NewsSitePro2025_NewsArticles WHERE ArticleID = @PostID";
+            var getPostAuthorQuery = "SELECT UserID FROM NewsSitePro2025_NewsArticles WHERE ArticleID = @PostID AND (IsDeleted = 0 OR IsDeleted IS NULL)";
             cmd = new SqlCommand(getPostAuthorQuery, con);
             cmd.Parameters.AddWithValue("@PostID", postId);
             var postAuthorId = await cmd.ExecuteScalarAsync();
@@ -2457,38 +2620,44 @@ public class DBservices
         
         try
         {
-            using (con = connect("myProjDB"))
+            con = connect("myProjDB");
+            // connect() method already opens the connection, no need to call OpenAsync() again
+            
+            var paramDic = new Dictionary<string, object>
             {
-                await con.OpenAsync();
+                { "@NotificationID", notificationId }
+            };
+            
+            // First verify the notification belongs to the user for security
+            var verifyQuery = "SELECT COUNT(*) FROM NewsSitePro2025_Notifications WHERE NotificationID = @NotificationID AND UserID = @UserID";
+            using (var verifyCmd = new SqlCommand(verifyQuery, con))
+            {
+                verifyCmd.Parameters.AddWithValue("@NotificationID", notificationId);
+                verifyCmd.Parameters.AddWithValue("@UserID", userId);
                 
-                var paramDic = new Dictionary<string, object>
+                var count = (int?)await verifyCmd.ExecuteScalarAsync();
+                if (count == null || count == 0)
                 {
-                    { "@NotificationID", notificationId }
-                };
-                
-                // First verify the notification belongs to the user for security
-                var verifyQuery = "SELECT COUNT(*) FROM NewsSitePro2025_Notifications WHERE NotificationID = @NotificationID AND UserID = @UserID";
-                using (var verifyCmd = new SqlCommand(verifyQuery, con))
-                {
-                    verifyCmd.Parameters.AddWithValue("@NotificationID", notificationId);
-                    verifyCmd.Parameters.AddWithValue("@UserID", userId);
-                    
-                    var count = (int?)await verifyCmd.ExecuteScalarAsync();
-                    if (count == null || count == 0)
-                    {
-                        return false; // Notification doesn't belong to user
-                    }
+                    return false; // Notification doesn't belong to user
                 }
-                
-                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Notifications_MarkAsRead", con, paramDic);
-                
-                var rowsAffected = await cmd.ExecuteNonQueryAsync();
-                return rowsAffected > 0;
             }
+            
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Notifications_MarkAsRead", con, paramDic);
+            
+            var rowsAffected = await cmd.ExecuteNonQueryAsync();
+            return rowsAffected > 0;
         }
         catch (Exception ex)
         {
             throw new Exception("Error marking notification as read: " + ex.Message);
+        }
+        finally
+        {
+            if (reader != null && !reader.IsClosed)
+            {
+                reader.Close();
+            }
+            con?.Close();
         }
     }
 
@@ -2496,33 +2665,33 @@ public class DBservices
     {
         SqlConnection? con = null;
         SqlCommand? cmd = null;
-        SqlDataReader? reader = null;
         
         try
         {
-            using (con = connect("myProjDB"))
+            con = connect("myProjDB");
+            // connect() method already opens the connection, no need to call OpenAsync() again
+            
+            var paramDic = new Dictionary<string, object>
             {
-                await con.OpenAsync();
-                
-                var paramDic = new Dictionary<string, object>
-                {
-                    { "@UserID", userId }
-                };
-                
-                cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Notifications_MarkAllAsRead", con, paramDic);
-                var rowsAffected = await cmd.ExecuteNonQueryAsync();
-                return rowsAffected > 0;
-            }
+                { "@UserID", userId }
+            };
+            
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Notifications_MarkAllAsRead", con, paramDic);
+            var rowsAffected = await cmd.ExecuteNonQueryAsync();
+            return rowsAffected > 0;
         }
         catch (Exception)
         {
             // Fallback to direct SQL if stored procedure doesn't exist
             try
             {
+                // Close the previous connection properly
+                con?.Close();
+                
                 IConfigurationRoot configuration = new ConfigurationBuilder()
                     .AddJsonFile("appsettings.json").Build();
                 string cStr = configuration.GetConnectionString("myProjDB");
-                
+
                 using (var fallbackCon = new SqlConnection(cStr))
                 {
                     await fallbackCon.OpenAsync();
@@ -2543,9 +2712,11 @@ public class DBservices
                 throw new Exception("Error marking all notifications as read: " + ex.Message);
             }
         }
-    }
-
-    public async Task<bool> MarkNotificationsAsRead(int userId)
+        finally
+        {
+            con?.Close();
+        }
+    }    public async Task<bool> MarkNotificationsAsRead(int userId)
     {
         SqlConnection? con = null;
         SqlCommand? cmd = null;
@@ -2556,19 +2727,20 @@ public class DBservices
                 .AddJsonFile("appsettings.json").Build();
             string cStr = configuration.GetConnectionString("myProjDB");
 
-              con = new SqlConnection(cStr);
-              await con.OpenAsync();
+            using (con = new SqlConnection(cStr))
+            {
+                await con.OpenAsync();
 
                 var query = "UPDATE NewsSitePro2025_Notifications SET IsRead = 1 WHERE UserID = @UserID AND IsRead = 0";
 
-                 cmd = new SqlCommand(query, con);
+                using (cmd = new SqlCommand(query, con))
                 {
                     cmd.Parameters.AddWithValue("@UserID", userId);
 
                     var rowsAffected = await cmd.ExecuteNonQueryAsync();
                     return rowsAffected > 0;
                 }
-            
+            }
         }
         catch (Exception ex)
         {
@@ -3044,10 +3216,13 @@ SqlDataReader? reader = null;
                     PublishDate = reader.GetDateTime("PublishDate"),
                     UserID = reader.GetInt32("UserID"),
                     Username = reader["Username"]?.ToString(),
+                    UserProfilePicture = reader["ProfilePicture"]?.ToString(),
                     LikesCount = reader.GetInt32("LikesCount"),
                     ViewsCount = reader.GetInt32("ViewsCount"),
                     IsLiked = reader.GetInt32("IsLiked") == 1,
-                    IsSaved = reader.GetInt32("IsSaved") == 1
+                    IsSaved = reader.GetInt32("IsSaved") == 1,
+                    RepostCount = reader.GetInt32("RepostCount"),
+                    IsReposted = reader.GetInt32("IsReposted") == 1
                 });
             }
         }
@@ -3253,34 +3428,15 @@ SqlDataReader? reader = null;
         {
             con = connect("myProjDB");
             
-            // Use direct SQL query instead of stored procedure
-            int offset = (pageNumber - 1) * pageSize;
-            string sql = @"
-                SELECT 
-                    na.ArticleID,
-                    na.Title,
-                    na.Content,
-                    na.ImageURL,
-                    na.SourceURL,
-                    na.SourceName,
-                    na.Category,
-                    na.PublishDate,
-                    na.UserID,
-                    u.Username,
-                    sa.SaveDate
-                FROM NewsSitePro2025_SavedArticles sa
-                INNER JOIN NewsSitePro2025_NewsArticles na ON sa.ArticleID = na.ArticleID
-                INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
-                WHERE sa.UserID = @UserID
-                ORDER BY sa.SaveDate DESC
-                OFFSET @Offset ROWS
-                FETCH NEXT @PageSize ROWS ONLY";
+            Dictionary<string, object> paramDic = new Dictionary<string, object>
+            {
+                ["@UserID"] = userId,
+                ["@PageNumber"] = pageNumber,
+                ["@PageSize"] = pageSize,
+                ["@CurrentUserID"] = userId
+            };
 
-            SqlCommand cmd = new SqlCommand(sql, con);
-            cmd.Parameters.AddWithValue("@UserID", userId);
-            cmd.Parameters.AddWithValue("@PageSize", pageSize);
-            cmd.Parameters.AddWithValue("@Offset", offset);
-            
+            SqlCommand cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_SavedArticles_GetByUser", con, paramDic);
             SqlDataReader reader = await cmd.ExecuteReaderAsync();
 
             while (reader.Read())
@@ -3297,81 +3453,19 @@ SqlDataReader? reader = null;
                     PublishDate = reader.GetDateTime("PublishDate"),
                     UserID = reader.GetInt32("UserID"),
                     Username = reader["Username"]?.ToString(),
-                    LikesCount = 0, // Set default values
-                    ViewsCount = 0,
-                    IsLiked = false,
-                    IsSaved = true // Always true for saved articles
+                    UserProfilePicture = reader["ProfilePicture"]?.ToString(),
+                    LikesCount = reader.GetInt32("LikesCount"),
+                    ViewsCount = reader.GetInt32("ViewsCount"),
+                    RepostCount = reader.GetInt32("RepostCount"),
+                    IsLiked = reader.GetInt32("IsLiked") == 1,
+                    IsSaved = true, // Always true for saved articles
+                    IsReposted = reader.GetInt32("IsReposted") == 1
                 });
             }
         }
         catch (Exception)
         {
-            // If stored procedure doesn't exist, use direct SQL query
-            try
-            {
-                if (con != null)
-                {
-                    con.Close();
-                    con = connect("myProjDB");
-                }
-                
-                string sql = @"
-                    SELECT na.ArticleID, na.Title, na.Content, na.ImageURL, na.SourceURL, na.SourceName, 
-                           na.Category, na.PublishDate, na.UserID, u.Username,
-                           COALESCE(lc.LikesCount, 0) as LikesCount,
-                           COALESCE(vc.ViewsCount, 0) as ViewsCount,
-                           CASE WHEN al.UserID IS NOT NULL THEN 1 ELSE 0 END as IsLiked
-                    FROM NewsSitePro2025_NewsArticles na
-                    INNER JOIN NewsSitePro2025_SavedArticles sa ON na.ArticleID = sa.ArticleID
-                    INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
-                    LEFT JOIN (
-                        SELECT ArticleID, COUNT(*) as LikesCount
-                        FROM NewsSitePro2025_ArticleLikes
-                        GROUP BY ArticleID
-                    ) lc ON na.ArticleID = lc.ArticleID
-                    LEFT JOIN (
-                        SELECT ArticleID, COUNT(*) as ViewsCount
-                        FROM NewsSitePro2025_ArticleViews
-                        GROUP BY ArticleID
-                    ) vc ON na.ArticleID = vc.ArticleID
-                    LEFT JOIN NewsSitePro2025_ArticleLikes al ON na.ArticleID = al.ArticleID AND al.UserID = @UserID
-                    WHERE sa.UserID = @UserID
-                    ORDER BY sa.SaveDate DESC
-                    OFFSET (@PageNumber - 1) * @PageSize ROWS
-                    FETCH NEXT @PageSize ROWS ONLY";
-
-                SqlCommand cmd = new SqlCommand(sql, con);
-                cmd.Parameters.AddWithValue("@UserID", userId);
-                cmd.Parameters.AddWithValue("@PageNumber", pageNumber);
-                cmd.Parameters.AddWithValue("@PageSize", pageSize);
-
-                SqlDataReader reader = await cmd.ExecuteReaderAsync();
-
-                while (reader.Read())
-                {
-                    articles.Add(new NewsArticle
-                    {
-                        ArticleID = reader.GetInt32("ArticleID"),
-                        Title = reader["Title"]?.ToString(),
-                        Content = reader["Content"]?.ToString(),
-                        ImageURL = reader["ImageURL"]?.ToString(),
-                        SourceURL = reader["SourceURL"]?.ToString(),
-                        SourceName = reader["SourceName"]?.ToString(),
-                        Category = reader["Category"]?.ToString(),
-                        PublishDate = reader.GetDateTime("PublishDate"),
-                        UserID = reader.GetInt32("UserID"),
-                        Username = reader["Username"]?.ToString(),
-                        LikesCount = reader.GetInt32("LikesCount"),
-                        ViewsCount = reader.GetInt32("ViewsCount"),
-                        IsLiked = reader.GetInt32("IsLiked") == 1,
-                        IsSaved = true
-                    });
-                }
-            }
-            catch (Exception)
-            {
-                throw;
-            }
+            throw;
         }
         finally
         {
@@ -3381,7 +3475,7 @@ SqlDataReader? reader = null;
         return articles;
     }
 
-    public async Task<NewsArticle?> GetNewsArticleById(int articleId)
+    public async Task<NewsArticle?> GetNewsArticleById(int articleId, int? currentUserId = null)
     {
         SqlConnection? con = null;
         NewsArticle? article = null;
@@ -3389,91 +3483,130 @@ SqlDataReader? reader = null;
         try
         {
             con = connect("myProjDB");
-            Dictionary<string, object> paramDic = new Dictionary<string, object>
+            
+            // Try to use stored procedure first
+            if (currentUserId.HasValue)
             {
-                ["@ArticleID"] = articleId
-            };
+                try
+                {
+                    Dictionary<string, object> paramDic = new Dictionary<string, object>
+                    {
+                        ["@ArticleID"] = articleId,
+                        ["@CurrentUserID"] = currentUserId.Value
+                    };
 
-            SqlCommand cmd1 = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_NewsArticles_Get", con, paramDic);
-            SqlDataReader reader1 = await cmd1.ExecuteReaderAsync();
+                    SqlCommand cmd1 = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_NewsArticles_GetByIdWithUserContext", con, paramDic);
+                    SqlDataReader reader1 = await cmd1.ExecuteReaderAsync();
 
-            if (false)//reader.Read())
+                    if (reader1.Read())
+                    {
+                        article = new NewsArticle
+                        {
+                            ArticleID = reader1.GetInt32("ArticleID"),
+                            Title = reader1["Title"]?.ToString(),
+                            Content = reader1["Content"]?.ToString(),
+                            ImageURL = reader1["ImageURL"]?.ToString(),
+                            SourceURL = reader1["SourceURL"]?.ToString(),
+                            SourceName = reader1["SourceName"]?.ToString(),
+                            Category = reader1["Category"]?.ToString(),
+                            PublishDate = reader1.GetDateTime("PublishDate"),
+                            UserID = reader1.GetInt32("UserID"),
+                            Username = reader1["Username"]?.ToString(),
+                            UserProfilePicture = reader1["ProfilePicture"]?.ToString(),
+                            LikesCount = reader1.GetInt32("LikesCount"),
+                            ViewsCount = reader1.GetInt32("ViewsCount"),
+                            IsLiked = reader1["IsLiked"] != DBNull.Value && Convert.ToBoolean(reader1["IsLiked"]),
+                            IsSaved = reader1["IsSaved"] != DBNull.Value && Convert.ToBoolean(reader1["IsSaved"])
+                        };
+                        reader1.Close();
+                        return article;
+                    }
+                    reader1.Close();
+                }
+                catch (Exception)
+                {
+                    // Fall through to manual SQL query
+                }
+            }
+
+            // If stored procedure doesn't exist or no user context, use direct SQL query
+            string sql = @"
+                SELECT na.ArticleID, na.Title, na.Content, na.ImageURL, na.SourceURL, na.SourceName, 
+                       na.Category, na.PublishDate, na.UserID, u.Username as Username, u.ProfilePicture,
+                       COALESCE(lc.LikesCount, 0) as LikesCount,
+                       COALESCE(vc.ViewsCount, 0) as ViewsCount";
+            
+            if (currentUserId.HasValue)
+            {
+                sql += @",
+                       CASE WHEN al.UserID IS NOT NULL THEN 1 ELSE 0 END as IsLiked,
+                       CASE WHEN sa.UserID IS NOT NULL THEN 1 ELSE 0 END as IsSaved";
+            }
+            else
+            {
+                sql += @",
+                       0 as IsLiked,
+                       0 as IsSaved";
+            }
+
+            sql += @"
+                FROM NewsSitePro2025_NewsArticles na
+                INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
+                LEFT JOIN (
+                    SELECT ArticleID, COUNT(*) as LikesCount
+                    FROM NewsSitePro2025_ArticleLikes
+                    GROUP BY ArticleID
+                ) lc ON na.ArticleID = lc.ArticleID
+                LEFT JOIN (
+                    SELECT ArticleID, COUNT(*) as ViewsCount
+                    FROM NewsSitePro2025_ArticleViews
+                    GROUP BY ArticleID
+                ) vc ON na.ArticleID = vc.ArticleID";
+
+            if (currentUserId.HasValue)
+            {
+                sql += @"
+                LEFT JOIN NewsSitePro2025_ArticleLikes al ON na.ArticleID = al.ArticleID AND al.UserID = @CurrentUserID
+                LEFT JOIN NewsSitePro2025_SavedArticles sa ON na.ArticleID = sa.ArticleID AND sa.UserID = @CurrentUserID";
+            }
+
+            sql += @"
+                WHERE na.ArticleID = @ArticleID AND (na.IsDeleted = 0 OR na.IsDeleted IS NULL)";
+
+            SqlCommand cmd = new SqlCommand(sql, con);
+            cmd.Parameters.AddWithValue("@ArticleID", articleId);
+            if (currentUserId.HasValue)
+            {
+                cmd.Parameters.AddWithValue("@CurrentUserID", currentUserId.Value);
+            }
+
+            SqlDataReader reader = await cmd.ExecuteReaderAsync();
+
+            if (reader.Read())
             {
                 article = new NewsArticle
                 {
-                    //ArticleID = reader.GetInt32("ArticleID"),
-                    //Title = reader["Title"]?.ToString(),
-                    //Content = reader["Content"]?.ToString(),
-                    //ImageURL = reader["ImageURL"]?.ToString(),
-                    //SourceURL = reader["SourceURL"]?.ToString(),
-                    //SourceName = reader["SourceName"]?.ToString(),
-                    //Category = reader["Category"]?.ToString(),
-                    //PublishDate = reader.GetDateTime("PublishDate"),
-                    //UserID = reader.GetInt32("UserID"),
-                    //Username = reader["Username"]?.ToString(),
-                    //LikesCount = reader.GetInt32("LikesCount"),
-                    //ViewsCount = reader.GetInt32("ViewsCount")
+                    ArticleID = reader.GetInt32("ArticleID"),
+                    Title = reader["Title"]?.ToString(),
+                    Content = reader["Content"]?.ToString(),
+                    ImageURL = reader["ImageURL"]?.ToString(),
+                    SourceURL = reader["SourceURL"]?.ToString(),
+                    SourceName = reader["SourceName"]?.ToString(),
+                    Category = reader["Category"]?.ToString(),
+                    PublishDate = reader.GetDateTime("PublishDate"),
+                    UserID = reader.GetInt32("UserID"),
+                    Username = reader["Username"]?.ToString(),
+                    UserProfilePicture = reader["ProfilePicture"]?.ToString(),
+                    LikesCount = reader.GetInt32("LikesCount"),
+                    ViewsCount = reader.GetInt32("ViewsCount"),
+                    IsLiked = reader.GetInt32("IsLiked") == 1,
+                    IsSaved = reader.GetInt32("IsSaved") == 1
                 };
             }
-
-            // If stored procedure doesn't exist, use direct SQL query
-            try
-            {
-                if (con != null)
-                {
-                    con.Close();
-                    con = connect("myProjDB");
-                }
-
-                string sql = @"
-                    SELECT na.ArticleID, na.Title, na.Content, na.ImageURL, na.SourceURL, na.SourceName, 
-                           na.Category, na.PublishDate, na.UserID, u.Username as Username,
-                           COALESCE(lc.LikesCount, 0) as LikesCount,
-                           COALESCE(vc.ViewsCount, 0) as ViewsCount
-                    FROM NewsSitePro2025_NewsArticles na
-                    INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
-                    LEFT JOIN (
-                        SELECT ArticleID, COUNT(*) as LikesCount
-                        FROM NewsSitePro2025_ArticleLikes
-                        GROUP BY ArticleID
-                    ) lc ON na.ArticleID = lc.ArticleID
-                    LEFT JOIN (
-                        SELECT ArticleID, COUNT(*) as ViewsCount
-                        FROM NewsSitePro2025_ArticleViews
-                        GROUP BY ArticleID
-                    ) vc ON na.ArticleID = vc.ArticleID
-                    WHERE na.ArticleID = @ArticleID";
-
-                SqlCommand cmd = new SqlCommand(sql, con);
-                cmd.Parameters.AddWithValue("@ArticleID", articleId);
-
-                SqlDataReader reader = await cmd.ExecuteReaderAsync();
-
-                if (reader.Read())
-                {
-                    article = new NewsArticle
-                    {
-                        ArticleID = reader.GetInt32("ArticleID"),
-                        Title = reader["Title"]?.ToString(),
-                        Content = reader["Content"]?.ToString(),
-                        ImageURL = reader["ImageURL"]?.ToString(),
-                        SourceURL = reader["SourceURL"]?.ToString(),
-                        SourceName = reader["SourceName"]?.ToString(),
-                        Category = reader["Category"]?.ToString(),
-                        PublishDate = reader.GetDateTime("PublishDate"),
-                        UserID = reader.GetInt32("UserID"),
-                        Username = reader["Username"]?.ToString(),
-                        LikesCount = reader.GetInt32("LikesCount"),
-                        ViewsCount = reader.GetInt32("ViewsCount")
-                    };
-                }
-            
-                
-            }
-            catch (Exception)
-            {
-                throw;
-            }
+        }
+        catch (Exception)
+        {
+            throw;
         }
         finally
         {
@@ -3498,7 +3631,7 @@ SqlDataReader? reader = null;
 
             SqlCommand cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_NewsArticle_Delete", con, paramDic);
             int result = await cmd.ExecuteNonQueryAsync();
-            success = result > 0;
+            success = result < 0;
         }
         catch (Exception)
         {
@@ -3511,13 +3644,13 @@ SqlDataReader? reader = null;
                     con = connect("myProjDB");
                 }
                 
-                string sql = "DELETE FROM NewsArticles WHERE ArticleID = @ArticleID";
+                string sql = "UPDATE NewsSitePro2025_NewsArticles SET IsDeleted = 1, DeletedAt = GETDATE() WHERE ArticleID = @ArticleID AND IsDeleted = 0";
 
                 SqlCommand cmd = new SqlCommand(sql, con);
                 cmd.Parameters.AddWithValue("@ArticleID", articleId);
 
                 int result = await cmd.ExecuteNonQueryAsync();
-                success = result > 0;
+                success = result < 0;
             }
             catch (Exception)
             {
@@ -4710,9 +4843,136 @@ SqlDataReader? reader = null;
         return await RecordUserInteractionAsync(userId, articleId, interactionType);
     }
 
-    public async Task<List<NewsArticle>> GetTrendingArticlesAsync(int count = 20)
+    public async Task<List<NewsArticle>> GetTrendingArticlesAsync(int count = 20, string? category = null, int? userId = null)
     {
-        return await GetRecommendedArticlesAsync(1, count); // Use recommended as fallback
+        var articles = new List<NewsArticle>();
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            
+            // Try using the working GetAll stored procedure with trending sort
+            try
+            {
+                cmd = new SqlCommand("NewsSitePro2025_sp_NewsArticles_GetAll", con);
+                cmd.CommandType = CommandType.StoredProcedure;
+                //cmd.Parameters.AddWithValue("@UserID", userId ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@PageNumber", 1);
+                cmd.Parameters.AddWithValue("@PageSize", count);
+                cmd.Parameters.AddWithValue("@SortBy", "trending");
+                cmd.Parameters.AddWithValue("@Category", category ?? (object)DBNull.Value);
+
+                reader = await cmd.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    articles.Add(new NewsArticle
+                    {
+                        ArticleID = Convert.ToInt32(reader["ArticleID"]),
+                        Title = reader.IsDBNull("Title") ? string.Empty : reader.GetString("Title"),
+                        Content = reader.IsDBNull("Content") ? string.Empty : reader.GetString("Content"),
+                        ImageURL = reader.IsDBNull("ImageURL") ? string.Empty : reader.GetString("ImageURL"),
+                        SourceURL = reader.IsDBNull("SourceURL") ? string.Empty : reader.GetString("SourceURL"),
+                        SourceName = reader.IsDBNull("SourceName") ? string.Empty : reader.GetString("SourceName"),
+                        Category = reader.IsDBNull("Category") ? string.Empty : reader.GetString("Category"),
+                        PublishDate = reader.IsDBNull("PublishDate") ? DateTime.Now : reader.GetDateTime("PublishDate"),
+                        UserID = Convert.ToInt32(reader["UserID"]),
+                        Username = reader.IsDBNull("Username") ? string.Empty : reader.GetString("Username"),
+                        UserProfilePicture = reader.IsDBNull("ProfilePicture") ? string.Empty : reader.GetString("ProfilePicture"),
+                        LikesCount = reader.IsDBNull("LikesCount") ? 0 : Convert.ToInt32(reader["LikesCount"]),
+                        ViewsCount = reader.IsDBNull("ViewsCount") ? 0 : Convert.ToInt32(reader["ViewsCount"]),
+                        RepostCount = reader.IsDBNull("RepostCount") ? 0 : Convert.ToInt32(reader["RepostCount"]),
+                        IsLiked = reader.IsDBNull("IsLiked") ? false : Convert.ToInt32(reader["IsLiked"]) == 1,
+                        IsSaved = reader.IsDBNull("IsSaved") ? false : Convert.ToInt32(reader["IsSaved"]) == 1,
+                        IsReposted = reader.IsDBNull("IsReposted") ? false : Convert.ToInt32(reader["IsReposted"]) == 1
+                    });
+                }
+            }
+            catch
+            {
+                // Fallback: Get articles with high engagement using direct SQL with proper column names
+                reader?.Close();
+                cmd?.Dispose();
+                
+                cmd = new SqlCommand(@"
+                    SELECT TOP (@Count)
+                        na.ArticleID, na.Title, na.Content, na.ImageURL, na.SourceURL, 
+                        na.SourceName, na.Category, na.PublishDate, na.UserID,
+                        u.Username, u.ProfilePicture,
+                        COALESCE(lc.LikesCount, 0) as LikesCount,
+                        COALESCE(vc.ViewsCount, 0) as ViewsCount,
+                        COALESCE(rc.RepostCount, 0) as RepostCount,
+                        0 as IsLiked, 0 as IsSaved, 0 as IsReposted
+                    FROM NewsSitePro2025_NewsArticles na
+                    INNER JOIN NewsSitePro2025_Users u ON na.UserID = u.UserID
+                    LEFT JOIN (
+                        SELECT ArticleID, COUNT(*) as LikesCount
+                        FROM NewsSitePro2025_ArticleLikes
+                        GROUP BY ArticleID
+                    ) lc ON na.ArticleID = lc.ArticleID
+                    LEFT JOIN (
+                        SELECT ArticleID, COUNT(*) as ViewsCount
+                        FROM NewsSitePro2025_ArticleViews
+                        GROUP BY ArticleID
+                    ) vc ON na.ArticleID = vc.ArticleID
+                    LEFT JOIN (
+                        SELECT ArticleID, COUNT(*) as RepostCount
+                        FROM NewsSitePro2025_Reposts
+                        GROUP BY ArticleID
+                    ) rc ON na.ArticleID = rc.ArticleID
+                    WHERE na.PublishDate >= DATEADD(hour, -72, GETDATE())
+                    ORDER BY 
+                        (COALESCE(lc.LikesCount, 0) * 3 + 
+                         COALESCE(vc.ViewsCount, 0) * 1 + 
+                         COALESCE(rc.RepostCount, 0) * 5) DESC,
+                        na.PublishDate DESC", con);
+
+                cmd.Parameters.AddWithValue("@Count", count);
+                reader = await cmd.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    articles.Add(new NewsArticle
+                    {
+                        ArticleID = Convert.ToInt32(reader["ArticleID"]),
+                        Title = reader.IsDBNull("Title") ? string.Empty : reader.GetString("Title"),
+                        Content = reader.IsDBNull("Content") ? string.Empty : reader.GetString("Content"),
+                        ImageURL = reader.IsDBNull("ImageURL") ? string.Empty : reader.GetString("ImageURL"),
+                        SourceURL = reader.IsDBNull("SourceURL") ? string.Empty : reader.GetString("SourceURL"),
+                        SourceName = reader.IsDBNull("SourceName") ? string.Empty : reader.GetString("SourceName"),
+                        Category = reader.IsDBNull("Category") ? string.Empty : reader.GetString("Category"),
+                        PublishDate = reader.IsDBNull("PublishDate") ? DateTime.Now : reader.GetDateTime("PublishDate"),
+                        UserID = Convert.ToInt32(reader["UserID"]),
+                        Username = reader.IsDBNull("Username") ? string.Empty : reader.GetString("Username"),
+                        UserProfilePicture = reader.IsDBNull("ProfilePicture") ? string.Empty : reader.GetString("ProfilePicture"),
+                        LikesCount = reader.IsDBNull("LikesCount") ? 0 : Convert.ToInt32(reader["LikesCount"]),
+                        ViewsCount = reader.IsDBNull("ViewsCount") ? 0 : Convert.ToInt32(reader["ViewsCount"]),
+                        RepostCount = reader.IsDBNull("RepostCount") ? 0 : Convert.ToInt32(reader["RepostCount"]),
+                        IsLiked = Convert.ToInt32(reader["IsLiked"]) == 1,
+                        IsSaved = Convert.ToInt32(reader["IsSaved"]) == 1,
+                        IsReposted = Convert.ToInt32(reader["IsReposted"]) == 1
+                    });
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // Final fallback - get recent articles
+            return await GetRecommendedArticlesAsync(1, count);
+        }
+        finally
+        {
+            if (reader != null && !reader.IsClosed)
+            {
+                reader.Close();
+            }
+            con?.Close();
+        }
+
+        return articles;
     }
 
     public async Task<bool> CreateUserFeedConfigurationAsync(FeedConfiguration config)
@@ -4943,34 +5203,12 @@ SqlDataReader? reader = null;
         {
             con = connect("myProjDB");
 
-            // Get articles from users that the current user follows
-            string sql = @"
-                SELECT TOP (@Count) 
-                    n.ArticleID as ArticleID, n.Title, n.Content, n.ImageURL, n.SourceURL, n.SourceName, 
-                    n.Category, n.PublishDate, n.UserID,
-                    u.UserName,
-                    COALESCE(lc.LikesCount, 0) as LikesCount,
-                    COALESCE(vc.ViewsCount, 0) as ViewsCount
-                FROM NewsSitePro2025_NewsArticles n
-                INNER JOIN Users_News u ON n.UserID = u.UserID
-                INNER JOIN NewsSitePro2025_UserFollows uf ON n.UserID = uf.FollowedUserID
-                LEFT JOIN (
-                    SELECT ArticleID, COUNT(*) as LikesCount
-                    FROM NewsSitePro2025_ArticleLikes
-                    GROUP BY ArticleID
-                ) lc ON n.ArticleID = lc.ArticleID
-                LEFT JOIN (
-                    SELECT ArticleID, COUNT(*) as ViewsCount
-                    FROM NewsSitePro2025_ArticleViews
-                    GROUP BY ArticleID
-                ) vc ON n.ArticleID = vc.ArticleID
-                WHERE uf.FollowerUserID = @UserId 
-                    
-                ORDER BY n.PublishDate DESC";
-
-            cmd = new SqlCommand(sql, con);
-            cmd.Parameters.AddWithValue("@UserId", userId);
-            cmd.Parameters.AddWithValue("@Count", count);
+            // Use the stored procedure for following feed
+            cmd = new SqlCommand("NewsSitePro2025_sp_NewsArticles_GetFollowingFeed", con);
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.Parameters.AddWithValue("@UserID", userId);
+            cmd.Parameters.AddWithValue("@PageNumber", 1);
+            cmd.Parameters.AddWithValue("@PageSize", count);
             
             reader = await cmd.ExecuteReaderAsync();
             
@@ -4978,7 +5216,7 @@ SqlDataReader? reader = null;
             {
                 NewsArticle article = new NewsArticle
                 {
-                    ArticleID = reader.GetInt32("ArticleID"),
+                    ArticleID = Convert.ToInt32(reader["ArticleID"]),
                     Title = reader.IsDBNull("Title") ? string.Empty : reader.GetString("Title"),
                     Content = reader.IsDBNull("Content") ? string.Empty : reader.GetString("Content"),
                     ImageURL = reader.IsDBNull("ImageURL") ? string.Empty : reader.GetString("ImageURL"),
@@ -4986,10 +5224,15 @@ SqlDataReader? reader = null;
                     SourceName = reader.IsDBNull("SourceName") ? string.Empty : reader.GetString("SourceName"),
                     Category = reader.IsDBNull("Category") ? string.Empty : reader.GetString("Category"),
                     PublishDate = reader.IsDBNull("PublishDate") ? DateTime.Now : reader.GetDateTime("PublishDate"),
-                    UserID = reader.GetInt32("UserID"),
-                    LikesCount = reader.IsDBNull("LikesCount") ? 0 : reader.GetInt32("LikesCount"),
-                    ViewsCount = reader.IsDBNull("ViewsCount") ? 0 : reader.GetInt32("ViewsCount"),
-                    Username = reader.IsDBNull("UserName") ? string.Empty : reader.GetString("UserName")
+                    UserID = Convert.ToInt32(reader["UserID"]),
+                    Username = reader.IsDBNull("Username") ? string.Empty : reader.GetString("Username"),
+                    UserProfilePicture = reader.IsDBNull("ProfilePicture") ? string.Empty : reader.GetString("ProfilePicture"),
+                    LikesCount = reader.IsDBNull("LikesCount") ? 0 : Convert.ToInt32(reader["LikesCount"]),
+                    ViewsCount = reader.IsDBNull("ViewsCount") ? 0 : Convert.ToInt32(reader["ViewsCount"]),
+                    RepostCount = reader.IsDBNull("RepostCount") ? 0 : Convert.ToInt32(reader["RepostCount"]),
+                    IsLiked = Convert.ToInt32(reader["IsLiked"]) == 1,
+                    IsSaved = Convert.ToInt32(reader["IsSaved"]) == 1,
+                    IsReposted = Convert.ToInt32(reader["IsReposted"]) == 1
                 };
 
                 articles.Add(article);
@@ -6357,6 +6600,512 @@ SqlDataReader? reader = null;
     }
 
     #endregion
+
+    #endregion
+
+    #region Google OAuth and Session Management Methods
+
+    // Google OAuth user creation/retrieval
+    public async Task<(User User, bool IsNewUser)> CreateOrGetGoogleUserAsync(string googleId, string googleEmail, string? username = null)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@GoogleId", googleId },
+                { "@GoogleEmail", googleEmail },
+                { "@Username", username ?? (object)DBNull.Value }
+            };
+
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_Google_CreateOrGetUser", con, paramDic);
+            reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                var user = new User
+                {
+                    Id = Convert.ToInt32(reader["UserID"]),
+                    Name = reader.GetString("Username"),
+                    Email = reader.GetString("Email"),
+                    GoogleId = reader.IsDBNull("GoogleId") ? null : reader.GetString("GoogleId"),
+                    GoogleEmail = reader.IsDBNull("GoogleEmail") ? null : reader.GetString("GoogleEmail"),
+                    IsGoogleUser = reader.GetBoolean("IsGoogleUser"),
+                    IsActive = reader.GetBoolean("IsActive"),
+                    IsAdmin = reader.GetBoolean("IsAdmin"),
+                    IsLocked = reader.GetBoolean("IsLocked"),
+                    IsBanned = reader.GetBoolean("IsBanned"),
+                    BannedUntil = reader.IsDBNull("BannedUntil") ? null : reader.GetDateTime("BannedUntil"),
+                    ProfilePicture = reader.IsDBNull("ProfilePicture") ? null : reader.GetString("ProfilePicture"),
+                    Bio = reader.IsDBNull("Bio") ? null : reader.GetString("Bio"),
+                    JoinDate = reader.GetDateTime("JoinDate"),
+                    LastLoginTime = reader.IsDBNull("LastLoginTime") ? null : reader.GetDateTime("LastLoginTime")
+                };
+
+                var isNewUser = reader.GetBoolean("IsNewUser");
+                return (user, isNewUser);
+            }
+
+            throw new Exception("Failed to create or retrieve Google user");
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    // Session management methods
+    public async Task<UserSession> CreateUserSessionAsync(int userId, string sessionToken, string? deviceInfo, string? ipAddress, string? userAgent, int expiryHours = 24)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@UserID", userId },
+                { "@SessionToken", sessionToken },
+                { "@DeviceInfo", deviceInfo ?? (object)DBNull.Value },
+                { "@IpAddress", ipAddress ?? (object)DBNull.Value },
+                { "@UserAgent", userAgent ?? (object)DBNull.Value },
+                { "@ExpiryHours", expiryHours }
+            };
+
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UserSessions_Create", con, paramDic);
+            reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                return new UserSession
+                {
+                    SessionID = Convert.ToInt32(reader["SessionID"]),
+                    UserID = userId,
+                    SessionToken = sessionToken,
+                    DeviceInfo = deviceInfo,
+                    IpAddress = ipAddress,
+                    UserAgent = userAgent,
+                    LoginTime = DateTime.Now,
+                    LastActivityTime = DateTime.Now,
+                    ExpiryTime = reader.GetDateTime("ExpiryTime"),
+                    IsActive = true
+                };
+            }
+
+            throw new Exception("Failed to create user session");
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    public async Task<SessionValidationResponse> ValidateUserSessionAsync(string sessionToken)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@SessionToken", sessionToken }
+            };
+
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UserSessions_Validate", con, paramDic);
+            reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                var isValidSession = reader.GetBoolean("IsValidSession");
+
+                if (isValidSession)
+                {
+                    var user = new User
+                    {
+                        Id = Convert.ToInt32(reader["UserID"]),
+                        Name = reader.GetString("Username"),
+                        Email = reader.GetString("Email"),
+                        IsActive = reader.GetBoolean("IsActive"),
+                        IsAdmin = reader.GetBoolean("IsAdmin"),
+                        IsLocked = reader.GetBoolean("IsLocked"),
+                        IsBanned = reader.GetBoolean("IsBanned"),
+                        BannedUntil = reader.IsDBNull("BannedUntil") ? null : reader.GetDateTime("BannedUntil"),
+                        ProfilePicture = reader.IsDBNull("ProfilePicture") ? null : reader.GetString("ProfilePicture"),
+                        Bio = reader.IsDBNull("Bio") ? null : reader.GetString("Bio"),
+                        IsGoogleUser = reader.GetBoolean("IsGoogleUser")
+                    };
+
+                    var session = new UserSession
+                    {
+                        SessionID = Convert.ToInt32(reader["SessionID"]),
+                        UserID = user.Id,
+                        SessionToken = sessionToken,
+                        LoginTime = reader.GetDateTime("LoginTime"),
+                        LastActivityTime = reader.GetDateTime("LastActivityTime"),
+                        ExpiryTime = reader.GetDateTime("ExpiryTime"),
+                        IsActive = true
+                    };
+
+                    return new SessionValidationResponse
+                    {
+                        IsValid = true,
+                        User = user,
+                        Session = session
+                    };
+                }
+            }
+
+            return new SessionValidationResponse
+            {
+                IsValid = false,
+                Message = "Invalid or expired session"
+            };
+        }
+        catch (Exception ex)
+        {
+            return new SessionValidationResponse
+            {
+                IsValid = false,
+                Message = $"Session validation error: {ex.Message}"
+            };
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    public async Task<bool> LogoutUserSessionAsync(string sessionToken, string reason = "Manual")
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@SessionToken", sessionToken },
+                { "@LogoutReason", reason }
+            };
+
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UserSessions_Logout", con, paramDic);
+            reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                var sessionsLoggedOut = Convert.ToInt32(reader["SessionsLoggedOut"]);
+                return sessionsLoggedOut > 0;
+            }
+
+            return false;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    public async Task<int> CleanupExpiredSessionsAsync(int daysToKeep = 30)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@DaysToKeep", daysToKeep }
+            };
+
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UserSessions_Cleanup", con, paramDic);
+            reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                return Convert.ToInt32(reader["SessionsDeleted"]);
+            }
+
+            return 0;
+        }
+        catch (Exception)
+        {
+            return 0;
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    // OAuth token management
+    public async Task<OAuthToken> StoreOAuthTokenAsync(int userId, string provider, string accessToken, string? refreshToken, string tokenType, int expiresInSeconds, string? scope)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@UserID", userId },
+                { "@Provider", provider },
+                { "@AccessToken", accessToken },
+                { "@RefreshToken", refreshToken ?? (object)DBNull.Value },
+                { "@TokenType", tokenType },
+                { "@ExpiresInSeconds", expiresInSeconds },
+                { "@Scope", scope ?? (object)DBNull.Value }
+            };
+
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_OAuthTokens_Store", con, paramDic);
+            reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                return new OAuthToken
+                {
+                    TokenID = Convert.ToInt32(reader["TokenID"]),
+                    UserID = userId,
+                    Provider = provider,
+                    AccessToken = accessToken,
+                    RefreshToken = refreshToken,
+                    TokenType = tokenType,
+                    ExpiresAt = reader.GetDateTime("ExpiresAt"),
+                    Scope = scope,
+                    CreatedAt = DateTime.Now,
+                    UpdatedAt = DateTime.Now,
+                    IsActive = true
+                };
+            }
+
+            throw new Exception("Failed to store OAuth token");
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    public async Task<OAuthToken?> GetOAuthTokenAsync(int userId, string provider)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@UserID", userId },
+                { "@Provider", provider }
+            };
+
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_OAuthTokens_Get", con, paramDic);
+            reader = await cmd.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync())
+            {
+                return new OAuthToken
+                {
+                    TokenID = Convert.ToInt32(reader["TokenID"]),
+                    UserID = Convert.ToInt32(reader["UserID"]),
+                    Provider = reader.GetString("Provider"),
+                    AccessToken = reader.GetString("AccessToken"),
+                    RefreshToken = reader.IsDBNull("RefreshToken") ? null : reader.GetString("RefreshToken"),
+                    TokenType = reader.GetString("TokenType"),
+                    ExpiresAt = reader.GetDateTime("ExpiresAt"),
+                    Scope = reader.IsDBNull("Scope") ? null : reader.GetString("Scope"),
+                    CreatedAt = reader.GetDateTime("CreatedAt"),
+                    UpdatedAt = reader.GetDateTime("UpdatedAt"),
+                    IsActive = true
+                };
+            }
+
+            return null;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    public async Task<LoginHistoryResponse> GetUserLoginHistoryAsync(int userId, int pageNumber = 1, int pageSize = 20)
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+            var paramDic = new Dictionary<string, object>
+            {
+                { "@UserID", userId },
+                { "@PageNumber", pageNumber },
+                { "@PageSize", pageSize }
+            };
+
+            cmd = CreateCommandWithStoredProcedureGeneral("NewsSitePro2025_sp_UserSessions_GetHistory", con, paramDic);
+            reader = await cmd.ExecuteReaderAsync();
+
+            var sessions = new List<UserSession>();
+
+            while (await reader.ReadAsync())
+            {
+                sessions.Add(new UserSession
+                {
+                    SessionID = Convert.ToInt32(reader["SessionID"]),
+                    UserID = Convert.ToInt32(reader["UserID"]),
+                    DeviceInfo = reader.IsDBNull("DeviceInfo") ? null : reader.GetString("DeviceInfo"),
+                    IpAddress = reader.IsDBNull("IpAddress") ? null : reader.GetString("IpAddress"),
+                    UserAgent = reader.IsDBNull("UserAgent") ? null : reader.GetString("UserAgent"),
+                    LoginTime = reader.GetDateTime("LoginTime"),
+                    LastActivityTime = reader.GetDateTime("LastActivityTime"),
+                    ExpiryTime = reader.GetDateTime("ExpiryTime"),
+                    LogoutTime = reader.IsDBNull("LogoutTime") ? null : reader.GetDateTime("LogoutTime"),
+                    LogoutReason = reader.IsDBNull("LogoutReason") ? null : reader.GetString("LogoutReason"),
+                    IsActive = reader.GetBoolean("IsActive"),
+                    SessionDurationMinutes = Convert.ToInt32(reader["SessionDurationMinutes"])
+                });
+            }
+
+            // Move to next result set for total count
+            if (await reader.NextResultAsync() && await reader.ReadAsync())
+            {
+                var totalSessions = Convert.ToInt32(reader["TotalSessions"]);
+
+                return new LoginHistoryResponse
+                {
+                    Sessions = sessions,
+                    TotalSessions = totalSessions,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                };
+            }
+
+            return new LoginHistoryResponse
+            {
+                Sessions = sessions,
+                TotalSessions = sessions.Count,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+        }
+        catch (Exception)
+        {
+            return new LoginHistoryResponse
+            {
+                Sessions = new List<UserSession>(),
+                TotalSessions = 0,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
+
+    public async Task<SessionStats> GetSessionStatsAsync()
+    {
+        SqlConnection? con = null;
+        SqlCommand? cmd = null;
+        SqlDataReader? reader = null;
+
+        try
+        {
+            con = connect("myProjDB");
+
+            // Get session statistics
+            var query = @"
+                SELECT 
+                    COUNT(*) AS TotalActiveSessions,
+                    SUM(CASE WHEN u.IsGoogleUser = 1 THEN 1 ELSE 0 END) AS GoogleOAuthUsers,
+                    SUM(CASE WHEN u.IsGoogleUser = 0 THEN 1 ELSE 0 END) AS RegularUsers,
+                    AVG(CAST(DATEDIFF(MINUTE, s.LoginTime, ISNULL(s.LogoutTime, s.LastActivityTime)) AS FLOAT) / 60.0) AS AverageSessionDurationHours
+                FROM NewsSitePro2025_UserSessions s
+                INNER JOIN NewsSitePro2025_Users u ON s.UserID = u.UserID
+                WHERE s.IsActive = 1 AND s.ExpiryTime > GETDATE();
+
+                -- Get expired sessions count
+                SELECT COUNT(*) AS ExpiredSessions
+                FROM NewsSitePro2025_UserSessions
+                WHERE IsActive = 0 OR ExpiryTime <= GETDATE();";
+
+            cmd = new SqlCommand(query, con);
+            reader = await cmd.ExecuteReaderAsync();
+
+            var stats = new SessionStats();
+
+            if (await reader.ReadAsync())
+            {
+                stats.TotalActiveSessions = Convert.ToInt32(reader["TotalActiveSessions"]);
+                stats.GoogleOAuthUsers = Convert.ToInt32(reader["GoogleOAuthUsers"]);
+                stats.RegularUsers = Convert.ToInt32(reader["RegularUsers"]);
+                stats.AverageSessionDurationHours = reader.IsDBNull("AverageSessionDurationHours") ? 0 : reader.GetDouble("AverageSessionDurationHours");
+            }
+
+            if (await reader.NextResultAsync() && await reader.ReadAsync())
+            {
+                stats.ExpiredSessions = Convert.ToInt32(reader["ExpiredSessions"]);
+            }
+
+            return stats;
+        }
+        catch (Exception)
+        {
+            return new SessionStats();
+        }
+        finally
+        {
+            reader?.Close();
+            con?.Close();
+        }
+    }
 
     #endregion
 

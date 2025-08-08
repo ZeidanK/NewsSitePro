@@ -1,9 +1,19 @@
 using System.Text.Json.Serialization;
 
+// ----------------------------------------------------------------------------------
+// NewsApiModels.cs
+//
+// This file contains models for integrating with external news APIs in the NewsSitePro application.
+// It defines response, article, source, configuration, system user, and job status models used for
+// fetching, storing, and displaying news articles from third-party sources. Comments are added to key
+// classes for clarity.
+// ----------------------------------------------------------------------------------
+
 namespace NewsSite.BL
 {
     // Models for News API Integration
     public class NewsApiResponse
+    // Model for the response returned by the News API
     {
         [JsonPropertyName("status")]
         public string Status { get; set; } = string.Empty;
@@ -16,6 +26,7 @@ namespace NewsSite.BL
     }
 
     public class NewsApiArticle
+    // Model for a single news article returned by the News API
     {
         [JsonPropertyName("source")]
         public NewsApiSource Source { get; set; } = new NewsApiSource();
@@ -43,6 +54,7 @@ namespace NewsSite.BL
     }
 
     public class NewsApiSource
+    // Model for the source of a news article
     {
         [JsonPropertyName("id")]
         public string? Id { get; set; }
@@ -53,6 +65,7 @@ namespace NewsSite.BL
 
     // Configuration for News API
     public class NewsApiSettings
+    // Configuration settings for the News API integration
     {
         public string ApiKey { get; set; } = string.Empty;
         public string BaseUrl { get; set; } = "https://newsapi.org/v2/";
@@ -68,6 +81,7 @@ namespace NewsSite.BL
 
     // System user for posting News API articles
     public class SystemUser
+    // Constants for the system user that posts News API articles
     {
         public const int SYSTEM_USER_ID = -1;
         public const string SYSTEM_USERNAME = "NewsBot";
@@ -77,6 +91,7 @@ namespace NewsSite.BL
 
     // News fetch job status
     public class NewsFetchStatus
+    // Model for tracking the status of news fetch jobs
     {
         public int Id { get; set; }
         public DateTime LastFetchTime { get; set; }

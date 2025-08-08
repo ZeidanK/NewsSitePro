@@ -151,7 +151,7 @@ class AIRecommendationEngine {
 
     recordView(postId, categories) {
         // Send view data to backend
-        fetch('/api/analytics/view', {
+        fetch(window.ApiConfig.getApiUrl('/api/analytics/view'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -174,7 +174,7 @@ class AIRecommendationEngine {
     recordReadingTime(postId, timeSpent) {
         if (timeSpent < 1000) return; // Ignore very short times
 
-        fetch('/api/analytics/reading-time', {
+        fetch(window.ApiConfig.getApiUrl('/api/analytics/reading-time'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -189,7 +189,7 @@ class AIRecommendationEngine {
     }
 
     recordInteraction(postId, type) {
-        fetch('/api/analytics/interaction', {
+        fetch(window.ApiConfig.getApiUrl('/api/analytics/interaction'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -216,7 +216,7 @@ class AIRecommendationEngine {
 
     async generateRecommendations() {
         try {
-            const response = await fetch('/api/recommendations/generate', {
+            const response = await fetch(window.ApiConfig.getApiUrl('/api/recommendations/generate'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -470,7 +470,7 @@ class AIRecommendationEngine {
         });
 
         try {
-            await fetch('/api/user/preferences', {
+            await fetch(window.ApiConfig.getApiUrl('/api/user/preferences'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -505,7 +505,7 @@ class AIRecommendationEngine {
 // Additional AI features
 async function readArticle(articleId) {
     // Track that user clicked on recommendation
-    await fetch('/api/analytics/recommendation-click', {
+    await fetch(window.ApiConfig.getApiUrl('/api/analytics/recommendation-click'), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -515,12 +515,12 @@ async function readArticle(articleId) {
     });
 
     // Navigate to article
-    window.location.href = `/post/${articleId}`;
+    window.location.href = window.ApiConfig.getApiUrl(`/post/${articleId}`);
 }
 
 async function saveForLater(articleId) {
     try {
-        await fetch(`/api/articles/${articleId}/save`, {
+        await fetch(window.ApiConfig.getApiUrl(`/api/articles/${articleId}/save`), {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`
@@ -541,7 +541,7 @@ function hideRecommendation(articleId) {
     }
     
     // Send feedback to improve future recommendations
-    fetch('/api/recommendations/feedback', {
+    fetch(window.ApiConfig.getApiUrl('/api/recommendations/feedback'), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

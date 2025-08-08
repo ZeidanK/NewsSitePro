@@ -1,5 +1,13 @@
 using System.ComponentModel.DataAnnotations;
 
+// ----------------------------------------------------------------------------------
+// TrendingTopics.cs
+//
+// This file contains models for trending topics, analytics, and related API requests/responses in the NewsSitePro application.
+// These models are used to represent trending topics, calculate scores, track engagement, and provide analytics and filtering
+// for trending content. Comments are added to key classes for clarity.
+// ----------------------------------------------------------------------------------
+
 namespace NewsSite.BL
 {
     /// <summary>
@@ -7,6 +15,7 @@ namespace NewsSite.BL
     /// Enhanced with engagement metrics and calculated scores
     /// </summary>
     public class TrendingTopic
+    // Model for a trending topic with engagement metrics and calculated scores
     {
         public int TrendID { get; set; }
         
@@ -56,6 +65,7 @@ namespace NewsSite.BL
     /// Request model for trending topics with filtering options
     /// </summary>
     public class TrendingTopicsRequest
+    // Request model for trending topics API with filtering options
     {
         /// <summary>
         /// Number of trending topics to return (default: 10)
@@ -87,6 +97,7 @@ namespace NewsSite.BL
     /// Response model for trending topics API
     /// </summary>
     public class TrendingTopicsResponse
+    // Response model for trending topics API
     {
         public List<TrendingTopic> Topics { get; set; } = new List<TrendingTopic>();
         public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
@@ -100,6 +111,7 @@ namespace NewsSite.BL
     /// Model for trending topic calculation parameters
     /// </summary>
     public class TrendingCalculationConfig
+    // Model for trending topic calculation parameters
     {
         /// <summary>
         /// Weight for likes in trend score calculation (default: 3.0)
@@ -142,6 +154,7 @@ namespace NewsSite.BL
     /// Model for trending topic analytics and insights
     /// </summary>
     public class TrendingTopicAnalytics
+    // Model for trending topic analytics and insights
     {
         public string Topic { get; set; } = string.Empty;
         public string Category { get; set; } = string.Empty;
@@ -157,6 +170,7 @@ namespace NewsSite.BL
     /// Model for hourly trending metrics
     /// </summary>
     public class TrendingMetric
+    // Model for hourly trending metrics
     {
         public DateTime Hour { get; set; }
         public double Score { get; set; }
@@ -170,6 +184,7 @@ namespace NewsSite.BL
     /// Model for trending topic with related articles
     /// </summary>
     public class TrendingTopicWithArticles
+    // Model for trending topic with related articles
     {
         public TrendingTopic Topic { get; set; } = new TrendingTopic();
         public List<NewsArticle> RelatedArticles { get; set; } = new List<NewsArticle>();

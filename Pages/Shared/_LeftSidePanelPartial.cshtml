@@ -1,8 +1,17 @@
 @model NewsSitePro.Models.HeaderViewModel
 
+<!-- ------------------------------------------------------------------------------
+     _LeftSidePanelPartial.cshtml
+
+     This partial view renders the left sidebar for NewsSitePro. It includes the user
+     profile section (populated by the auth service), navigation menu, category links,
+     and authentication/admin controls. The sidebar adapts based on user authentication
+     and role, showing relevant links and actions. Key sections are commented for clarity.
+------------------------------------------------------------------------------ -->
 <div class="left-sidebar" id="leftSidebar">
     <div class="sidebar-content">
         <!-- User Profile Section - will be updated by auth service -->
+        <!-- User Profile Section: displays avatar, name, and email. Populated by auth service. -->
         <div class="user-profile-section" id="userProfileSection">
             <div class="user-avatar" id="userAvatar">
                 <!-- Avatar will be set by auth service -->
@@ -20,32 +29,36 @@
                         <span class="nav-text">Home</span>
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a href="~/Post" class="nav-link">
-                        <span class="nav-icon">📰</span>
-                        <span class="nav-text">News Feed</span>
-                    </a>
-                </li>
+                
                 <li class="nav-item">
                     <a href="~/Search" class="nav-link">
                         <span class="nav-icon">🔍</span>
                         <span class="nav-text">Search</span>
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a href="~/News" class="nav-link">
+                        <span class="nav-icon">📰</span>
+                        <span class="nav-text">Latest News</span>
+                    </a>
+                </li>
+                
+                <li class="nav-item">
+                    <a href="~/Features" class="nav-link">
+                        <span class="nav-icon">✨</span>
+                        <span class="nav-text">Features</span>
+                    </a>
+                </li>
                 
                 <!-- Auth Required Items -->
+                <!-- Auth Required Items: shown only to logged-in users -->
                 <li class="nav-item" data-auth-required>
                     <a href="~/UserProfile" class="nav-link">
                         <span class="nav-icon">👤</span>
                         <span class="nav-text">Profile</span>
                     </a>
                 </li>
-                <li class="nav-item" data-auth-required>
-                    <a href="~/Post" class="nav-link">
-                        <span class="nav-icon">✏️</span>
-                        <span class="nav-text">Create Post</span>
-                    </a>
-                </li>
+                
                 <li class="nav-item" data-auth-required>
                     <a href="~/Notifications" class="nav-link">
                         <span class="nav-icon">🔔</span>
@@ -65,14 +78,9 @@
                         <span class="nav-text">Admin Panel</span>
                     </a>
                 </li>
-                <li class="nav-item" data-auth-required data-admin-only style="display: none;">
-                    <a href="~/AdminNews" class="nav-link">
-                        <span class="nav-icon">📰</span>
-                        <span class="nav-text">News Management</span>
-                    </a>
-                </li>
                 
                 <!-- Logout Button -->
+                <!-- Logout Button: shown only to logged-in users -->
                 <li class="nav-item" data-auth-required id="logoutNavItem">
                     <button class="nav-link logout-btn" id="logoutBtn">
                         <span class="nav-icon">🚪</span>
@@ -81,6 +89,7 @@
                 </li>
                 
                 <!-- Guest Only Items -->
+                <!-- Guest Only Items: shown only to users not logged in -->
                 <li class="nav-item" data-guest-only>
                     <a href="~/Login" class="nav-link">
                         <span class="nav-icon">🔐</span>
@@ -96,35 +105,6 @@
             </ul>
         </nav>
 
-        <!-- Categories Section -->
-        <div class="categories-section">
-            <h5 class="section-title">Categories</h5>
-            <div class="category-list">
-                <a href="#" class="category-item" data-category="Politics">
-                    <span class="category-icon">🏛️</span>
-                    <span>Politics</span>
-                </a>
-                <a href="#" class="category-item" data-category="Technology">
-                    <span class="category-icon">💻</span>
-                    <span>Technology</span>
-                </a>
-                <a href="#" class="category-item" data-category="Sports">
-                    <span class="category-icon">⚽</span>
-                    <span>Sports</span>
-                </a>
-                <a href="#" class="category-item" data-category="Entertainment">
-                    <span class="category-icon">🎬</span>
-                    <span>Entertainment</span>
-                </a>
-                <a href="#" class="category-item" data-category="Health">
-                    <span class="category-icon">🏥</span>
-                    <span>Health</span>
-                </a>
-                <a href="#" class="category-item" data-category="Business">
-                    <span class="category-icon">💼</span>
-                    <span>Business</span>
-                </a>
-            </div>
-        </div>
+
     </div>
 </div>

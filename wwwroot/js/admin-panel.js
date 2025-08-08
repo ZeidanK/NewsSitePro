@@ -26,11 +26,19 @@ if (!window.ApiConfig) {
     };
 }
 
+// Helper function to navigate to user profile using correct API URL
+function openUserProfile(userId) {
+    window.location.href = window.ApiConfig.getApiUrl(`/UserProfile?userId=${userId}`);
+}
+
 class AdminPanel {
     constructor() {
         this.currentPage = 1;
         this.pageSize = 50;
         this.selectedUsers = new Set();
+        this.autoRefreshEnabled = false;
+        this.autoRefreshInterval = null;
+        this.refreshIntervalMinutes = 5; // Refresh every 5 minutes
         this.init();
     }
 
@@ -39,7 +47,7 @@ class AdminPanel {
         this.loadUsers();
         this.loadActivityLogs();
         this.loadReports();
-        this.startAutoRefresh();
+        this.loadAutoNewsSyncStatus();
     }
 
     bindEvents() {
@@ -54,9 +62,6 @@ class AdminPanel {
         // Reset filters
         document.getElementById('resetFilters').addEventListener('click', () => this.resetFilters());
 
-        // Export data
-        document.getElementById('exportData').addEventListener('click', () => this.exportData());
-
         // Select all checkbox
         document.getElementById('selectAll').addEventListener('change', (e) => this.toggleSelectAll(e.target.checked));
 
@@ -70,6 +75,12 @@ class AdminPanel {
         document.getElementById('bulkDeactivate').addEventListener('click', () => this.bulkAction('deactivate'));
         document.getElementById('bulkBan').addEventListener('click', () => this.bulkAction('ban'));
         document.getElementById('bulkActivate').addEventListener('click', () => this.bulkAction('activate'));
+
+        // Auto news sync toggle
+        document.getElementById('autoNewsSync').addEventListener('click', () => this.toggleAutoNewsSync());
+        
+        // Test news sync button
+        document.getElementById('testNewsSync').addEventListener('click', () => this.testNewsSync());
     }
 
     async loadUsers(page = 1) {
@@ -150,7 +161,7 @@ class AdminPanel {
                     <div class="user-info">
                         <div class="user-avatar">
                             ${user.profilePicture ? 
-                                `<img src="${user.profilePicture}" alt="${user.username}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                                `<img src="${user.profilePicture}" alt="${user.username}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
                                  <div class="avatar-placeholder" style="display:none;width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;">
                                      ${(user.username || 'U').substring(0, 1).toUpperCase()}
                                  </div>` 
@@ -595,8 +606,10 @@ class AdminPanel {
 
     async viewUserDetails(userId) {
         try {
-            const endpoint = `api/Admin/users/${userId}/details`;
+            const endpoint = `/Admin?handler=UserDetails&userId=${userId}`;
             const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            
+            console.log('Fetching user details from:', apiUrl);
             
             // Get JWT token for authentication
             const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
@@ -610,16 +623,31 @@ class AdminPanel {
                 credentials: 'include'
             });
             
-            const data = await response.json();
+            console.log('Response status:', response.status);
+            console.log('Response headers:', response.headers);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const responseText = await response.text();
+            console.log('Raw response:', responseText);
+            
+            if (!responseText.trim()) {
+                throw new Error('Empty response from server');
+            }
+            
+            const data = JSON.parse(responseText);
             
             if (data.success) {
                 this.renderUserDetailsModal(data.user);
                 const modal = new bootstrap.Modal(document.getElementById('userDetailsModal'));
                 modal.show();
             } else {
-                this.showError(data.message);
+                this.showError(data.message || 'Unknown error occurred');
             }
         } catch (error) {
+            console.error('Error in viewUserDetails:', error);
             this.showError('Error loading user details: ' + error.message);
         }
     }
@@ -632,7 +660,7 @@ class AdminPanel {
                     <div class="col-md-4 text-center">
                         <div class="user-avatar-large" style="width:150px;height:150px;margin:0 auto 1rem;">
                             ${user.profilePicture ? 
-                                `<img src="${user.profilePicture}" alt="${user.username}" class="img-fluid rounded-circle" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                                `<img src="${user.profilePicture}" alt="${user.username}" class="img-fluid rounded-circle" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
                                  <div class="avatar-placeholder" style="display:none;width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:4rem;">
                                      ${(user.username || 'U').substring(0, 1).toUpperCase()}
                                  </div>` 
@@ -642,7 +670,11 @@ class AdminPanel {
                                  </div>`
                             }
                         </div>
-                        <h4>${user.username}</h4>
+                        <h4>
+                            <a href="#" onclick="openUserProfile('${user.id}'); return false;" class="text-decoration-none" target="_blank">
+                                ${user.username} <i class="fas fa-external-link-alt" style="font-size:0.8rem;"></i>
+                            </a>
+                        </h4>
                         <p class="text-muted">${user.fullName || 'N/A'}</p>
                         <span class="status-badge status-${user.status.toLowerCase()}">${user.status}</span>
                     </div>
@@ -653,18 +685,22 @@ class AdminPanel {
                             <tr><td><strong>Join Date:</strong></td><td>${this.formatDate(user.joinDate)}</td></tr>
                             <tr><td><strong>Last Activity:</strong></td><td>${this.formatDateTime(user.lastActivity)}</td></tr>
                             <tr><td><strong>Posts:</strong></td><td>${user.postCount}</td></tr>
-                            <tr><td><strong>Likes Received:</strong></td><td>${user.likesReceived}</td></tr>
+                            <tr><td><strong>Followers:</strong></td><td>${user.followersCount || 0}</td></tr>
+                            <tr><td><strong>Following:</strong></td><td>${user.followingCount || 0}</td></tr>
                             <tr><td><strong>Bio:</strong></td><td>${user.bio || 'N/A'}</td></tr>
                         </table>
                         
                         <h5>Recent Activity</h5>
                         <div class="recent-activity" style="max-height: 200px; overflow-y: auto;">
-                            ${user.recentActivity.map(activity => `
-                                <div class="activity-item mb-2 p-2 border rounded">
-                                    <small class="text-muted">${this.formatDateTime(activity.timestamp)}</small>
-                                    <div>${activity.action}</div>
-                                </div>
-                            `).join('')}
+                            ${(user.recentActivity && user.recentActivity.length > 0) ? 
+                                user.recentActivity.map(activity => `
+                                    <div class="activity-item mb-2 p-2 border rounded">
+                                        <small class="text-muted">${this.formatDateTime(activity.timestamp)}</small>
+                                        <div>${activity.action}</div>
+                                    </div>
+                                `).join('') :
+                                '<div class="text-muted">No recent activity available</div>'
+                            }
                         </div>
                     </div>
                 </div>
@@ -724,26 +760,9 @@ class AdminPanel {
         }
     }
 
-    async exportData() {
-        try {
-            // Implementation for data export would go here
-            this.showSuccess('Data export started. You will receive a download link shortly.');
-        } catch (error) {
-            this.showError('Error exporting data: ' + error.message);
-        }
-    }
-
     clearBanForm() {
         document.getElementById('banReason').value = '';
         document.getElementById('banDuration').value = '';
-    }
-
-    startAutoRefresh() {
-        // Refresh data every 5 minutes
-        setInterval(() => {
-            this.loadUsers(this.currentPage);
-            this.loadActivityLogs();
-        }, 5 * 60 * 1000);
     }
 
     // Utility functions
@@ -817,6 +836,220 @@ class AdminPanel {
                 notification.parentNode.removeChild(notification);
             }
         }, 5000);
+    }
+
+    // Auto News Sync functionality
+    async loadAutoNewsSyncStatus() {
+        try {
+            const endpoint = 'api/Admin/background-service/status';
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.autoNewsSyncEnabled = data.isEnabled;
+                    this.updateAutoNewsSyncUI(data.isEnabled);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading auto news sync status:', error);
+            // Default to OFF if there's an error
+            this.updateAutoNewsSyncUI(false);
+        }
+    }
+
+    async toggleAutoNewsSync() {
+        try {
+            const newStatus = !this.autoNewsSyncEnabled;
+            
+            const endpoint = 'api/Admin/background-service/toggle';
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include',
+                body: JSON.stringify({ enabled: newStatus })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.autoNewsSyncEnabled = data.isEnabled;
+                    this.updateAutoNewsSyncUI(data.isEnabled);
+                    
+                    if (data.isEnabled) {
+                        this.showNotification('Auto news sync enabled! News will be fetched every 24 hours. Triggering initial sync...', 'success');
+                        // Trigger manual sync when enabling
+                        await this.manualNewsSync();
+                    } else {
+                        this.showNotification('Auto news sync disabled', 'info');
+                    }
+                } else {
+                    this.showNotification(data.message || 'Failed to toggle auto news sync', 'error');
+                }
+            } else {
+                throw new Error(`HTTP ${response.status}`);
+            }
+        } catch (error) {
+            console.error('Error toggling auto news sync:', error);
+            this.showNotification('Error toggling auto news sync', 'error');
+        }
+    }
+
+    updateAutoNewsSyncUI(isEnabled) {
+        const button = document.getElementById('autoNewsSync');
+        const text = document.getElementById('autoSyncText');
+        
+        if (button && text) {
+            if (isEnabled) {
+                button.className = 'btn btn-success w-100';
+                button.innerHTML = '<i class="fas fa-cloud-download-alt"></i> <span id="autoSyncText">Auto News Sync: ON</span>';
+            } else {
+                button.className = 'btn btn-outline-success w-100';
+                button.innerHTML = '<i class="fas fa-cloud-download-alt"></i> <span id="autoSyncText">Auto News Sync: OFF</span>';
+            }
+        }
+    }
+
+    async manualNewsSync() {
+        try {
+            const endpoint = 'api/Admin/sync-news';
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            
+            this.showNotification('Starting manual news sync...', 'info');
+            
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.showNotification(`Manual sync completed! Added ${data.articlesAdded} new articles`, 'success');
+                    // Optionally refresh admin stats
+                    this.loadAdminStats();
+                } else {
+                    this.showNotification(data.message || 'Manual sync failed', 'error');
+                }
+            } else {
+                throw new Error(`HTTP ${response.status}`);
+            }
+        } catch (error) {
+            console.error('Error during manual news sync:', error);
+            this.showNotification('Error during manual news sync', 'error');
+        }
+    }
+
+    async testNewsSync() {
+        try {
+            const endpoint = 'api/Admin/test-sync-news';
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            
+            // Show loading state
+            const testButton = document.getElementById('testNewsSync');
+            const originalText = testButton.innerHTML;
+            testButton.disabled = true;
+            testButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
+            
+            this.showNotification('Starting test news sync (6 articles)...', 'info');
+            
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.showNotification(`${data.message}`, 'success');
+                    // Optionally refresh admin stats
+                    this.loadAdminStats();
+                } else {
+                    this.showNotification(data.message || 'Test sync failed', 'error');
+                }
+            } else {
+                throw new Error(`HTTP ${response.status}`);
+            }
+        } catch (error) {
+            console.error('Error during test news sync:', error);
+            this.showNotification('Error during test news sync: ' + error.message, 'error');
+        } finally {
+            // Restore button state
+            const testButton = document.getElementById('testNewsSync');
+            testButton.disabled = false;
+            testButton.innerHTML = '<i class="fas fa-flask"></i> Test News Sync (6 articles)';
+        }
+    }
+
+    async loadAdminStats() {
+        try {
+            const endpoint = 'api/Admin/dashboard-stats';
+            const apiUrl = window.ApiConfig.getApiUrl(endpoint);
+            
+            const token = localStorage.getItem('jwtToken') || this.getCookie('jwtToken');
+            
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    // Update dashboard stats in UI
+                    this.updateDashboardStats(data.stats);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading admin stats:', error);
+        }
+    }
+
+    updateDashboardStats(stats) {
+        // Update stats cards if they exist
+        const totalUsersEl = document.getElementById('totalUsers');
+        const activeUsersEl = document.getElementById('activeUsers');
+        const totalArticlesEl = document.getElementById('totalArticles');
+        const pendingReportsEl = document.getElementById('pendingReports');
+        
+        if (totalUsersEl) totalUsersEl.textContent = stats.totalUsers || 0;
+        if (activeUsersEl) activeUsersEl.textContent = stats.activeUsers || 0;
+        if (totalArticlesEl) totalArticlesEl.textContent = stats.totalArticles || 0;
+        if (pendingReportsEl) pendingReportsEl.textContent = stats.pendingReports || 0;
     }
 }
 
