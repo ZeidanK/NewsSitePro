@@ -105,6 +105,46 @@ header, .main-header {
     justify-content: center;
 }
 
+/* Header Notification Container Styles */
+.header-nav .notification-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.header-nav .notification-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    padding: 0.5rem;
+    border-radius: 8px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, transform 0.2s;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+}
+
+.header-nav .notification-btn:hover, 
+.header-nav .notification-btn:focus {
+    background: #444;
+    color: #ffd700;
+    outline: none;
+    transform: scale(1.1);
+}
+
+.header-nav .notification-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 10px;
+    z-index: 2000;
+}
+
 /* Left Sidebar Styles */
 .left-sidebar {
     width: 275px;
